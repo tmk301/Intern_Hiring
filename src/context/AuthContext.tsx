@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { authApi, isApiError, type ApiUser } from '../lib/api';
 import { isRestrictedAccount } from '../lib/roles';
@@ -24,18 +24,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [restrictedMessage, setRestrictedMessage] = useState<string | null>(null);
 
-  const clearSession = async () => {
+  const clearSession = useCallback(async () => {
     await supabase.auth.signOut();
     setToken(null);
     setUser(null);
-  };
+  }, []);
 
-  const handleRestrictedSession = async () => {
+  const handleRestrictedSession = useCallback(async () => {
     await clearSession();
     setRestrictedMessage('Tài khoản của bạn đang bị hạn chế. Vui lòng liên hệ quản trị viên.');
-  };
+  }, [clearSession]);
 
-  const fetchUserProfile = async (accessToken: string) => {
+  const fetchUserProfile = useCallback(async (accessToken: string) => {
     try {
       const userData = await authApi.getMe(accessToken);
       if (isRestrictedAccount(userData)) {
@@ -52,7 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error fetching user profile:', error);
       setUser(null);
     }
-  };
+  }, [handleRestrictedSession]);
 
   useEffect(() => {
     let mounted = true;
@@ -86,7 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchUserProfile]);
 
   const login = (userData: User, authToken: string) => {
     setRestrictedMessage(null);

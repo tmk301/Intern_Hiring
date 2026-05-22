@@ -24,6 +24,9 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
+
 const Profile = () => {
   const { user, token, refreshUser } = useAuth();
   const navigate = useNavigate();
@@ -94,9 +97,9 @@ const Profile = () => {
       await userApi.updateProfile(token, { cvUrl });
       await refreshUser();
       toast({ title: 'Thành công', description: 'Đã tải lên CV' });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Resume upload failed:', err);
-      toast({ title: 'Lỗi', description: err.message || 'Không thể tải CV lên', variant: 'destructive' });
+      toast({ title: 'Lỗi', description: getErrorMessage(err, 'Không thể tải CV lên'), variant: 'destructive' });
     } finally {
       setIsUploadingResume(false);
     }
@@ -145,11 +148,11 @@ const Profile = () => {
       setIsCropDialogOpen(false);
       setCropImageSrc("");
       toast({ title: "Thành công", description: "Đã cập nhật ảnh đại diện" });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Avatar upload failed:", err);
       toast({
         title: "Lỗi",
-        description: err.message || "Không thể tải ảnh lên",
+        description: getErrorMessage(err, "Không thể tải ảnh lên"),
         variant: "destructive",
       });
     } finally {
@@ -189,10 +192,10 @@ const Profile = () => {
       await refreshUser();
       setIsEditing(false);
       toast({ title: "Thành công", description: "Đã cập nhật thông tin cá nhân" });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Lỗi",
-        description: err.message || "Không thể cập nhật",
+        description: getErrorMessage(err, "Không thể cập nhật"),
         variant: "destructive",
       });
     } finally {
@@ -220,10 +223,10 @@ const Profile = () => {
 
       setPasswordData({ newPassword: "", confirmPassword: "" });
       toast({ title: "Thành công", description: "Đã đổi mật khẩu" });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Lỗi",
-        description: err.message || "Không thể đổi mật khẩu",
+        description: getErrorMessage(err, "Không thể đổi mật khẩu"),
         variant: "destructive",
       });
     } finally {

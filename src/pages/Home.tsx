@@ -3,11 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { ArrowRight, Search } from "lucide-react";
+import { ArrowRight, Loader2, Search } from "lucide-react";
 import { JobSearchFilters } from "@/components/jobs/JobSearchFilters";
 import mscBackground from "@/assets/msc.jpg";
 import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -24,6 +23,7 @@ import {
     loadManagedSiteConfig,
     type ManagedSiteConfig,
 } from "@/lib/siteConfig";
+import { configApi, recruiterApi, type RecruiterFormField } from "@/lib/api";
 
 const corporatePartners = [
     { id: 1, name: "ASL", logo: "/carousel/ASL.webp" },
@@ -58,17 +58,14 @@ const featuredJobs = [
 
 const Home: React.FC = () => {
     const navigate = useNavigate();
-    const { user, isAuthenticated } = useAuth();
+    const { user, token, isAuthenticated } = useAuth();
     const [managedConfig, setManagedConfig] = useState<ManagedSiteConfig>(defaultManagedSiteConfig);
     const [isEmployerDialogOpen, setIsEmployerDialogOpen] = useState(false);
     const [isSubmittingEmployerRequest, setIsSubmittingEmployerRequest] = useState(false);
-    const [employerRequest, setEmployerRequest] = useState<Record<string, string>>({
-        companyName: "",
-        companyEmail: "",
-        taxCode: "",
-    });
+    const [employerRequest, setEmployerRequest] = useState<Record<string, string>>({});
+    const [recruiterFields, setRecruiterFields] = useState<RecruiterFormField[]>([]);
+    const [loadingFields, setLoadingFields] = useState(false);
     const partnerList = managedConfig.partners.length > 0 ? managedConfig.partners : corporatePartners;
-    const employerFields = managedConfig.employerVerificationFields;
     const midpoint = Math.ceil(partnerList.length / 2);
     const firstPartnerRow = partnerList.slice(0, midpoint);
     const secondPartnerRow = partnerList.slice(midpoint);
@@ -97,18 +94,30 @@ const Home: React.FC = () => {
         };
     }, []);
 
-    const openEmployerRequestDialog = () => {
+    const openEmployerRequestDialog = async () => {
         if (!isAuthenticated) {
             toast.error("Vui lòng đăng nhập trước khi gửi yêu cầu xác thực nhà tuyển dụng.");
             navigate("/login");
             return;
         }
 
+        setLoadingFields(true);
         setIsEmployerDialogOpen(true);
+        try {
+            const fields = await configApi.listRecruiterFormFields(false);
+            setRecruiterFields(fields);
+            setEmployerRequest({});
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : "Không thể tải cấu hình form.");
+        } finally {
+            setLoadingFields(false);
+        }
     };
 
     const submitEmployerRequest = async () => {
-        const requiredMissing = employerFields.some((field) => field.required && !employerRequest[field.name]?.trim());
+        if (!token) return;
+
+        const requiredMissing = recruiterFields.some((field) => field.required && !employerRequest[field.name]?.trim());
 
         if (requiredMissing) {
             toast.error("Vui lòng nhập đầy đủ các trường bắt buộc.");
@@ -117,40 +126,17 @@ const Home: React.FC = () => {
 
         setIsSubmittingEmployerRequest(true);
         try {
-            const extraFields = employerFields.reduce<Record<string, string>>((result, field) => {
-                result[field.label] = employerRequest[field.name]?.trim() || "";
-                return result;
-            }, {});
-
-            const payload = {
-                user_id: user?.id,
-                user_email: user?.email,
-                company_name: employerRequest.companyName?.trim() || "",
-                company_email: employerRequest.companyEmail?.trim() || "",
-                tax_code: employerRequest.taxCode?.trim() || "",
-                extra_fields: extraFields,
-                status: "PENDING",
-            };
-
-            const requestTables = ["employer_verification_requests", "employer_requests", "EmployerVerificationRequest"];
-            let lastError: unknown = null;
-
-            for (const tableName of requestTables) {
-                const { error } = await supabase.from(tableName).insert(payload);
-                if (!error) {
-                    lastError = null;
-                    break;
-                }
-                lastError = error;
+            const formData: Record<string, string> = {};
+            for (const field of recruiterFields) {
+                formData[field.name] = employerRequest[field.name]?.trim() || "";
             }
 
-            if (lastError) throw lastError;
-
+            await recruiterApi.submitApplication(token, formData);
             toast.success("Đã gửi yêu cầu xác thực nhà tuyển dụng.");
             setEmployerRequest({});
             setIsEmployerDialogOpen(false);
-        } catch (error: any) {
-            toast.error(error?.message || "Không thể gửi yêu cầu xác thực.");
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : "Không thể gửi yêu cầu xác thực.");
         } finally {
             setIsSubmittingEmployerRequest(false);
         }
@@ -303,23 +289,29 @@ const Home: React.FC = () => {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
-                        {employerFields.map((field) => (
-                            <div key={field.id}>
-                                <Label>
-                                    {field.label}
-                                    {field.required && <span className="ml-1 text-destructive">*</span>}
-                                </Label>
-                                <Input
-                                    type={field.type}
-                                    value={employerRequest[field.name] || ""}
-                                    onChange={(event) =>
-                                        setEmployerRequest({ ...employerRequest, [field.name]: event.target.value })
-                                    }
-                                    placeholder={field.placeholder}
-                                    className="mt-2"
-                                />
+                        {loadingFields ? (
+                            <div className="flex items-center justify-center py-8">
+                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
                             </div>
-                        ))}
+                        ) : (
+                            recruiterFields.map((field) => (
+                                <div key={field.id}>
+                                    <Label>
+                                        {field.label}
+                                        {field.required && <span className="ml-1 text-destructive">*</span>}
+                                    </Label>
+                                    <Input
+                                        type={field.type.toLowerCase()}
+                                        value={employerRequest[field.name] || ""}
+                                        onChange={(event) =>
+                                            setEmployerRequest({ ...employerRequest, [field.name]: event.target.value })
+                                        }
+                                        placeholder={field.placeholder}
+                                        className="mt-2"
+                                    />
+                                </div>
+                            ))
+                        )}
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsEmployerDialogOpen(false)} disabled={isSubmittingEmployerRequest}>

@@ -23,14 +23,14 @@ export default function ResetPasswordDialog({ open, onOpenChange }: Props) {
         setIsSubmitting(true);
         try {
             const redirectTo = window.location.origin + "/reset-password"; // redirect to reset-password page after user clicks email link
-            const { data, error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+            const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
             if (error) throw error;
             toast.success("Một email đặt lại mật khẩu đã được gửi nếu email tồn tại.");
             onOpenChange(false);
             setEmail("");
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Reset password error:", err);
-            toast.error(err.message || "Không thể gửi email đặt lại mật khẩu");
+            toast.error(err instanceof Error ? err.message : "Không thể gửi email đặt lại mật khẩu");
         } finally {
             setIsSubmitting(false);
         }

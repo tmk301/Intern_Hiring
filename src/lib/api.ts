@@ -139,20 +139,6 @@ export type AdminJobPost = {
   deletedAt?: string | null;
 };
 
-export type EmployerVerificationRequest = {
-  id: string | number;
-  userId?: string | number;
-  userEmail?: string;
-  companyName: string;
-  companyEmail: string;
-  taxCode: string;
-  status: "PENDING" | "APPROVED" | "REJECTED" | string;
-  createdAt?: string;
-  reviewedAt?: string;
-  rejectionReason?: string;
-  extraFields?: Record<string, string>;
-};
-
 export const adminApi = {
   listUsers: (token: string) =>
     apiRequest<AdminUser[]>("/api/admin/users", {
@@ -173,6 +159,13 @@ export const adminApi = {
       params: { includeTrash },
     }),
 
+  createJob: (token: string, data: Omit<AdminJobPost, "id" | "createdAt" | "deletedAt" | "status">) =>
+    apiRequest<AdminJobPost>("/api/admin/jobs", {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify(data),
+    }),
+
   moveJobToTrash: (token: string, jobId: string | number) =>
     apiRequest<AdminJobPost>(`/api/admin/jobs/${encodeURIComponent(String(jobId))}/trash`, {
       method: "PATCH",
@@ -190,24 +183,108 @@ export const adminApi = {
       method: "DELETE",
       headers: authHeaders(token),
     }),
+};
 
-  listEmployerRequests: (token: string) =>
-    apiRequest<EmployerVerificationRequest[]>("/api/admin/employer-verification-requests", {
+export type CategoryKey = "CITIES" | "WORK_MODES" | "JOB_TYPES" | "DISTRICTS" | "WARDS" | "COMPANIES" | "CURRENCIES";
+
+export type CategoryOption = {
+  id: number;
+  categoryKey: CategoryKey;
+  value: string;
+  label: string;
+  sortOrder: number;
+  active: boolean;
+};
+
+export type RecruiterFormField = {
+  id: number;
+  name: string;
+  label: string;
+  type: "TEXT" | "EMAIL" | "NUMBER";
+  placeholder?: string;
+  required: boolean;
+  sortOrder: number;
+  active: boolean;
+};
+
+export type RecruiterApplication = {
+  id: number;
+  applicantId: number;
+  applicantEmail: string;
+  formData: Record<string, string>;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  reviewNote?: string;
+  reviewedById?: number;
+  reviewedAt?: string;
+  createdAt?: string;
+};
+
+export const configApi = {
+  listCategoryOptions: (key: CategoryKey, includeInactive = false) =>
+    apiRequest<CategoryOption[]>(`/api/categories/${key}`, { params: { includeInactive } }),
+
+  createCategoryOption: (token: string, data: Omit<CategoryOption, "id">) =>
+    apiRequest<CategoryOption>("/api/categories", {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify(data),
+    }),
+
+  updateCategoryOption: (token: string, id: number, data: Omit<CategoryOption, "id">) =>
+    apiRequest<CategoryOption>(`/api/categories/${id}`, {
+      method: "PUT",
+      headers: authHeaders(token),
+      body: JSON.stringify(data),
+    }),
+
+  deleteCategoryOption: (token: string, id: number) =>
+    apiRequest<void>(`/api/categories/${id}`, {
+      method: "DELETE",
       headers: authHeaders(token),
     }),
 
-  reviewEmployerRequest: (
-    token: string,
-    requestId: string | number,
-    status: "APPROVED" | "REJECTED",
-    rejectionReason?: string,
-  ) =>
-    apiRequest<EmployerVerificationRequest>(
-      `/api/admin/employer-verification-requests/${encodeURIComponent(String(requestId))}`,
-      {
-        method: "PATCH",
-        headers: authHeaders(token),
-        body: JSON.stringify({ status, rejectionReason }),
-      },
-    ),
+  listRecruiterFormFields: (includeInactive = false) =>
+    apiRequest<RecruiterFormField[]>("/api/recruiter/form-fields", { params: { includeInactive } }),
+
+  createRecruiterFormField: (token: string, data: Omit<RecruiterFormField, "id">) =>
+    apiRequest<RecruiterFormField>("/api/recruiter/form-fields", {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify(data),
+    }),
+
+  updateRecruiterFormField: (token: string, id: number, data: Omit<RecruiterFormField, "id">) =>
+    apiRequest<RecruiterFormField>(`/api/recruiter/form-fields/${id}`, {
+      method: "PUT",
+      headers: authHeaders(token),
+      body: JSON.stringify(data),
+    }),
+
+  deleteRecruiterFormField: (token: string, id: number) =>
+    apiRequest<void>(`/api/recruiter/form-fields/${id}`, {
+      method: "DELETE",
+      headers: authHeaders(token),
+    }),
+};
+
+export const recruiterApi = {
+  submitApplication: (token: string, formData: Record<string, string>) =>
+    apiRequest<RecruiterApplication>("/api/recruiter/applications", {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify({ formData }),
+    }),
+
+  listApplications: (token: string, status?: RecruiterApplication["status"]) =>
+    apiRequest<RecruiterApplication[]>("/api/recruiter/applications", {
+      headers: authHeaders(token),
+      params: { status },
+    }),
+
+  reviewApplication: (token: string, id: number, approved: boolean, reviewNote?: string) =>
+    apiRequest<RecruiterApplication>(`/api/recruiter/applications/${id}/review`, {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify({ approved, reviewNote }),
+    }),
 };

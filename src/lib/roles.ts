@@ -1,6 +1,6 @@
 export const USER_ROLES = {
   CANDIDATE: "CANDIDATE",
-  EMPLOYER: "EMPLOYER",
+  RECRUITER: "RECRUITER",
   ADMIN: "ADMIN",
 } as const;
 
@@ -10,7 +10,9 @@ const normalizeRole = (role?: string | null) => role?.trim().toUpperCase();
 
 export const isAdminRole = (role?: string | null) => normalizeRole(role) === USER_ROLES.ADMIN;
 
-export const isEmployerRole = (role?: string | null) => normalizeRole(role) === USER_ROLES.EMPLOYER;
+export const isRecruiterRole = (role?: string | null) => normalizeRole(role) === USER_ROLES.RECRUITER;
+
+export const isEmployerRole = isRecruiterRole;
 
 export const isCandidateRole = (role?: string | null) => normalizeRole(role) === USER_ROLES.CANDIDATE;
 

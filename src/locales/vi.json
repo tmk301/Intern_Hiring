@@ -6,7 +6,7 @@
   },
   "role": {
     "CANDIDATE": "Ứng viên",
-    "EMPLOYER": "Nhà tuyển dụng",
+    "RECRUITER": "Nhà tuyển dụng",
     "ADMIN": "Quản trị viên"
   },
   "nav": {

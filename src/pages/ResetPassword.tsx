@@ -20,6 +20,8 @@ const ResetPasswordPage: React.FC = () => {
     const { toast } = useToast();
 
     useEffect(() => {
+        let recoveredSession = false;
+
         // Check for Supabase error query params (e.g. otp_expired, access_denied)
         const searchParams = new URLSearchParams(window.location.search);
         const errorCode = searchParams.get("error_code");
@@ -40,6 +42,7 @@ const ResetPasswordPage: React.FC = () => {
         // Listen for PASSWORD_RECOVERY event which fires after token exchange.
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             if (event === "PASSWORD_RECOVERY" && session) {
+                recoveredSession = true;
                 setSessionActive(true);
                 setLoading(false);
             }
@@ -51,8 +54,9 @@ const ResetPasswordPage: React.FC = () => {
             await new Promise((r) => setTimeout(r, 1500));
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
+                recoveredSession = true;
                 setSessionActive(true);
-            } else if (!sessionActive) {
+            } else if (!recoveredSession) {
                 setErrorMsg("Không tìm thấy phiên đăng nhập từ liên kết. Vui lòng mở lại liên kết trong email hoặc gửi lại yêu cầu đặt lại mật khẩu.");
             }
             setLoading(false);
@@ -74,14 +78,18 @@ const ResetPasswordPage: React.FC = () => {
 
         setSubmitting(true);
         try {
-            const { data, error } = await supabase.auth.updateUser({ password });
+            const { error } = await supabase.auth.updateUser({ password });
             if (error) throw error;
             toast({ title: "Thành công", description: "Mật khẩu đã được cập nhật. Vui lòng đăng nhập lại." });
             // After resetting password, redirect to login
             navigate("/login");
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Update password error:", err);
-            toast({ title: "Lỗi", description: err.message || "Không thể cập nhật mật khẩu", variant: "destructive" });
+            toast({
+                title: "Lỗi",
+                description: err instanceof Error ? err.message : "Không thể cập nhật mật khẩu",
+                variant: "destructive",
+            });
         } finally {
             setSubmitting(false);
         }

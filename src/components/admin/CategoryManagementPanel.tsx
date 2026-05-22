@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Building2, Plus, Trash2 } from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
+import { Building2, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,170 +9,183 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  createOptionValue,
-  filterCategoryLabels,
-  type EmployerVerificationField,
-  type FilterCategoryKey,
-  type ManagedPartner,
-  type ManagedSiteConfig,
-} from "@/lib/siteConfig";
+  configApi,
+  type CategoryKey,
+  type CategoryOption,
+  type RecruiterFormField,
+} from "@/lib/api";
 
 type CategoryManagementPanelProps = {
-  config: ManagedSiteConfig;
-  onSave: (config: ManagedSiteConfig) => Promise<void> | void;
-  saving?: boolean;
+  token: string;
 };
 
-const filterCategories = Object.keys(filterCategoryLabels) as FilterCategoryKey[];
+const CATEGORY_KEYS: { key: CategoryKey; label: string }[] = [
+  { key: "CITIES", label: "Tỉnh/Thành phố" },
+  { key: "WORK_MODES", label: "Hình thức làm việc" },
+  { key: "JOB_TYPES", label: "Loại công việc" },
+  { key: "DISTRICTS", label: "Quận/Huyện" },
+  { key: "WARDS", label: "Phường/Xã" },
+  { key: "COMPANIES", label: "Công ty" },
+  { key: "CURRENCIES", label: "Đơn vị tiền tệ" },
+];
 
-const emptyPartnerDraft = {
-  name: "",
-  logo: "",
-};
-
-const emptyFieldDraft: Omit<EmployerVerificationField, "id"> = {
+const emptyFieldDraft = {
   name: "",
   label: "",
-  type: "text",
+  type: "TEXT" as RecruiterFormField["type"],
   placeholder: "",
   required: true,
+  sortOrder: 0,
+  active: true,
 };
 
-export function CategoryManagementPanel({ config, onSave, saving }: CategoryManagementPanelProps) {
-  const [selectedFilterCategory, setSelectedFilterCategory] = useState<FilterCategoryKey>("cities");
+export function CategoryManagementPanel({ token }: CategoryManagementPanelProps) {
+  const [selectedCategory, setSelectedCategory] = useState<CategoryKey>("CITIES");
+  const [categoryOptions, setCategoryOptions] = useState<Record<string, CategoryOption[]>>({});
+  const [formFields, setFormFields] = useState<RecruiterFormField[]>([]);
   const [filterLabel, setFilterLabel] = useState("");
   const [filterValue, setFilterValue] = useState("");
-  const [partnerDraft, setPartnerDraft] = useState(emptyPartnerDraft);
   const [fieldDraft, setFieldDraft] = useState(emptyFieldDraft);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const persist = async (nextConfig: ManagedSiteConfig, successMessage: string) => {
-    await onSave(nextConfig);
-    toast.success(successMessage);
-  };
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [fields, ...categoryResults] = await Promise.all([
+        configApi.listRecruiterFormFields(true),
+        ...CATEGORY_KEYS.map(({ key }) => configApi.listCategoryOptions(key, true)),
+      ]);
+
+      setFormFields(fields);
+      const optionMap: Record<string, CategoryOption[]> = {};
+      CATEGORY_KEYS.forEach(({ key }, index) => {
+        optionMap[key] = categoryResults[index];
+      });
+      setCategoryOptions(optionMap);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Không thể tải dữ liệu danh mục.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
 
   const addFilterOption = async () => {
     const label = filterLabel.trim();
-    const value = (filterValue.trim() || createOptionValue(label)).trim();
+    const value = filterValue.trim() || label.toLowerCase().replace(/\s+/g, "-");
 
     if (!label || !value) {
       toast.error("Vui lòng nhập tên danh mục.");
       return;
     }
 
-    const currentOptions = config.filters[selectedFilterCategory];
-    if (currentOptions.some((option) => option.value === value)) {
-      toast.error("Giá trị danh mục đã tồn tại.");
-      return;
+    setSaving(true);
+    try {
+      const created = await configApi.createCategoryOption(token, {
+        categoryKey: selectedCategory,
+        value,
+        label,
+        sortOrder: (categoryOptions[selectedCategory]?.length ?? 0),
+        active: true,
+      });
+      setCategoryOptions((prev) => ({
+        ...prev,
+        [selectedCategory]: [...(prev[selectedCategory] || []), created],
+      }));
+      toast.success("Đã thêm danh mục.");
+      setFilterLabel("");
+      setFilterValue("");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Không thể thêm danh mục.");
+    } finally {
+      setSaving(false);
     }
-
-    await persist(
-      {
-        ...config,
-        filters: {
-          ...config.filters,
-          [selectedFilterCategory]: [...currentOptions, { label, value }],
-        },
-      },
-      "Đã thêm danh mục.",
-    );
-
-    setFilterLabel("");
-    setFilterValue("");
   };
 
-  const deleteFilterOption = async (category: FilterCategoryKey, value: string) => {
-    await persist(
-      {
-        ...config,
-        filters: {
-          ...config.filters,
-          [category]: config.filters[category].filter((option) => option.value !== value),
-        },
-      },
-      "Đã xóa danh mục.",
-    );
-  };
-
-  const addPartner = async () => {
-    const name = partnerDraft.name.trim();
-    const logo = partnerDraft.logo.trim();
-
-    if (!name || !logo) {
-      toast.error("Vui lòng nhập tên đối tác và đường dẫn logo.");
-      return;
+  const deleteFilterOption = async (key: CategoryKey, id: number) => {
+    setSaving(true);
+    try {
+      await configApi.deleteCategoryOption(token, id);
+      setCategoryOptions((prev) => ({
+        ...prev,
+        [key]: (prev[key] || []).filter((o) => o.id !== id),
+      }));
+      toast.success("Đã xóa danh mục.");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Không thể xóa danh mục.");
+    } finally {
+      setSaving(false);
     }
-
-    const partner: ManagedPartner = {
-      id: `${createOptionValue(name)}-${Date.now()}`,
-      name,
-      logo,
-    };
-
-    await persist({ ...config, partners: [...config.partners, partner] }, "Đã thêm đối tác.");
-    setPartnerDraft(emptyPartnerDraft);
   };
 
-  const deletePartner = async (partnerId: string) => {
-    await persist(
-      { ...config, partners: config.partners.filter((partner) => partner.id !== partnerId) },
-      "Đã xóa đối tác.",
-    );
-  };
-
-  const addVerificationField = async () => {
+  const addFormField = async () => {
     const label = fieldDraft.label.trim();
-    const name = (fieldDraft.name.trim() || createOptionValue(label)).trim();
+    const name = fieldDraft.name.trim() || label.toLowerCase().replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_]/g, "");
 
     if (!label || !name) {
       toast.error("Vui lòng nhập nhãn trường.");
       return;
     }
 
-    if (config.employerVerificationFields.some((field) => field.name === name)) {
-      toast.error("Tên trường đã tồn tại.");
-      return;
+    setSaving(true);
+    try {
+      const created = await configApi.createRecruiterFormField(token, {
+        ...fieldDraft,
+        name,
+        label,
+        sortOrder: formFields.length,
+      });
+      setFormFields((prev) => [...prev, created]);
+      toast.success("Đã thêm trường form.");
+      setFieldDraft(emptyFieldDraft);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Không thể thêm trường form.");
+    } finally {
+      setSaving(false);
     }
-
-    await persist(
-      {
-        ...config,
-        employerVerificationFields: [
-          ...config.employerVerificationFields,
-          {
-            ...fieldDraft,
-            id: `${name}-${Date.now()}`,
-            name,
-            label,
-            placeholder: fieldDraft.placeholder?.trim(),
-          },
-        ],
-      },
-      "Đã thêm trường form.",
-    );
-
-    setFieldDraft(emptyFieldDraft);
   };
 
-  const deleteVerificationField = async (fieldId: string) => {
-    await persist(
-      {
-        ...config,
-        employerVerificationFields: config.employerVerificationFields.filter((field) => field.id !== fieldId),
-      },
-      "Đã xóa trường form.",
-    );
+  const deleteFormField = async (id: number) => {
+    setSaving(true);
+    try {
+      await configApi.deleteRecruiterFormField(token, id);
+      setFormFields((prev) => prev.filter((f) => f.id !== id));
+      toast.success("Đã xóa trường form.");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Không thể xóa trường form.");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const totalOptions = Object.values(categoryOptions).reduce((sum, arr) => sum + arr.length, 0);
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Quản lý danh mục</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          {totalOptions} danh mục, {formFields.length} trường form — dữ liệu từ backend
+        </p>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="filters">
           <TabsList className="mb-4">
             <TabsTrigger value="filters">Bộ lọc tìm kiếm</TabsTrigger>
-            <TabsTrigger value="partners">Đối tác & Tập đoàn</TabsTrigger>
             <TabsTrigger value="verification">Form xác thực</TabsTrigger>
           </TabsList>
 
@@ -181,26 +194,24 @@ export function CategoryManagementPanel({ config, onSave, saving }: CategoryMana
               <div className="space-y-2">
                 <Label>Nhóm danh mục</Label>
                 <select
-                  value={selectedFilterCategory}
-                  onChange={(event) => setSelectedFilterCategory(event.target.value as FilterCategoryKey)}
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value as CategoryKey)}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
-                  {filterCategories.map((category) => (
-                    <option key={category} value={category}>
-                      {filterCategoryLabels[category]}
-                    </option>
+                  {CATEGORY_KEYS.map(({ key, label }) => (
+                    <option key={key} value={key}>{label}</option>
                   ))}
                 </select>
               </div>
               <div className="space-y-2">
                 <Label>Tên hiển thị</Label>
-                <Input value={filterLabel} onChange={(event) => setFilterLabel(event.target.value)} />
+                <Input value={filterLabel} onChange={(e) => setFilterLabel(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label>Giá trị</Label>
                 <Input
                   value={filterValue}
-                  onChange={(event) => setFilterValue(event.target.value)}
+                  onChange={(e) => setFilterValue(e.target.value)}
                   placeholder="Tự tạo nếu bỏ trống"
                 />
               </div>
@@ -213,23 +224,23 @@ export function CategoryManagementPanel({ config, onSave, saving }: CategoryMana
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2">
-              {filterCategories.map((category) => (
-                <div key={category} className="rounded-md border p-4">
+              {CATEGORY_KEYS.map(({ key, label }) => (
+                <div key={key} className="rounded-md border p-4">
                   <div className="mb-3 flex items-center justify-between">
-                    <h3 className="font-semibold">{filterCategoryLabels[category]}</h3>
-                    <Badge variant="outline">{config.filters[category].length}</Badge>
+                    <h3 className="font-semibold">{label}</h3>
+                    <Badge variant="outline">{(categoryOptions[key] || []).length}</Badge>
                   </div>
                   <div className="space-y-2">
-                    {config.filters[category].length === 0 ? (
+                    {(categoryOptions[key] || []).length === 0 ? (
                       <p className="text-sm text-muted-foreground">Chưa có danh mục.</p>
                     ) : (
-                      config.filters[category].map((option) => (
-                        <div key={option.value} className="flex items-center justify-between rounded-md bg-muted px-3 py-2">
+                      (categoryOptions[key] || []).map((option) => (
+                        <div key={option.id} className="flex items-center justify-between rounded-md bg-muted px-3 py-2">
                           <span className="text-sm">{option.label}</span>
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => deleteFilterOption(category, option.value)}
+                            onClick={() => deleteFilterOption(key, option.id)}
                             disabled={saving}
                             aria-label={`Xóa ${option.label}`}
                           >
@@ -244,71 +255,13 @@ export function CategoryManagementPanel({ config, onSave, saving }: CategoryMana
             </div>
           </TabsContent>
 
-          <TabsContent value="partners" className="space-y-5">
-            <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-              <div className="space-y-2">
-                <Label>Tên đối tác</Label>
-                <Input
-                  value={partnerDraft.name}
-                  onChange={(event) => setPartnerDraft({ ...partnerDraft, name: event.target.value })}
-                  placeholder="Tên công ty"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Logo</Label>
-                <Input
-                  value={partnerDraft.logo}
-                  onChange={(event) => setPartnerDraft({ ...partnerDraft, logo: event.target.value })}
-                  placeholder="/carousel/company.webp hoặc URL"
-                />
-              </div>
-              <div className="flex items-end">
-                <Button onClick={addPartner} disabled={saving}>
-                  <Plus className="h-4 w-4" />
-                  Thêm
-                </Button>
-              </div>
-            </div>
-
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Logo</TableHead>
-                  <TableHead>Tên</TableHead>
-                  <TableHead>Đường dẫn</TableHead>
-                  <TableHead className="text-right">Thao tác</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {config.partners.map((partner) => (
-                  <TableRow key={partner.id}>
-                    <TableCell>
-                      <div className="flex h-12 w-20 items-center justify-center rounded-md border bg-white p-2">
-                        <img src={partner.logo} alt={partner.name} className="max-h-8 object-contain" />
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">{partner.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{partner.logo}</TableCell>
-                    <TableCell>
-                      <div className="flex justify-end">
-                        <Button variant="ghost" size="icon" onClick={() => deletePartner(partner.id)} disabled={saving}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TabsContent>
-
           <TabsContent value="verification" className="space-y-5">
             <div className="grid gap-3 md:grid-cols-[1fr_1fr_140px_1fr_120px_auto]">
               <div className="space-y-2">
                 <Label>Nhãn trường</Label>
                 <Input
                   value={fieldDraft.label}
-                  onChange={(event) => setFieldDraft({ ...fieldDraft, label: event.target.value })}
+                  onChange={(e) => setFieldDraft({ ...fieldDraft, label: e.target.value })}
                   placeholder="Ví dụ: Website công ty"
                 />
               </div>
@@ -316,7 +269,7 @@ export function CategoryManagementPanel({ config, onSave, saving }: CategoryMana
                 <Label>Tên trường</Label>
                 <Input
                   value={fieldDraft.name}
-                  onChange={(event) => setFieldDraft({ ...fieldDraft, name: event.target.value })}
+                  onChange={(e) => setFieldDraft({ ...fieldDraft, name: e.target.value })}
                   placeholder="Tự tạo nếu bỏ trống"
                 />
               </div>
@@ -324,35 +277,33 @@ export function CategoryManagementPanel({ config, onSave, saving }: CategoryMana
                 <Label>Kiểu</Label>
                 <select
                   value={fieldDraft.type}
-                  onChange={(event) =>
-                    setFieldDraft({ ...fieldDraft, type: event.target.value as EmployerVerificationField["type"] })
-                  }
+                  onChange={(e) => setFieldDraft({ ...fieldDraft, type: e.target.value as RecruiterFormField["type"] })}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
-                  <option value="text">Text</option>
-                  <option value="email">Email</option>
-                  <option value="number">Number</option>
+                  <option value="TEXT">Text</option>
+                  <option value="EMAIL">Email</option>
+                  <option value="NUMBER">Number</option>
                 </select>
               </div>
               <div className="space-y-2">
                 <Label>Placeholder</Label>
                 <Input
                   value={fieldDraft.placeholder}
-                  onChange={(event) => setFieldDraft({ ...fieldDraft, placeholder: event.target.value })}
+                  onChange={(e) => setFieldDraft({ ...fieldDraft, placeholder: e.target.value })}
                 />
               </div>
               <div className="flex items-end">
                 <label className="flex h-10 items-center gap-2 text-sm">
                   <input
                     type="checkbox"
-                    checked={Boolean(fieldDraft.required)}
-                    onChange={(event) => setFieldDraft({ ...fieldDraft, required: event.target.checked })}
+                    checked={fieldDraft.required}
+                    onChange={(e) => setFieldDraft({ ...fieldDraft, required: e.target.checked })}
                   />
                   Bắt buộc
                 </label>
               </div>
               <div className="flex items-end">
-                <Button onClick={addVerificationField} disabled={saving}>
+                <Button onClick={addFormField} disabled={saving}>
                   <Plus className="h-4 w-4" />
                   Thêm
                 </Button>
@@ -370,7 +321,7 @@ export function CategoryManagementPanel({ config, onSave, saving }: CategoryMana
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {config.employerVerificationFields.map((field) => (
+                {formFields.map((field) => (
                   <TableRow key={field.id}>
                     <TableCell className="font-medium">{field.label}</TableCell>
                     <TableCell>{field.name}</TableCell>
@@ -385,7 +336,7 @@ export function CategoryManagementPanel({ config, onSave, saving }: CategoryMana
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => deleteVerificationField(field.id)}
+                          onClick={() => deleteFormField(field.id)}
                           disabled={saving}
                         >
                           <Trash2 className="h-4 w-4" />

@@ -75,8 +75,8 @@ const Register = () => {
       toast.success("Đăng ký thành công! Vui lòng đăng nhập.");
       form.reset();
       navigate("/login");
-    } catch (error: any) {
-      toast.error(error.message || "Không thể kết nối đến hệ thống");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Không thể kết nối đến hệ thống");
     } finally {
       setIsLoading(false);
     }

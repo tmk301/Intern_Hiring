@@ -17,16 +17,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
-import { adminApi, isApiError, type AdminJobPost, type AdminUser, type EmployerVerificationRequest } from "@/lib/api";
-import { isAdminRole, USER_ROLES } from "@/lib/roles";
-import { supabase } from "@/lib/supabase";
+import { adminApi, isApiError, recruiterApi, type AdminJobPost, type AdminUser, type RecruiterApplication } from "@/lib/api";
+import { isAdminRole } from "@/lib/roles";
 import { CategoryManagementPanel } from "@/components/admin/CategoryManagementPanel";
-import {
-  defaultManagedSiteConfig,
-  loadManagedSiteConfig,
-  saveManagedSiteConfig,
-  type ManagedSiteConfig,
-} from "@/lib/siteConfig";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,85 +36,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 
 type AdminSection = "users" | "jobs" | "employer-requests" | "categories";
-type DbValue = string | number | boolean | null | undefined | Record<string, unknown>;
-type DbRecord = Record<string, DbValue>;
 
 const getErrorMessage = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback);
 
-const USER_TABLES = ["users", "user", "User"];
-const JOB_TABLES = ["jobs", "job_posts", "recruitment_posts", "Job", "JobPost", "RecruitmentPost"];
-const EMPLOYER_REQUEST_TABLES = [
-  "employer_verification_requests",
-  "employer_requests",
-  "EmployerVerificationRequest",
-];
-
-const valueOf = (record: DbRecord, keys: string[], fallback = "") => {
-  for (const key of keys) {
-    const value = record?.[key];
-    if (value !== undefined && value !== null && value !== "") return value;
-  }
-
-  return fallback;
-};
-
-const normalizeUser = (record: DbRecord): AdminUser => ({
-  id: valueOf(record, ["id", "user_id"]),
-  email: valueOf(record, ["email"]),
-  firstName: valueOf(record, ["firstName", "first_name", "first_name"]),
-  lastName: valueOf(record, ["lastName", "last_name"]),
-  role: valueOf(record, ["role"], USER_ROLES.CANDIDATE),
-  status: valueOf(record, ["status"]),
-  restricted: Boolean(valueOf(record, ["restricted", "isRestricted", "is_restricted"], false)),
-  avatarUrl: valueOf(record, ["avatarUrl", "avatar_url"]),
-  phoneNumber: valueOf(record, ["phoneNumber", "phone_number"]),
-  gender: valueOf(record, ["gender"]),
-  dob: valueOf(record, ["dob", "date_of_birth"]),
-  cvUrl: valueOf(record, ["cvUrl", "cv_url"]),
-  createdAt: valueOf(record, ["createdAt", "created_at"]),
-});
-
-const normalizeJob = (record: DbRecord): AdminJobPost => ({
-  id: valueOf(record, ["id", "job_id"]),
-  title: valueOf(record, ["title", "job_title"], "Chưa có tiêu đề"),
-  company: valueOf(record, ["company", "companyName", "company_name"]),
-  employerName: valueOf(record, ["employerName", "employer_name"]),
-  employerEmail: valueOf(record, ["employerEmail", "employer_email"]),
-  location: valueOf(record, ["location"]),
-  type: valueOf(record, ["type", "job_type"]),
-  salary: valueOf(record, ["salary"]),
-  status: valueOf(record, ["status"], "ACTIVE"),
-  description: valueOf(record, ["description", "content"]),
-  createdAt: valueOf(record, ["createdAt", "created_at"]),
-  deletedAt: valueOf(record, ["deletedAt", "deleted_at"], null),
-});
-
-const normalizeExtraFields = (value: unknown): Record<string, string> => {
-  if (!value) return {};
-  if (typeof value === "string") {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return {};
-    }
-  }
-
-  return typeof value === "object" ? (value as Record<string, string>) : {};
-};
-
-const normalizeEmployerRequest = (record: DbRecord): EmployerVerificationRequest => ({
-  id: valueOf(record, ["id", "request_id"]),
-  userId: valueOf(record, ["userId", "user_id"]),
-  userEmail: valueOf(record, ["userEmail", "user_email", "email"]),
-  companyName: valueOf(record, ["companyName", "company_name"], "Chưa có tên công ty"),
-  companyEmail: valueOf(record, ["companyEmail", "company_email"]),
-  taxCode: valueOf(record, ["taxCode", "tax_code"]),
-  status: valueOf(record, ["status"], "PENDING"),
-  createdAt: valueOf(record, ["createdAt", "created_at"]),
-  reviewedAt: valueOf(record, ["reviewedAt", "reviewed_at"]),
-  rejectionReason: valueOf(record, ["rejectionReason", "rejection_reason"]),
-  extraFields: normalizeExtraFields(valueOf(record, ["extraFields", "extra_fields"], {})),
-});
 
 const isTrashedJob = (job: AdminJobPost) => {
   const status = job.status?.toUpperCase();
@@ -135,74 +52,24 @@ const formatDate = (value?: string | null) => {
   return date.toLocaleString("vi-VN");
 };
 
-async function selectFromFirstAvailableTable<T>(
-  tableNames: string[],
-  normalizer: (record: DbRecord) => T,
-): Promise<T[]> {
-  let lastError: unknown = null;
-
-  for (const tableName of tableNames) {
-    const { data, error } = await supabase.from(tableName).select("*");
-
-    if (!error) {
-      return (data || []).map(normalizer);
-    }
-
-    lastError = error;
-  }
-
-  throw lastError;
-}
-
-async function updateFirstAvailableTable(
-  tableNames: string[],
-  id: string | number,
-  payloads: DbRecord[],
-) {
-  let lastError: unknown = null;
-
-  for (const tableName of tableNames) {
-    for (const payload of payloads) {
-      const { error } = await supabase.from(tableName).update(payload).eq("id", id);
-      if (!error) return;
-      lastError = error;
-    }
-  }
-
-  throw lastError;
-}
-
-async function deleteFromFirstAvailableTable(tableNames: string[], id: string | number) {
-  let lastError: unknown = null;
-
-  for (const tableName of tableNames) {
-    const { error } = await supabase.from(tableName).delete().eq("id", id);
-    if (!error) return;
-    lastError = error;
-  }
-
-  throw lastError;
-}
 
 const AdminDashboard: React.FC = () => {
   const { user, token, isAuthenticated, isLoading } = useAuth();
   const [activeSection, setActiveSection] = useState<AdminSection>("users");
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [jobs, setJobs] = useState<AdminJobPost[]>([]);
-  const [requests, setRequests] = useState<EmployerVerificationRequest[]>([]);
+  const [requests, setRequests] = useState<RecruiterApplication[]>([]);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [selectedJob, setSelectedJob] = useState<AdminJobPost | null>(null);
-  const [rejectingRequest, setRejectingRequest] = useState<EmployerVerificationRequest | null>(null);
+  const [rejectingRequest, setRejectingRequest] = useState<RecruiterApplication | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
-  const [siteConfig, setSiteConfig] = useState<ManagedSiteConfig>(defaultManagedSiteConfig);
   const [loadingData, setLoadingData] = useState(true);
   const [actionId, setActionId] = useState<string | number | null>(null);
-  const [isSavingConfig, setIsSavingConfig] = useState(false);
 
   const activeJobs = useMemo(() => jobs.filter((job) => !isTrashedJob(job)), [jobs]);
   const trashedJobs = useMemo(() => jobs.filter(isTrashedJob), [jobs]);
   const pendingRequests = useMemo(
-    () => requests.filter((request) => request.status?.toUpperCase() === "PENDING"),
+    () => requests.filter((request) => request.status === "PENDING"),
     [requests],
   );
 
@@ -211,20 +78,15 @@ const AdminDashboard: React.FC = () => {
 
     setLoadingData(true);
     try {
-      const [userList, jobList, requestList, managedConfig] = await Promise.all([
+      const [userList, jobList, requestList] = await Promise.all([
         adminApi.listUsers(token),
-        adminApi.listJobs(token).catch(() => selectFromFirstAvailableTable(JOB_TABLES, normalizeJob)).catch(() => []),
-        adminApi
-          .listEmployerRequests(token)
-          .catch(() => selectFromFirstAvailableTable(EMPLOYER_REQUEST_TABLES, normalizeEmployerRequest))
-          .catch(() => []),
-        loadManagedSiteConfig(),
+        adminApi.listJobs(token),
+        recruiterApi.listApplications(token).catch(() => []),
       ]);
 
       setUsers(userList);
       setJobs(jobList);
       setRequests(requestList);
-      setSiteConfig(managedConfig);
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, "Không thể tải dữ liệu quản trị."));
     } finally {
@@ -238,15 +100,7 @@ const AdminDashboard: React.FC = () => {
 
   const requireConfirm = (message: string) => window.confirm(message);
 
-  const handleSaveSiteConfig = async (nextConfig: ManagedSiteConfig) => {
-    setIsSavingConfig(true);
-    try {
-      const savedConfig = await saveManagedSiteConfig(nextConfig);
-      setSiteConfig(savedConfig);
-    } finally {
-      setIsSavingConfig(false);
-    }
-  };
+
 
 
   const handleRestriction = async (targetUser: AdminUser, restricted: boolean) => {
@@ -274,12 +128,7 @@ const AdminDashboard: React.FC = () => {
 
     setActionId(job.id);
     try {
-      await adminApi.moveJobToTrash(token, job.id).catch(() =>
-        updateFirstAvailableTable(JOB_TABLES, job.id, [
-          { deleted_at: new Date().toISOString() },
-          { status: "TRASHED" },
-        ]),
-      );
+      await adminApi.moveJobToTrash(token, job.id);
 
       toast.success("Đã chuyển bài đăng vào thùng rác.");
       await loadData();
@@ -295,12 +144,7 @@ const AdminDashboard: React.FC = () => {
 
     setActionId(job.id);
     try {
-      await adminApi.restoreJob(token, job.id).catch(() =>
-        updateFirstAvailableTable(JOB_TABLES, job.id, [
-          { deleted_at: null },
-          { status: "ACTIVE" },
-        ]),
-      );
+      await adminApi.restoreJob(token, job.id);
 
       toast.success("Đã khôi phục bài đăng.");
       await loadData();
@@ -317,7 +161,7 @@ const AdminDashboard: React.FC = () => {
 
     setActionId(job.id);
     try {
-      await adminApi.deleteJobPermanently(token, job.id).catch(() => deleteFromFirstAvailableTable(JOB_TABLES, job.id));
+      await adminApi.deleteJobPermanently(token, job.id);
       toast.success("Đã xóa vĩnh viễn bài đăng.");
       await loadData();
     } catch (error: unknown) {
@@ -328,30 +172,17 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleReviewRequest = async (
-    request: EmployerVerificationRequest,
-    status: "APPROVED" | "REJECTED",
+    application: RecruiterApplication,
+    approved: boolean,
     reason?: string,
   ) => {
     if (!token) return;
 
-    setActionId(request.id);
+    setActionId(application.id);
     try {
-      await adminApi.reviewEmployerRequest(token, request.id, status, reason).catch(async () => {
-        await updateFirstAvailableTable(EMPLOYER_REQUEST_TABLES, request.id, [
-          {
-            status,
-            reviewed_at: new Date().toISOString(),
-            rejection_reason: reason || null,
-          },
-          { status },
-        ]);
+      await recruiterApi.reviewApplication(token, application.id, approved, reason);
 
-        if (status === "APPROVED" && request.userId) {
-          await updateFirstAvailableTable(USER_TABLES, request.userId, [{ role: USER_ROLES.EMPLOYER }]);
-        }
-      });
-
-      toast.success(status === "APPROVED" ? "Đã duyệt nhà tuyển dụng." : "Đã từ chối yêu cầu.");
+      toast.success(approved ? "Đã duyệt nhà tuyển dụng." : "Đã từ chối yêu cầu.");
       setRejectingRequest(null);
       setRejectionReason("");
       await loadData();
@@ -453,12 +284,7 @@ const AdminDashboard: React.FC = () => {
               <Settings2 className="h-5 w-5 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">
-                {Object.values(siteConfig.filters).reduce((total, options) => total + options.length, 0)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {siteConfig.partners.length} đối tác, {siteConfig.employerVerificationFields.length} trường form
-              </p>
+              <p className="text-sm text-muted-foreground">Danh mục &amp; Form xác thực</p>
             </CardContent>
           </Card>
         </div>
@@ -636,87 +462,87 @@ const AdminDashboard: React.FC = () => {
                   <CardTitle>Duyệt yêu cầu xác thực nhà tuyển dụng</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Công ty</TableHead>
-                        <TableHead>Email công ty</TableHead>
-                        <TableHead>Mã số thuế</TableHead>
-                        <TableHead>Trạng thái</TableHead>
-                        <TableHead className="text-right">Thao tác</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {requests.map((request) => {
-                        const status = request.status?.toUpperCase();
-                        const pending = status === "PENDING";
+                  {requests.length === 0 ? (
+                    <p className="py-8 text-center text-muted-foreground">Chưa có yêu cầu nào.</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Email ứng viên</TableHead>
+                          <TableHead>Thông tin đăng ký</TableHead>
+                          <TableHead>Trạng thái</TableHead>
+                          <TableHead>Ghi chú</TableHead>
+                          <TableHead className="text-right">Thao tác</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {requests.map((application) => {
+                          const pending = application.status === "PENDING";
 
-                        return (
-                          <TableRow key={request.id}>
-                            <TableCell className="font-medium">
-                              <div>{request.companyName}</div>
-                              {request.extraFields && Object.keys(request.extraFields).length > 0 && (
-                                <div className="mt-2 space-y-1 text-xs font-normal text-muted-foreground">
-                                  {Object.entries(request.extraFields).map(([key, value]) => (
-                                    <div key={key}>
-                                      <span className="font-medium">{key}:</span> {value || "-"}
-                                    </div>
-                                  ))}
+                          return (
+                            <TableRow key={application.id}>
+                              <TableCell className="font-medium">{application.applicantEmail}</TableCell>
+                              <TableCell>
+                                {application.formData && Object.keys(application.formData).length > 0 ? (
+                                  <div className="space-y-1 text-xs">
+                                    {Object.entries(application.formData).map(([key, value]) => (
+                                      <div key={key}>
+                                        <span className="font-medium">{key}:</span> {value || "-"}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant={
+                                    application.status === "APPROVED"
+                                      ? "secondary"
+                                      : application.status === "REJECTED"
+                                        ? "destructive"
+                                        : "outline"
+                                  }
+                                >
+                                  {application.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">{application.reviewNote || "-"}</TableCell>
+                              <TableCell>
+                                <div className="flex justify-end gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={!pending || actionId === application.id}
+                                    onClick={() => handleReviewRequest(application, true)}
+                                  >
+                                    <CheckCircle2 className="h-4 w-4" />
+                                    Duyệt
+                                  </Button>
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    disabled={!pending || actionId === application.id}
+                                    onClick={() => setRejectingRequest(application)}
+                                  >
+                                    <XCircle className="h-4 w-4" />
+                                    Từ chối
+                                  </Button>
                                 </div>
-                              )}
-                            </TableCell>
-                            <TableCell>{request.companyEmail}</TableCell>
-                            <TableCell>{request.taxCode}</TableCell>
-                            <TableCell>
-                              <Badge
-                                variant={
-                                  status === "APPROVED"
-                                    ? "secondary"
-                                    : status === "REJECTED"
-                                      ? "destructive"
-                                      : "outline"
-                                }
-                              >
-                                {status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex justify-end gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={!pending || actionId === request.id}
-                                  onClick={() => handleReviewRequest(request, "APPROVED")}
-                                >
-                                  <CheckCircle2 className="h-4 w-4" />
-                                  Duyệt
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  disabled={!pending || actionId === request.id}
-                                  onClick={() => setRejectingRequest(request)}
-                                >
-                                  <XCircle className="h-4 w-4" />
-                                  Từ chối
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
                 </CardContent>
               </Card>
             )}
 
-            {activeSection === "categories" && (
-              <CategoryManagementPanel
-                config={siteConfig}
-                onSave={handleSaveSiteConfig}
-                saving={isSavingConfig}
-              />
+            {activeSection === "categories" && token && (
+              <CategoryManagementPanel token={token} />
             )}
           </>
         )}
@@ -793,7 +619,7 @@ const AdminDashboard: React.FC = () => {
             <Button variant="outline" onClick={() => setRejectingRequest(null)}>Hủy</Button>
             <Button
               variant="destructive"
-              onClick={() => rejectingRequest && handleReviewRequest(rejectingRequest, "REJECTED", rejectionReason)}
+              onClick={() => rejectingRequest && handleReviewRequest(rejectingRequest, false, rejectionReason)}
             >
               Từ chối
             </Button>

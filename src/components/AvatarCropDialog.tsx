@@ -18,6 +18,16 @@ interface AvatarCropDialogProps {
   isLoading?: boolean;
 }
 
+type CropPoint = {
+  x: number;
+  y: number;
+};
+
+type CropArea = CropPoint & {
+  width: number;
+  height: number;
+};
+
 export function AvatarCropDialog({
   open,
   imageSrc,
@@ -27,11 +37,11 @@ export function AvatarCropDialog({
 }: AvatarCropDialogProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<CropArea | null>(null);
   const [isCropping, setIsCropping] = useState(false);
 
   const onCropComplete = useCallback(
-    (croppedArea: any, croppedAreaPixels: any) => {
+    (_croppedArea: CropArea, croppedAreaPixels: CropArea) => {
       setCroppedAreaPixels(croppedAreaPixels);
     },
     []
