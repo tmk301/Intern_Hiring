@@ -16,8 +16,9 @@ import Profile from "./pages/Profile";
 import ResetPasswordPage from "./pages/ResetPassword";
 import AdminDashboard from "./pages/AdminDashboard";
 import RecruiterDashboard from "./pages/RecruiterDashboard";
+import ModeratorPage from "./pages/Moderator/ModeratorPage";
 import NotFound from "./pages/NotFound";
-import { isAdminRole, isRecruiterRole } from "./lib/roles";
+import { isAdminRole, isModeratorRole, isRecruiterRole } from "./lib/roles";
 const queryClient = new QueryClient();
 
 const AdminRoute = ({ children }: { children: JSX.Element }) => {
@@ -36,6 +37,30 @@ const AdminRoute = ({ children }: { children: JSX.Element }) => {
   }
 
   if (!isAdminRole(user?.role)) {
+    return <Navigate to="/" replace />;
+  }
+  
+
+  return children;
+};
+
+// Moderator Route
+const ModeratorRoute = ({ children }: { children: JSX.Element }) => {
+  const { user, isAuthenticated, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!isModeratorRole(user?.role)) {
     return <Navigate to="/" replace />;
   }
 
@@ -99,6 +124,7 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/recruiter" element={<RecruiterRoute><RecruiterDashboard /></RecruiterRoute>} />
+            <Route path="/moderator" element={<ModeratorRoute><ModeratorPage /></ModeratorRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

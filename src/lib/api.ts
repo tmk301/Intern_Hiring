@@ -358,3 +358,44 @@ export const recruiterApi = {
       headers: authHeaders(token),
     }),
 };
+
+export type ModeratorJobPost = {
+  id: string | number;
+  title: string;
+  description?: string;
+  company?: string;
+  location?: string;
+  salary?: string;
+  type?: string;
+  status?: string;
+  employerName?: string;
+  employerEmail?: string;
+  recruiterId?: string | number;
+  recruiterName?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export const moderatorApi = {
+  listPendingJobs: (token: string) =>
+    apiRequest<ModeratorJobPost[]>("/api/moderator/jobs/pending", {
+      headers: authHeaders(token),
+    }),
+
+  getJobDetail: (token: string, jobId: string | number) =>
+    apiRequest<ModeratorJobPost>(`/api/moderator/jobs/${encodeURIComponent(String(jobId))}`, {
+      headers: authHeaders(token),
+    }),
+
+  approveJob: (token: string, jobId: string | number) =>
+    apiRequest<ModeratorJobPost>(`/api/moderator/jobs/${encodeURIComponent(String(jobId))}/approve`, {
+      method: "PATCH",
+      headers: authHeaders(token),
+    }),
+
+  rejectJob: (token: string, jobId: string | number) =>
+    apiRequest<ModeratorJobPost>(`/api/moderator/jobs/${encodeURIComponent(String(jobId))}/reject`, {
+      method: "PATCH",
+      headers: authHeaders(token),
+    }),
+};

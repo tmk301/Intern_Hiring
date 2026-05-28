@@ -17,6 +17,8 @@ export const isEmployerRole = isRecruiterRole;
 
 export const isCandidateRole = (role?: string | null) => normalizeRole(role) === USER_ROLES.CANDIDATE;
 
+export const isModeratorRole = (role?: string | null) => normalizeRole(role) === USER_ROLES.MODERATOR;
+
 export const isRestrictedAccount = (user?: { restricted?: boolean; isRestricted?: boolean; status?: string } | null) => {
   if (!user) return false;
 
