@@ -192,6 +192,12 @@
   .partner-marquee-item {
     flex: 0 0 auto;
   }
+  
+  .hero-bg-zoom {
+    animation: hero-zoom 8s ease-in-out infinite alternate;
+    transform-origin: center;
+    will-change: transform;
+  }
 }
 
 @keyframes partner-marquee {
@@ -201,5 +207,14 @@
 
   to {
     transform: translateX(calc(-50% - 0.75rem));
+  }
+}
+
+@keyframes hero-zoom {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.15);
   }
 }

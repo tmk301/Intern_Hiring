@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,26 +25,75 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Eye, EyeOff, GraduationCap, Loader2, Lock, Mail, Phone, User } from "lucide-react";
+import {
+  ArrowRight,
+  Eye,
+  EyeOff,
+  GraduationCap,
+  KeyRound,
+  Loader2,
+  Lock,
+  Mail,
+  Phone,
+  RotateCcw,
+  User,
+} from "lucide-react";
 
-const registerSchema = z.object({
-  email: z
-    .string()
-    .regex(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9._-]+\.[a-zA-Z]{2,}$/, "Email không hợp lệ"),
-  password: z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự"),
-  firstName: z.string().min(2, "Tên quá ngắn"),
-  lastName: z.string().min(2, "Họ quá ngắn"),
-  phoneNumber: z.string().optional(),
-});
+type RegisterFormValues = {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phoneNumber?: string;
+};
+
+type TokenFormValues = {
+  token: string;
+};
+
+const SIGNUP_TOKEN_LENGTH = 8;
 
 const Register = () => {
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState("");
   const navigate = useNavigate();
 
-  const form = useForm<z.infer<typeof registerSchema>>({
+  const registerSchema = useMemo(
+    () =>
+      z.object({
+        email: z
+          .string()
+          .regex(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9._-]+\.[a-zA-Z]{2,}$/, t("validation.emailInvalid")),
+        password: z.string().min(6, t("validation.passwordMin")),
+        firstName: z.string().min(2, t("validation.firstNameShort")),
+        lastName: z.string().min(2, t("validation.lastNameShort")),
+        phoneNumber: z.string().optional(),
+      }),
+    [t],
+  );
+
+  const tokenSchema = useMemo(
+    () =>
+      z.object({
+        token: z
+          .string()
+          .trim()
+          .regex(new RegExp(`^\\d{${SIGNUP_TOKEN_LENGTH}}$`), t("register.tokenInvalid")),
+      }),
+    [t],
+  );
+
+  const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
       email: "",
@@ -54,7 +104,14 @@ const Register = () => {
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof registerSchema>) => {
+  const tokenForm = useForm<TokenFormValues>({
+    resolver: zodResolver(tokenSchema),
+    defaultValues: {
+      token: "",
+    },
+  });
+
+  const onSubmit = async (values: RegisterFormValues) => {
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.signUp({
@@ -72,14 +129,57 @@ const Register = () => {
 
       if (error) throw error;
 
-      toast.success("Đăng ký thành công! Vui lòng đăng nhập.");
-      form.reset();
-      navigate("/login");
+      setPendingEmail(values.email);
+      tokenForm.reset();
+      toast.success(t("register.tokenSent"));
     } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : "Không thể kết nối đến hệ thống");
+      toast.error(error instanceof Error ? error.message : t("auth.systemConnectionError"));
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const onVerifyToken = async ({ token }: TokenFormValues) => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: pendingEmail,
+        token,
+        type: "signup",
+      });
+
+      if (error) throw error;
+      if (!data.session) throw new Error(t("register.missingSession"));
+
+      toast.success(t("register.success"));
+      navigate("/");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : t("auth.systemConnectionError"));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const onResendToken = async () => {
+    setIsResending(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: pendingEmail,
+      });
+
+      if (error) throw error;
+      toast.success(t("register.tokenResent"));
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : t("auth.systemConnectionError"));
+    } finally {
+      setIsResending(false);
+    }
+  };
+
+  const resetTokenStep = () => {
+    setPendingEmail("");
+    tokenForm.reset();
   };
 
   return (
@@ -94,13 +194,13 @@ const Register = () => {
           <section className="hidden bg-secondary/70 p-6 md:flex md:flex-col md:justify-between">
             <div>
               <Badge className="mb-4 bg-primary text-primary-foreground">
-                Ứng viên mới
+                {t("register.badge")}
               </Badge>
               <h1 className="text-3xl font-bold leading-tight text-foreground">
-                Tạo hồ sơ để bắt đầu hành trình thực tập
+                {t("register.heroTitle")}
               </h1>
               <p className="mt-4 text-sm leading-6 text-muted-foreground">
-                Đăng ký tài khoản ứng viên để theo dõi chương trình, cập nhật hồ sơ và kết nối với doanh nghiệp phù hợp.
+                {t("register.heroDescription")}
               </p>
             </div>
             <div className="rounded-lg border bg-white p-4 shadow-soft">
@@ -108,10 +208,10 @@ const Register = () => {
                 <GraduationCap className="h-5 w-5" />
               </div>
               <p className="text-sm font-medium text-foreground">
-                Vai trò mặc định của tài khoản mới là ứng viên.
+                {t("register.defaultRole")}
               </p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Bạn là nhà tuyển dụng? Sau khi tạo tài khoản, hãy yêu cầu xác thực để được cấp quyền.
+                {t("register.recruiterHint")}
               </p>
             </div>
           </section>
@@ -120,143 +220,215 @@ const Register = () => {
             <CardHeader className="space-y-1 px-5 pb-3 pt-5 sm:px-7">
               <div className="md:hidden">
                 <Badge className="mb-2 bg-primary text-primary-foreground">
-                  Ứng viên mới
+                  {t("register.badge")}
                 </Badge>
               </div>
               <CardTitle className="text-2xl font-bold text-foreground">
-                Đăng ký tài khoản
+                {pendingEmail ? t("register.verifyTitle") : t("register.title")}
               </CardTitle>
               <CardDescription>
-                Hoàn tất thông tin bên dưới để tạo tài khoản ứng viên.
+                {pendingEmail
+                  ? t("register.verifyDescription", { email: pendingEmail })
+                  : t("register.description")}
               </CardDescription>
             </CardHeader>
             <CardContent className="px-5 pb-3 sm:px-7">
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
+              {pendingEmail ? (
+                <Form {...tokenForm}>
+                  <form onSubmit={tokenForm.handleSubmit(onVerifyToken)} className="space-y-4">
                     <FormField
-                      control={form.control}
-                      name="lastName"
+                      control={tokenForm.control}
+                      name="token"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Họ</FormLabel>
+                          <FormLabel>{t("register.tokenLabel")}</FormLabel>
                           <FormControl>
-                            <div className="relative">
-                              <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                              <Input placeholder="Nguyễn" className="h-9 pl-10" {...field} />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="firstName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Tên</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                              <Input placeholder="An" className="h-9 pl-10" {...field} />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
-                              placeholder="ten@example.com"
-                              className="h-9 pl-10"
-                              {...field}
-                            />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="phoneNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Số điện thoại</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Phone className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input placeholder="0901234567" className="h-9 pl-10" {...field} />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Mật khẩu</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
-                              type={showPassword ? "text" : "password"}
-                              placeholder="Tối thiểu 6 ký tự"
-                              className="h-9 pl-10 pr-10"
-                              {...field}
-                            />
-                            <button
-                              type="button"
-                              aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-primary"
-                              onClick={() => setShowPassword((current) => !current)}
+                            <InputOTP
+                              maxLength={SIGNUP_TOKEN_LENGTH}
+                              value={field.value}
+                              onChange={field.onChange}
+                              disabled={isLoading}
+                              containerClassName="justify-center"
                             >
-                              {showPassword ? (
-                                <EyeOff className="h-4 w-4" />
-                              ) : (
-                                <Eye className="h-4 w-4" />
-                              )}
-                            </button>
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button
-                    type="submit"
-                    variant="cta"
-                    className="h-10 w-full"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <ArrowRight className="mr-2 h-4 w-4" />
-                    )}
-                    Tạo tài khoản
-                  </Button>
-                </form>
-              </Form>
+                              <InputOTPGroup>
+                                {Array.from({ length: SIGNUP_TOKEN_LENGTH }).map((_, index) => (
+                                  <InputOTPSlot key={index} index={index} />
+                                ))}
+                              </InputOTPGroup>
+                            </InputOTP>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button
+                      type="submit"
+                      variant="cta"
+                      className="h-10 w-full"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <KeyRound className="mr-2 h-4 w-4" />
+                      )}
+                      {t("register.verifySubmit")}
+                    </Button>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-10 flex-1"
+                        disabled={isLoading || isResending}
+                        onClick={onResendToken}
+                      >
+                        {isResending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <RotateCcw className="mr-2 h-4 w-4" />
+                        )}
+                        {t("register.resendToken")}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-10 flex-1"
+                        disabled={isLoading}
+                        onClick={resetTokenStep}
+                      >
+                        {t("register.changeEmail")}
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              ) : (
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormField
+                        control={form.control}
+                        name="lastName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t("profile.last_name")}</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input placeholder="Nguyen" className="h-9 pl-10" {...field} />
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="firstName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t("profile.first_name")}</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input placeholder="An" className="h-9 pl-10" {...field} />
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                placeholder="ten@example.com"
+                                className="h-9 pl-10"
+                                {...field}
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="phoneNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t("profile.phone")}</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Phone className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                              <Input placeholder="0901234567" className="h-9 pl-10" {...field} />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t("common.password")}</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                type={showPassword ? "text" : "password"}
+                                placeholder={t("register.passwordPlaceholder")}
+                                className="h-9 pl-10 pr-10"
+                                {...field}
+                              />
+                              <button
+                                type="button"
+                                aria-label={showPassword ? t("login.hidePassword") : t("login.showPassword")}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-primary"
+                                onClick={() => setShowPassword((current) => !current)}
+                              >
+                                {showPassword ? (
+                                  <EyeOff className="h-4 w-4" />
+                                ) : (
+                                  <Eye className="h-4 w-4" />
+                                )}
+                              </button>
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button
+                      type="submit"
+                      variant="cta"
+                      className="h-10 w-full"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <ArrowRight className="mr-2 h-4 w-4" />
+                      )}
+                      {t("register.submit")}
+                    </Button>
+                  </form>
+                </Form>
+              )}
             </CardContent>
             <CardFooter className="flex justify-center border-t bg-secondary/40 px-5 py-3 sm:px-7">
               <p className="text-sm text-muted-foreground">
-                Đã có tài khoản?{" "}
+                {t("register.haveAccount")}{" "}
                 <Link to="/login" className="font-medium text-primary hover:underline">
-                  Đăng nhập
+                  {t("register.login")}
                 </Link>
               </p>
             </CardFooter>

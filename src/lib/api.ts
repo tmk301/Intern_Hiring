@@ -70,12 +70,12 @@ export async function apiRequest<T>(
   return response.json() as Promise<T>;
 }
 
-// ── Auth headers helper ──────────────────────────────────────────────
+// Auth headers helper
 function authHeaders(token: string) {
   return { Authorization: `Bearer ${token}` };
 }
 
-// ── User type shared across API consumers ────────────────────────────
+// User type shared across API consumers
 export type ApiUser = {
   id: string | number;
   email: string;
@@ -98,11 +98,11 @@ export type UpdateProfilePayload = {
   phoneNumber?: string;
   avatarUrl?: string;
   gender?: string;
-  dob?: string;
+  dob?: string | null;
   cvUrl?: string;
 };
 
-// ── Auth API ─────────────────────────────────────────────────────────
+// Auth API
 export const authApi = {
   getMe: (token: string) =>
     apiRequest<ApiUser>("/api/auth/me", {
@@ -110,7 +110,7 @@ export const authApi = {
     }),
 };
 
-// ── User API ─────────────────────────────────────────────────────────
+// User API
 export const userApi = {
   updateProfile: (token: string, data: UpdateProfilePayload) =>
     apiRequest<ApiUser>("/api/users/me", {
@@ -139,6 +139,32 @@ export type AdminJobPost = {
   deletedAt?: string | null;
 };
 
+export type RecruiterJobPost = {
+  id: string | number;
+  title: string | null;
+  company: string | null;
+  employer_name: string | null;
+  employer_email: string | null;
+  location: string | null;
+  type: string | null;
+  salary: string | null;
+  description: string | null;
+  status: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  deleted_at: string | null;
+};
+
+export type RecruiterJobPayload = {
+  title: string;
+  company: string;
+  employerName?: string;
+  location: string;
+  type: string;
+  salary?: string;
+  description: string;
+};
+
 export const adminApi = {
   listUsers: (token: string) =>
     apiRequest<AdminUser[]>("/api/admin/users", {
@@ -151,6 +177,13 @@ export const adminApi = {
       method: "PATCH",
       headers: authHeaders(token),
       body: JSON.stringify({ restricted }),
+    }),
+
+  setUserRole: (token: string, userId: string | number, role: string) =>
+    apiRequest<AdminUser>(`/api/admin/users/${encodeURIComponent(String(userId))}/role`, {
+      method: "PATCH",
+      headers: authHeaders(token),
+      body: JSON.stringify({ role }),
     }),
 
   listJobs: (token: string, includeTrash = true) =>
@@ -200,7 +233,7 @@ export type RecruiterFormField = {
   id: number;
   name: string;
   label: string;
-  type: "TEXT" | "EMAIL" | "NUMBER";
+  validationRegex?: string;
   placeholder?: string;
   required: boolean;
   sortOrder: number;
@@ -212,7 +245,7 @@ export type RecruiterApplication = {
   applicantId: number;
   applicantEmail: string;
   formData: Record<string, string>;
-  status: "PENDING" | "APPROVED" | "REJECTED";
+  status: "PENDING" | "APPROVED" | "REJECTED" | "REVOKED";
   reviewNote?: string;
   reviewedById?: number;
   reviewedAt?: string;
@@ -286,5 +319,42 @@ export const recruiterApi = {
       method: "POST",
       headers: authHeaders(token),
       body: JSON.stringify({ approved, reviewNote }),
+    }),
+
+  revokeApplication: (token: string, id: number) =>
+    apiRequest<RecruiterApplication>(`/api/recruiter/applications/${id}/revoke`, {
+      method: "POST",
+      headers: authHeaders(token),
+    }),
+
+  restoreApplication: (token: string, id: number) =>
+    apiRequest<RecruiterApplication>(`/api/recruiter/applications/${id}/restore`, {
+      method: "POST",
+      headers: authHeaders(token),
+    }),
+
+  listJobs: (token: string) =>
+    apiRequest<RecruiterJobPost[]>("/api/recruiter/jobs", {
+      headers: authHeaders(token),
+    }),
+
+  createJob: (token: string, data: RecruiterJobPayload) =>
+    apiRequest<RecruiterJobPost>("/api/recruiter/jobs", {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify(data),
+    }),
+
+  updateJobStatus: (token: string, id: string | number, status: string) =>
+    apiRequest<RecruiterJobPost>(`/api/recruiter/jobs/${encodeURIComponent(String(id))}/status`, {
+      method: "PATCH",
+      headers: authHeaders(token),
+      body: JSON.stringify({ status }),
+    }),
+
+  deleteJob: (token: string, id: string | number) =>
+    apiRequest<void>(`/api/recruiter/jobs/${encodeURIComponent(String(id))}`, {
+      method: "DELETE",
+      headers: authHeaders(token),
     }),
 };

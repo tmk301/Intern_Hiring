@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Cropper from "react-easy-crop";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +36,7 @@ export function AvatarCropDialog({
   onCancel,
   isLoading = false,
 }: AvatarCropDialogProps) {
+  const { t } = useTranslation();
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<CropArea | null>(null);
@@ -102,7 +104,7 @@ export function AvatarCropDialog({
     <Dialog open={open} onOpenChange={handleCancel}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Cắt ảnh đại diện</DialogTitle>
+          <DialogTitle>{t("avatarCrop.title")}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -125,7 +127,7 @@ export function AvatarCropDialog({
 
           {/* Zoom Slider */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Phóng to</label>
+            <label className="text-sm font-medium">{t("avatarCrop.zoom")}</label>
             <Slider
               value={[zoom]}
               onValueChange={(value) => setZoom(value[0])}
@@ -139,13 +141,13 @@ export function AvatarCropDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={handleCancel} disabled={isCropping || isLoading}>
-            Hủy
+            {t("common.cancel")}
           </Button>
           <Button
             onClick={handleCrop}
             disabled={isCropping || isLoading || !croppedAreaPixels}
           >
-            {isCropping || isLoading ? "Đang xử lý..." : "Cắt & Cập nhật"}
+            {isCropping || isLoading ? t("common.processing") : t("avatarCrop.submit")}
           </Button>
         </DialogFooter>
       </DialogContent>

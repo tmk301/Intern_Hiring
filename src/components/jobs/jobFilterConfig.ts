@@ -1,6 +1,8 @@
 export type JobFilterOption = {
   value: string;
   label: string;
+  labelKey?: string;
+  aliases?: string[];
   disabled?: boolean;
 };
 
@@ -21,6 +23,7 @@ export type JobFilterValue = {
   jobType: string;
   district: string;
   ward: string;
+  location: string;
   company: string;
   minOpenings: string;
   minSalary: string;
@@ -34,6 +37,7 @@ export const emptyJobFilterValue: JobFilterValue = {
   jobType: "",
   district: "",
   ward: "",
+  location: "",
   company: "",
   minOpenings: "",
   minSalary: "",
@@ -41,27 +45,18 @@ export const emptyJobFilterValue: JobFilterValue = {
 };
 
 export const defaultJobFilterOptions: JobFilterOptions = {
-  cities: [
-    { value: "ho-chi-minh", label: "Hồ Chí Minh" },
-    { value: "ha-noi", label: "Hà Nội" },
-    { value: "da-nang", label: "Đà Nẵng" },
-    { value: "remote", label: "Remote" },
-  ],
+  cities: [],
   workModes: [
-    { value: "onsite", label: "Làm việc tại văn phòng" },
-    { value: "hybrid", label: "Hybrid" },
-    { value: "remote", label: "Remote" },
+    { value: "onsite", label: "On-site", labelKey: "jobs.filters.options.workModes.onsite" },
+    { value: "hybrid", label: "Hybrid", labelKey: "jobs.filters.options.workModes.hybrid" },
+    { value: "remote", label: "Remote", labelKey: "jobs.filters.options.workModes.remote" },
   ],
   jobTypes: [
-    { value: "internship", label: "Thực tập" },
-    { value: "part-time", label: "Part-time" },
-    { value: "full-time", label: "Full-time" },
+    { value: "internship", label: "Internship", labelKey: "jobs.filters.options.jobTypes.internship" },
+    { value: "part-time", label: "Part-time", labelKey: "jobs.filters.options.jobTypes.partTime" },
+    { value: "full-time", label: "Full-time", labelKey: "jobs.filters.options.jobTypes.fullTime" },
   ],
-  districts: [
-    { value: "quan-1", label: "Quận 1" },
-    { value: "quan-3", label: "Quận 3" },
-    { value: "thu-duc", label: "Thành phố Thủ Đức" },
-  ],
+  districts: [],
   wards: [],
   companies: [
     { value: "asl", label: "ASL" },

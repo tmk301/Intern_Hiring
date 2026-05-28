@@ -20,12 +20,62 @@ import {
   Shield,
   Lock,
   Loader2,
+  CalendarDays,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
+
+const toDateInputValue = (value?: string | null) => {
+  if (!value) return "";
+  return value.slice(0, 10);
+};
+
+const formatProfileDate = (value?: string | null) => {
+  const dateValue = toDateInputValue(value);
+  if (!dateValue) return "";
+
+  const [year, month, day] = dateValue.split("-");
+  if (!year || !month || !day) return dateValue;
+
+  return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
+};
+
+const formatDobInput = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+};
+
+const parseProfileDate = (value: string) => {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) return null;
+
+  const match = trimmedValue.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return undefined;
+
+  const [, dayValue, monthValue, yearValue] = match;
+  const day = Number(dayValue);
+  const month = Number(monthValue);
+  const year = Number(yearValue);
+  const date = new Date(year, month - 1, day);
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return undefined;
+  }
+
+  return `${yearValue}-${monthValue}-${dayValue}`;
+};
 
 const Profile = () => {
   const { user, token, refreshUser } = useAuth();
@@ -46,11 +96,18 @@ const Profile = () => {
     lastName: user?.lastName || "",
     phoneNumber: user?.phoneNumber || "",
     gender: user?.gender || "",
+    dob: formatProfileDate(user?.dob),
   });
 
   const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
     newPassword: "",
     confirmPassword: "",
+  });
+  const [visiblePasswords, setVisiblePasswords] = useState({
+    currentPassword: false,
+    newPassword: false,
+    confirmPassword: false,
   });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
@@ -58,6 +115,13 @@ const Profile = () => {
     navigate("/login");
     return null;
   }
+
+  const togglePasswordVisibility = (field: keyof typeof visiblePasswords) => {
+    setVisiblePasswords((current) => ({
+      ...current,
+      [field]: !current[field],
+    }));
+  };
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
@@ -72,11 +136,11 @@ const Profile = () => {
     // accept pdf/doc/docx
     const allowed = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
     if (!allowed.includes(file.type)) {
-      toast({ title: "Lỗi", description: "Chỉ chấp nhận PDF/DOC/DOCX", variant: "destructive" });
+      toast({ title: t("toast.error"), description: t("profile.resumeTypeError"), variant: "destructive" });
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      toast({ title: "Lỗi", description: "File không được vượt quá 10MB", variant: "destructive" });
+      toast({ title: t("toast.error"), description: t("profile.resumeSizeError"), variant: "destructive" });
       return;
     }
 
@@ -96,10 +160,10 @@ const Profile = () => {
 
       await userApi.updateProfile(token, { cvUrl });
       await refreshUser();
-      toast({ title: 'Thành công', description: 'Đã tải lên CV' });
+      toast({ title: t("toast.success"), description: t("profile.resumeUploadSuccess") });
     } catch (err: unknown) {
       console.error('Resume upload failed:', err);
-      toast({ title: 'Lỗi', description: getErrorMessage(err, 'Không thể tải CV lên'), variant: 'destructive' });
+      toast({ title: t("toast.error"), description: getErrorMessage(err, t("profile.resumeUploadError")), variant: "destructive" });
     } finally {
       setIsUploadingResume(false);
     }
@@ -147,12 +211,12 @@ const Profile = () => {
       await refreshUser();
       setIsCropDialogOpen(false);
       setCropImageSrc("");
-      toast({ title: "Thành công", description: "Đã cập nhật ảnh đại diện" });
+      toast({ title: t("toast.success"), description: t("profile.avatarUploadSuccess") });
     } catch (err: unknown) {
       console.error("Avatar upload failed:", err);
       toast({
-        title: "Lỗi",
-        description: getErrorMessage(err, "Không thể tải ảnh lên"),
+        title: t("toast.error"),
+        description: getErrorMessage(err, t("profile.avatarUploadError")),
         variant: "destructive",
       });
     } finally {
@@ -166,11 +230,11 @@ const Profile = () => {
 
     // Validate file
     if (!file.type.startsWith("image/")) {
-      toast({ title: "Lỗi", description: "Chỉ chấp nhận file ảnh", variant: "destructive" });
+      toast({ title: t("toast.error"), description: t("profile.avatarTypeError"), variant: "destructive" });
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast({ title: "Lỗi", description: "File không được vượt quá 5MB", variant: "destructive" });
+      toast({ title: t("toast.error"), description: t("profile.avatarSizeError"), variant: "destructive" });
       return;
     }
 
@@ -185,17 +249,30 @@ const Profile = () => {
   };
 
   const handleSave = async () => {
+    const normalizedDob = parseProfileDate(formData.dob);
+    if (normalizedDob === undefined) {
+      toast({
+        title: t("toast.error"),
+        description: t("profile.dobFormatError"),
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
-      await userApi.updateProfile(token, formData);
+      await userApi.updateProfile(token, {
+        ...formData,
+        dob: normalizedDob,
+      });
 
       await refreshUser();
       setIsEditing(false);
-      toast({ title: "Thành công", description: "Đã cập nhật thông tin cá nhân" });
+      toast({ title: t("toast.success"), description: t("profile.profileUpdateSuccess") });
     } catch (err: unknown) {
       toast({
-        title: "Lỗi",
-        description: getErrorMessage(err, "Không thể cập nhật"),
+        title: t("toast.error"),
+        description: getErrorMessage(err, t("profile.profileUpdateError")),
         variant: "destructive",
       });
     } finally {
@@ -204,29 +281,43 @@ const Profile = () => {
   };
 
   const handleChangePassword = async () => {
+    if (!passwordData.currentPassword) {
+      toast({ title: t("toast.error"), description: t("profile.currentPasswordRequired"), variant: "destructive" });
+      return;
+    }
     if (passwordData.newPassword.length < 6) {
-      toast({ title: "Lỗi", description: "Mật khẩu phải có ít nhất 6 ký tự", variant: "destructive" });
+      toast({ title: t("toast.error"), description: t("validation.passwordMin"), variant: "destructive" });
       return;
     }
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast({ title: "Lỗi", description: "Mật khẩu xác nhận không khớp", variant: "destructive" });
+      toast({ title: t("toast.error"), description: t("validation.passwordMismatch"), variant: "destructive" });
       return;
     }
 
     setIsChangingPassword(true);
     try {
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: passwordData.currentPassword,
+      });
+
+      if (verifyError) {
+        toast({ title: t("toast.error"), description: t("profile.currentPasswordInvalid"), variant: "destructive" });
+        return;
+      }
+
       const { error } = await supabase.auth.updateUser({
         password: passwordData.newPassword,
       });
 
       if (error) throw error;
 
-      setPasswordData({ newPassword: "", confirmPassword: "" });
-      toast({ title: "Thành công", description: "Đã đổi mật khẩu" });
+      setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      toast({ title: t("toast.success"), description: t("profile.passwordChanged") });
     } catch (err: unknown) {
       toast({
-        title: "Lỗi",
-        description: getErrorMessage(err, "Không thể đổi mật khẩu"),
+        title: t("toast.error"),
+        description: getErrorMessage(err, t("profile.passwordChangeError")),
         variant: "destructive",
       });
     } finally {
@@ -248,7 +339,7 @@ const Profile = () => {
                   size="icon"
                   onClick={() => navigate(-1)}
                   className="text-muted-foreground"
-                  aria-label="Quay lại"
+                  aria-label={t("profile.back")}
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
@@ -314,6 +405,7 @@ const Profile = () => {
                               lastName: user.lastName || "",
                               phoneNumber: user.phoneNumber || "",
                               gender: user.gender || "",
+                              dob: formatProfileDate(user.dob),
                             });
                           }}
                         >
@@ -334,54 +426,77 @@ const Profile = () => {
                   <CardContent className="space-y-4 p-4">
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
-                        <Label className="flex items-center gap-2 text-muted-foreground">
+                        <Label className="mb-2 flex items-center gap-2 text-muted-foreground">
                           <UserIcon className="h-4 w-4" /> {t("profile.last_name")}
                         </Label>
                         {isEditing ? (
                           <Input
                             value={formData.lastName}
                             onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                            placeholder="Nhập họ"
+                            placeholder={t("profile.lastNamePlaceholder")}
                           />
                         ) : (
-                          <Input value={user.lastName || "—"} disabled className="bg-muted/50" />
+                          <Input value={user.lastName || t("common.emptyValue")} disabled className="bg-muted/50" />
                         )}
                       </div>
 
                       <div>
-                        <Label className="flex items-center gap-2 text-muted-foreground">
+                        <Label className="mb-2 flex items-center gap-2 text-muted-foreground">
                           <UserIcon className="h-4 w-4" /> {t("profile.first_name")}
                         </Label>
                         {isEditing ? (
                           <Input
                             value={formData.firstName}
                             onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                            placeholder="Nhập tên"
+                            placeholder={t("profile.firstNamePlaceholder")}
                           />
                         ) : (
-                          <Input value={user.firstName || "—"} disabled className="bg-muted/50" />
+                          <Input value={user.firstName || t("common.emptyValue")} disabled className="bg-muted/50" />
                         )}
                       </div>
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
-                        <Label className="flex items-center gap-2 text-muted-foreground">
+                        <Label className="mb-2 flex items-center gap-2 text-muted-foreground">
                           <Phone className="h-4 w-4" /> {t("profile.phone")}
                         </Label>
                         {isEditing ? (
                           <Input
                             value={formData.phoneNumber}
                             onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-                            placeholder="Nhập số điện thoại"
+                            placeholder={t("profile.phonePlaceholder")}
                           />
                         ) : (
-                          <Input value={user.phoneNumber || "—"} disabled className="bg-muted/50" />
+                          <Input value={user.phoneNumber || t("common.emptyValue")} disabled className="bg-muted/50" />
                         )}
                       </div>
 
                       <div>
-                        <Label className="flex items-center gap-2 text-muted-foreground">{t("profile.gender_label")}</Label>
+                        <Label className="mb-2 flex items-center gap-2 text-muted-foreground">
+                          <CalendarDays className="h-4 w-4" /> {t("profile.dob")}
+                        </Label>
+                        {isEditing ? (
+                          <Input
+                            value={formData.dob}
+                            onChange={(e) => setFormData({ ...formData, dob: formatDobInput(e.target.value) })}
+                            inputMode="numeric"
+                            maxLength={10}
+                            placeholder={t("profile.dobPlaceholder")}
+                          />
+                        ) : (
+                          <Input
+                            value={formatProfileDate(user.dob) || t("common.emptyValue")}
+                            disabled
+                            className="bg-muted/50"
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="mb-2 flex items-center gap-2 text-muted-foreground">{t("profile.gender_label")}</Label>
                         {isEditing ? (
                           <select
                             value={formData.gender}
@@ -395,19 +510,19 @@ const Profile = () => {
                           </select>
                         ) : (
                           <Input 
-                            value={user.gender ? t(`gender.${user.gender}`) : "—"} 
+                            value={user.gender ? t(`gender.${user.gender}`) : t("common.emptyValue")} 
                             disabled 
                             className="bg-muted/50" 
                           />
                         )}
                       </div>
-                    </div>
 
-                    <div>
-                      <Label className="flex items-center gap-2 text-muted-foreground">
-                        <Mail className="h-4 w-4" /> {t("profile.email")}
-                      </Label>
-                      <Input value={user.email} disabled className="bg-muted/50" />
+                      <div>
+                        <Label className="mb-2 flex items-center gap-2 text-muted-foreground">
+                          <Mail className="h-4 w-4" /> {t("profile.email")}
+                        </Label>
+                        <Input value={user.email} disabled className="bg-muted/50" />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -431,7 +546,7 @@ const Profile = () => {
                       className="min-h-[80px] flex items-center justify-center rounded-md border border-dashed border-muted/50 bg-muted/5 px-3 py-6 text-sm text-muted-foreground cursor-pointer text-center"
                     >
                       {isUploadingResume ? (
-                        <div>Đang tải lên...</div>
+                        <div>{t("profile.uploading")}</div>
                       ) : user?.cvUrl ? (
                         <a href={user.cvUrl} target="_blank" rel="noreferrer" className="text-primary underline">
                           {t("profile.view_cv")}
@@ -451,24 +566,78 @@ const Profile = () => {
                   </CardHeader>
                   <Separator />
                   <CardContent className="space-y-4 p-4">
-                    <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div>
+                        <Label className="sr-only">{t("profile.current_password")}</Label>
+                        <div className="relative">
+                          <Input
+                            type={visiblePasswords.currentPassword ? "text" : "password"}
+                            value={passwordData.currentPassword}
+                            onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                            placeholder={t("profile.current_password")}
+                            className="pr-10"
+                          />
+                          <button
+                            type="button"
+                            aria-label={visiblePasswords.currentPassword ? t("login.hidePassword") : t("login.showPassword")}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-primary"
+                            onClick={() => togglePasswordVisibility("currentPassword")}
+                          >
+                            {visiblePasswords.currentPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
                       <div>
                         <Label className="sr-only">{t("profile.new_password")}</Label>
-                        <Input
-                          type="password"
-                          value={passwordData.newPassword}
-                          onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                          placeholder={t("profile.new_password")}
-                        />
+                        <div className="relative">
+                          <Input
+                            type={visiblePasswords.newPassword ? "text" : "password"}
+                            value={passwordData.newPassword}
+                            onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                            placeholder={t("profile.new_password")}
+                            className="pr-10"
+                          />
+                          <button
+                            type="button"
+                            aria-label={visiblePasswords.newPassword ? t("login.hidePassword") : t("login.showPassword")}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-primary"
+                            onClick={() => togglePasswordVisibility("newPassword")}
+                          >
+                            {visiblePasswords.newPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                       <div>
                         <Label className="sr-only">{t("profile.confirm_password")}</Label>
-                        <Input
-                          type="password"
-                          value={passwordData.confirmPassword}
-                          onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                          placeholder={t("profile.confirm_password")}
-                        />
+                        <div className="relative">
+                          <Input
+                            type={visiblePasswords.confirmPassword ? "text" : "password"}
+                            value={passwordData.confirmPassword}
+                            onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                            placeholder={t("profile.confirm_password")}
+                            className="pr-10"
+                          />
+                          <button
+                            type="button"
+                            aria-label={visiblePasswords.confirmPassword ? t("login.hidePassword") : t("login.showPassword")}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-primary"
+                            onClick={() => togglePasswordVisibility("confirmPassword")}
+                          >
+                            {visiblePasswords.confirmPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
 
