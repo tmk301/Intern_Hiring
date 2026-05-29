@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Eye, Loader2, RefreshCw, ShieldCheck, XCircle } from "lucide-react";
 import { toast } from "sonner";
-import { useAuth } from "@/context/AuthContext";
-import { isAdminRole, isModeratorRole } from "@/lib/roles";
-import { moderatorApi, type ModeratorJobPost } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/context/AuthContext.tsx";
+import { isAdminRole, isModeratorRole } from "@/lib/roles.ts";
+import { moderatorApi, type ModeratorJobPost } from "@/lib/api.ts";
+import { Button } from "@/components/ui/button.tsx";
+import { Badge } from "@/components/ui/badge.tsx";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 import {
   Dialog,
   DialogContent,
@@ -15,8 +16,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+} from "@/components/ui/dialog.tsx";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table.tsx";
 
 const formatDate = (value?: string | null) => {
   if (!value) return "-";
@@ -31,47 +32,52 @@ const getErrorMessage = (error: unknown, fallback: string) => {
   return error instanceof Error ? error.message : fallback;
 };
 
-const ModeratorPage: React.FC = () => {
-  const { user, token, isAuthenticated, isLoading } = useAuth();
+const ModeratorDashboard: React.FC = () => {
+  const { user, token, isAuthenticated, isLoading: authLoading } = useAuth();
+  const queryClient = useQueryClient();
 
-  const [jobs, setJobs] = useState<ModeratorJobPost[]>([]);
   const [selectedJob, setSelectedJob] = useState<ModeratorJobPost | null>(null);
-  const [loadingData, setLoadingData] = useState(true);
   const [actionId, setActionId] = useState<string | number | null>(null);
 
-  const loadJobs = useCallback(async () => {
-    if (!token) return;
+  const {
+    data: jobs = [],
+    isLoading: loadingData,
+    refetch,
+  } = useQuery({
+    queryKey: ["moderator", "pendingJobs", token],
+    queryFn: () => moderatorApi.listPendingJobs(token!),
+    enabled: !!token && isAuthenticated,
+    staleTime: 1000 * 60 * 5, // Cache trong 5 phút
+  });
 
-    setLoadingData(true);
+  const approveMutation = useMutation({
+    mutationFn: (jobId: string | number) => moderatorApi.approveJob(token!, jobId),
+    onSuccess: () => {
+      toast.success("Đã duyệt JD.");
+      queryClient.invalidateQueries({ queryKey: ["moderator", "pendingJobs"] });
+    },
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Không thể duyệt JD."));
+    },
+    onSettled: () => setActionId(null),
+  });
 
-    try {
-      const data = await moderatorApi.listPendingJobs(token);
-      setJobs(data);
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Không thể tải danh sách JD chờ duyệt."));
-    } finally {
-      setLoadingData(false);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    loadJobs();
-  }, [loadJobs]);
+  const rejectMutation = useMutation({
+    mutationFn: (jobId: string | number) => moderatorApi.rejectJob(token!, jobId),
+    onSuccess: () => {
+      toast.success("Đã từ chối JD.");
+      queryClient.invalidateQueries({ queryKey: ["moderator", "pendingJobs"] });
+    },
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Không thể từ chối JD."));
+    },
+    onSettled: () => setActionId(null),
+  });
 
   const handleApprove = async (job: ModeratorJobPost) => {
     if (!token) return;
-
     setActionId(job.id);
-
-    try {
-      await moderatorApi.approveJob(token, job.id);
-      toast.success("Đã duyệt JD.");
-      await loadJobs();
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Không thể duyệt JD."));
-    } finally {
-      setActionId(null);
-    }
+    approveMutation.mutate(job.id);
   };
 
   const handleReject = async (job: ModeratorJobPost) => {
@@ -81,19 +87,10 @@ const ModeratorPage: React.FC = () => {
     if (!confirmed) return;
 
     setActionId(job.id);
-
-    try {
-      await moderatorApi.rejectJob(token, job.id);
-      toast.success("Đã từ chối JD.");
-      await loadJobs();
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Không thể từ chối JD."));
-    } finally {
-      setActionId(null);
-    }
+    rejectMutation.mutate(job.id);
   };
 
-  if (isLoading) {
+  if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -126,7 +123,7 @@ const ModeratorPage: React.FC = () => {
               </p>
             </div>
 
-            <Button variant="outline" onClick={loadJobs} disabled={loadingData}>
+            <Button variant="outline" onClick={() => refetch()} disabled={loadingData}>
               {loadingData ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
@@ -278,4 +275,4 @@ const ModeratorPage: React.FC = () => {
   );
 };
 
-export default ModeratorPage;
+export default ModeratorDashboard;

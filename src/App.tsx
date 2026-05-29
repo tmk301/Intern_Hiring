@@ -16,7 +16,7 @@ import Profile from "./pages/Profile";
 import ResetPasswordPage from "./pages/ResetPassword";
 import AdminDashboard from "./pages/AdminDashboard";
 import RecruiterDashboard from "./pages/RecruiterDashboard";
-import ModeratorPage from "./pages/Moderator/ModeratorPage";
+import ModeratorDashboard from "./pages/ModeratorDashboard.tsx";
 import NotFound from "./pages/NotFound";
 import { isAdminRole, isModeratorRole, isRecruiterRole } from "./lib/roles";
 const queryClient = new QueryClient();
@@ -124,7 +124,7 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/recruiter" element={<RecruiterRoute><RecruiterDashboard /></RecruiterRoute>} />
-            <Route path="/moderator" element={<ModeratorRoute><ModeratorPage /></ModeratorRoute>} />
+            <Route path="/moderator" element={<ModeratorRoute><ModeratorDashboard /></ModeratorRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
