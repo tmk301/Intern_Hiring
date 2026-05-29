@@ -30,6 +30,7 @@ type SupabaseJob = {
   salary: string | null;
   description: string | null;
   status: string | null;
+  hidden: boolean | null;
   created_at: string | null;
   updated_at: string | null;
   deleted_at: string | null;
@@ -64,7 +65,7 @@ const getMaxNumber = (value?: string | null) => {
 
 const isVisibleJob = (job: SupabaseJob) => {
   const status = job.status?.toUpperCase();
-  return !job.deleted_at && !["TRASHED", "DELETED", "HIDDEN", "INACTIVE", "DRAFT"].includes(status ?? "");
+  return !job.deleted_at && !job.hidden && status === "APPROVED";
 };
 
 const matchesOption = (
@@ -241,7 +242,7 @@ const Jobs: React.FC = () => {
         loadManagedSiteConfig(),
         supabase
           .from("jobs")
-          .select("id,title,company,employer_name,employer_email,location,type,salary,description,status,created_at,updated_at,deleted_at")
+          .select("id,title,company,employer_name,employer_email,location,type,salary,description,status,hidden,created_at,updated_at,deleted_at")
           .order("created_at", { ascending: false }),
       ]);
 

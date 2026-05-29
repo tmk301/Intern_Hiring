@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
-import { adminApi, isApiError, recruiterApi, type AdminJobPost, type AdminUser, type AuditAction, type AuditLog, type AuditTargetType, type RecruiterApplication } from "@/lib/api";
+import { adminApi, isApiError, moderatorApi, recruiterApi, type AdminJobPost, type AdminUser, type AuditAction, type AuditLog, type AuditTargetType, type RecruiterApplication } from "@/lib/api";
 import { isAdminRole, USER_ROLES, type UserRole } from "@/lib/roles";
 import { CategoryManagementPanel } from "@/components/admin/CategoryManagementPanel";
 import { Button } from "@/components/ui/button";
@@ -44,10 +44,9 @@ type AdminSection = "users" | "jobs" | "employer-requests" | "categories" | "aud
 const getErrorMessage = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback);
 
 
-const isTrashedJob = (job: AdminJobPost) => {
-  const status = job.status?.toUpperCase();
-  return Boolean(job.deletedAt || status === "TRASHED" || status === "DELETED");
-};
+const isTrashedJob = (job: AdminJobPost) => Boolean(job.deletedAt);
+
+const normalizeJobStatus = (status?: string | null) => status?.trim().toUpperCase() || "PENDING";
 
 const formatDate = (value?: string | null, locale = "en-US") => {
   if (!value) return "-";
@@ -141,6 +140,10 @@ const AdminDashboard: React.FC = () => {
 
   const activeJobs = useMemo(() => jobs.filter((job) => !isTrashedJob(job)), [jobs]);
   const trashedJobs = useMemo(() => jobs.filter(isTrashedJob), [jobs]);
+  const pendingJobs = useMemo(
+    () => activeJobs.filter((job) => normalizeJobStatus(job.status) === "PENDING"),
+    [activeJobs],
+  );
   const pendingRequests = useMemo(
     () => requests.filter((request) => request.status === "PENDING"),
     [requests],
@@ -363,6 +366,27 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleReviewJob = async (job: AdminJobPost, approved: boolean) => {
+    if (!token) return;
+    if (!approved && !requireConfirm("Bạn chắc chắn muốn từ chối JD này?")) return;
+
+    setActionId(job.id);
+    try {
+      if (approved) {
+        await moderatorApi.approveJob(token, job.id);
+        toast.success("Đã duyệt JD.");
+      } else {
+        await moderatorApi.rejectJob(token, job.id);
+        toast.success("Đã từ chối JD.");
+      }
+      await loadData();
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, approved ? "Không thể duyệt JD." : "Không thể từ chối JD."));
+    } finally {
+      setActionId(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -424,7 +448,7 @@ const AdminDashboard: React.FC = () => {
               <Briefcase className="h-5 w-5 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{activeJobs.length}</div>
+              <div className="text-3xl font-bold">{pendingJobs.length}</div>
               <p className="text-xs text-muted-foreground">{t("admin.stats.trashCount", { count: trashedJobs.length })}</p>
             </CardContent>
           </Card>
@@ -582,6 +606,8 @@ const AdminDashboard: React.FC = () => {
                             <TableHead>{t("common.company")}</TableHead>
                             <TableHead>{t("common.recruiter")}</TableHead>
                             <TableHead>{t("admin.jobs.postedDate")}</TableHead>
+                            <TableHead>{t("common.status")}</TableHead>
+                            <TableHead>Ẩn</TableHead>
                             <TableHead className="text-center">{t("common.actions")}</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -593,11 +619,29 @@ const AdminDashboard: React.FC = () => {
                               <TableCell>{job.employerEmail || job.employerName || "-"}</TableCell>
                               <TableCell>{formatAdminDate(job.createdAt)}</TableCell>
                               <TableCell>
-                                <div className="flex justify-center gap-2">
+                                <Badge variant="outline" className={getRequestStatusBadgeClassName(job.status)}>
+                                  {normalizeJobStatus(job.status)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{job.hidden ? "Có" : "Không"}</TableCell>
+                              <TableCell>
+                                <div className="flex flex-wrap justify-center gap-2">
                                   <Button variant="outline" size="sm" onClick={() => setSelectedJob(job)}>
                                     <Eye className="h-4 w-4" />
                                     {t("common.details")}
                                   </Button>
+                                  {normalizeJobStatus(job.status) === "PENDING" && (
+                                    <>
+                                      <Button variant="outline" size="sm" disabled={actionId === job.id} onClick={() => handleReviewJob(job, true)}>
+                                        <CheckCircle2 className="h-4 w-4" />
+                                        Duyệt
+                                      </Button>
+                                      <Button variant="destructive" size="sm" disabled={actionId === job.id} onClick={() => handleReviewJob(job, false)}>
+                                        <XCircle className="h-4 w-4" />
+                                        Từ chối
+                                      </Button>
+                                    </>
+                                  )}
                                   <Button
                                     variant="destructive"
                                     size="sm"

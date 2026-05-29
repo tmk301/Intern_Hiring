@@ -136,6 +136,7 @@ export type AdminJobPost = {
   type?: string;
   salary?: string;
   status?: string;
+  hidden: boolean;
   description?: string;
   createdAt?: string;
   deletedAt?: string | null;
@@ -152,6 +153,7 @@ export type RecruiterJobPost = {
   salary: string | null;
   description: string | null;
   status: string | null;
+  hidden: boolean;
   created_at: string | null;
   updated_at: string | null;
   deleted_at: string | null;
@@ -407,11 +409,11 @@ export const recruiterApi = {
       body: JSON.stringify(data),
     }),
 
-  updateJobStatus: (token: string, id: string | number, status: string) =>
-    apiRequest<RecruiterJobPost>(`/api/recruiter/jobs/${encodeURIComponent(String(id))}/status`, {
+  updateJobHidden: (token: string, id: string | number, hidden: boolean) =>
+    apiRequest<RecruiterJobPost>(`/api/recruiter/jobs/${encodeURIComponent(String(id))}/hidden`, {
       method: "PATCH",
       headers: authHeaders(token),
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ hidden }),
     }),
 
   deleteJob: (token: string, id: string | number) =>
@@ -430,6 +432,7 @@ export type ModeratorJobPost = {
   salary?: string;
   type?: string;
   status?: string;
+  hidden: boolean;
   employerName?: string;
   employerEmail?: string;
   recruiterId?: string | number;
