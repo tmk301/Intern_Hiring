@@ -32,7 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const handleRestrictedSession = useCallback(async () => {
     await clearSession();
-    setRestrictedMessage('Tài khoản của bạn đang bị hạn chế. Vui lòng liên hệ quản trị viên.');
+    setRestrictedMessage("auth.restrictedMessage");
   }, [clearSession]);
 
   const fetchUserProfile = useCallback(async (accessToken: string) => {

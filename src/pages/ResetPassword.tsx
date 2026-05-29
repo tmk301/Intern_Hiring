@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +19,7 @@ const ResetPasswordPage: React.FC = () => {
     const [submitting, setSubmitting] = useState(false);
     const navigate = useNavigate();
     const { toast } = useToast();
+    const { t } = useTranslation();
 
     useEffect(() => {
         let recoveredSession = false;
@@ -29,11 +31,11 @@ const ResetPasswordPage: React.FC = () => {
 
         if (errorCode || searchParams.get("error")) {
             const messages: Record<string, string> = {
-                otp_expired: "Liên kết đặt lại mật khẩu đã hết hạn. Vui lòng gửi lại yêu cầu mới.",
-                access_denied: "Truy cập bị từ chối. Liên kết không hợp lệ hoặc đã hết hạn.",
+                otp_expired: t("resetPasswordPage.expired"),
+                access_denied: t("resetPasswordPage.accessDenied"),
             };
             setSessionActive(false);
-            setErrorMsg(messages[errorCode ?? ""] ?? errorDescription?.replace(/\+/g, " ") ?? "Liên kết không hợp lệ. Vui lòng gửi lại yêu cầu đặt lại mật khẩu.");
+            setErrorMsg(messages[errorCode ?? ""] ?? errorDescription?.replace(/\+/g, " ") ?? t("resetPasswordPage.invalidLink"));
             setLoading(false);
             return;
         }
@@ -57,22 +59,22 @@ const ResetPasswordPage: React.FC = () => {
                 recoveredSession = true;
                 setSessionActive(true);
             } else if (!recoveredSession) {
-                setErrorMsg("Không tìm thấy phiên đăng nhập từ liên kết. Vui lòng mở lại liên kết trong email hoặc gửi lại yêu cầu đặt lại mật khẩu.");
+                setErrorMsg(t("resetPasswordPage.missingSession"));
             }
             setLoading(false);
         };
         checkExisting();
 
         return () => subscription.unsubscribe();
-    }, []);
+    }, [t]);
 
     const handleSubmit = async () => {
         if (password.length < 6) {
-            toast({ title: "Lỗi", description: "Mật khẩu phải có ít nhất 6 ký tự", variant: "destructive" });
+            toast({ title: t("toast.error"), description: t("validation.passwordMin"), variant: "destructive" });
             return;
         }
         if (password !== confirmPassword) {
-            toast({ title: "Lỗi", description: "Mật khẩu xác nhận không khớp", variant: "destructive" });
+            toast({ title: t("toast.error"), description: t("validation.passwordMismatch"), variant: "destructive" });
             return;
         }
 
@@ -80,14 +82,14 @@ const ResetPasswordPage: React.FC = () => {
         try {
             const { error } = await supabase.auth.updateUser({ password });
             if (error) throw error;
-            toast({ title: "Thành công", description: "Mật khẩu đã được cập nhật. Vui lòng đăng nhập lại." });
+            toast({ title: t("toast.success"), description: t("resetPasswordPage.updateSuccess") });
             // After resetting password, redirect to login
             navigate("/login");
         } catch (err: unknown) {
             console.error("Update password error:", err);
             toast({
-                title: "Lỗi",
-                description: err instanceof Error ? err.message : "Không thể cập nhật mật khẩu",
+                title: t("toast.error"),
+                description: err instanceof Error ? err.message : t("resetPasswordPage.updateError"),
                 variant: "destructive",
             });
         } finally {
@@ -100,7 +102,7 @@ const ResetPasswordPage: React.FC = () => {
             <div className="container mx-auto flex h-full items-center justify-center px-4 py-4">
                 <Card className="w-full max-w-lg">
                     <CardHeader className="px-6 pt-6 pb-2">
-                        <CardTitle>Đặt lại mật khẩu</CardTitle>
+                        <CardTitle>{t("resetPasswordPage.title")}</CardTitle>
                     </CardHeader>
                     <Separator />
                     <CardContent className="p-6">
@@ -113,29 +115,29 @@ const ResetPasswordPage: React.FC = () => {
                                 <p className="text-sm text-destructive">{errorMsg}</p>
                                 <div className="flex gap-2">
                                     <Button variant="outline" onClick={() => navigate("/login")}>
-                                        Trở về đăng nhập
+                                        {t("resetPasswordPage.backToLogin")}
                                     </Button>
-                                    <Button onClick={() => navigate("/login")}>Gửi lại yêu cầu</Button>
+                                    <Button onClick={() => navigate("/login")}>{t("resetPasswordPage.resendRequest")}</Button>
                                 </div>
                             </div>
                         ) : sessionActive ? (
                             <div className="space-y-4">
                                 <div>
-                                    <Label>Mật khẩu mới</Label>
-                                    <Input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mật khẩu mới" className="mt-2" />
+                                    <Label>{t("resetPasswordPage.newPassword")}</Label>
+                                    <Input value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("resetPasswordPage.newPassword")} className="mt-2" />
                                 </div>
                                 <div>
-                                    <Label>Xác nhận mật khẩu</Label>
-                                    <Input value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Xác nhận mật khẩu" className="mt-2" />
+                                    <Label>{t("resetPasswordPage.confirmPassword")}</Label>
+                                    <Input value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder={t("resetPasswordPage.confirmPassword")} className="mt-2" />
                                 </div>
                                 <div className="flex justify-end">
                                     <Button onClick={handleSubmit} disabled={submitting}>
-                                        {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cập nhật mật khẩu"}
+                                        {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : t("resetPasswordPage.submit")}
                                     </Button>
                                 </div>
                             </div>
                         ) : (
-                            <p>Không có phiên hợp lệ để đặt lại mật khẩu.</p>
+                            <p>{t("resetPasswordPage.noValidSession")}</p>
                         )}
                     </CardContent>
                 </Card>

@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { ArrowRight, Loader2, Search } from "lucide-react";
-import { JobSearchFilters } from "@/components/jobs/JobSearchFilters";
+import { ArrowRight, Loader2, Briefcase, Users, Award } from "lucide-react";
 import mscBackground from "@/assets/msc.jpg";
 import { useAuth } from "@/context/AuthContext";
 import { Input } from "@/components/ui/input";
@@ -44,35 +44,34 @@ const corporatePartners = [
     { id: 16, name: "Smar", logo: "/carousel/Smar.webp" },
     { id: 17, name: "Smentor", logo: "/carousel/Smentor.webp" },
     { id: 18, name: "SP", logo: "/carousel/SP.webp" },
-    { id: 19, name: "Tâm Châu", logo: "/carousel/TC.webp" },
+    { id: 19, name: "Tam Chau", logo: "/carousel/TC.webp" },
     { id: 20, name: "VNPT", logo: "/carousel/VNPT.webp" },
     { id: 21, name: "WK", logo: "/carousel/WK.webp" },
     { id: 22, name: "YESCO", logo: "/carousel/YESCO.webp" },
 ];
 
-const featuredJobs = [
-    { id: 1, title: "Thực tập Frontend Developer", company: "ASL", location: "Hồ Chí Minh", type: "Thực tập", salary: "Thỏa thuận" },
-    { id: 2, title: "Junior Sales Executive", company: "Binemo", location: "Hà Nội", type: "Part-time", salary: "6-8 triệu" },
-    { id: 3, title: "Data Analyst Intern", company: "CP Group", location: "Remote", type: "Thực tập", salary: "Thỏa thuận" },
-];
-
 const Home: React.FC = () => {
     const navigate = useNavigate();
-    const { user, token, isAuthenticated } = useAuth();
+    const { t } = useTranslation();
+    const { token, isAuthenticated } = useAuth();
     const [managedConfig, setManagedConfig] = useState<ManagedSiteConfig>(defaultManagedSiteConfig);
+    const [searchKeyword, setSearchKeyword] = useState("");
     const [isEmployerDialogOpen, setIsEmployerDialogOpen] = useState(false);
     const [isSubmittingEmployerRequest, setIsSubmittingEmployerRequest] = useState(false);
     const [employerRequest, setEmployerRequest] = useState<Record<string, string>>({});
     const [recruiterFields, setRecruiterFields] = useState<RecruiterFormField[]>([]);
     const [loadingFields, setLoadingFields] = useState(false);
     const partnerList = managedConfig.partners.length > 0 ? managedConfig.partners : corporatePartners;
-    const midpoint = Math.ceil(partnerList.length / 2);
-    const firstPartnerRow = partnerList.slice(0, midpoint);
-    const secondPartnerRow = partnerList.slice(midpoint);
-    const partnerRows = [
-        { partners: firstPartnerRow, reverse: false },
-        { partners: secondPartnerRow, reverse: true },
-    ].filter((row) => row.partners.length > 0);
+    // split partners into multiple horizontal rows to increase vertical height
+    const rowsCount = 4;
+    const itemsPerRow = Math.max(1, Math.ceil(partnerList.length / rowsCount));
+    const partnerRows = Array.from({ length: rowsCount })
+        .map((_, idx) => {
+            const start = idx * itemsPerRow;
+            const partners = partnerList.slice(start, start + itemsPerRow);
+            return { partners, reverse: idx % 2 === 1 };
+        })
+        .filter((row) => row.partners.length > 0);
 
     useEffect(() => {
         let mounted = true;
@@ -96,7 +95,7 @@ const Home: React.FC = () => {
 
     const openEmployerRequestDialog = async () => {
         if (!isAuthenticated) {
-            toast.error("Vui lòng đăng nhập trước khi gửi yêu cầu xác thực nhà tuyển dụng.");
+            toast.error(t("home.employerRequest.loginRequired"));
             navigate("/login");
             return;
         }
@@ -108,7 +107,7 @@ const Home: React.FC = () => {
             setRecruiterFields(fields);
             setEmployerRequest({});
         } catch (error: unknown) {
-            toast.error(error instanceof Error ? error.message : "Không thể tải cấu hình form.");
+            toast.error(error instanceof Error ? error.message : t("home.employerRequest.loadFormError"));
         } finally {
             setLoadingFields(false);
         }
@@ -120,7 +119,23 @@ const Home: React.FC = () => {
         const requiredMissing = recruiterFields.some((field) => field.required && !employerRequest[field.name]?.trim());
 
         if (requiredMissing) {
-            toast.error("Vui lòng nhập đầy đủ các trường bắt buộc.");
+            toast.error(t("home.employerRequest.requiredMissing"));
+            return;
+        }
+
+        const invalidField = recruiterFields.find((field) => {
+            const value = employerRequest[field.name]?.trim();
+            if (!value || !field.validationRegex) return false;
+
+            try {
+                return !new RegExp(`^(?:${field.validationRegex})$`).test(value);
+            } catch {
+                return false;
+            }
+        });
+
+        if (invalidField) {
+            toast.error(t("home.employerRequest.invalidFormat", { field: invalidField.label }));
             return;
         }
 
@@ -132,14 +147,20 @@ const Home: React.FC = () => {
             }
 
             await recruiterApi.submitApplication(token, formData);
-            toast.success("Đã gửi yêu cầu xác thực nhà tuyển dụng.");
+            toast.success(t("home.employerRequest.success"));
             setEmployerRequest({});
             setIsEmployerDialogOpen(false);
         } catch (error: unknown) {
-            toast.error(error instanceof Error ? error.message : "Không thể gửi yêu cầu xác thực.");
+            toast.error(error instanceof Error ? error.message : t("home.employerRequest.submitError"));
         } finally {
             setIsSubmittingEmployerRequest(false);
         }
+    };
+
+    const submitHeroSearch = (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        const keyword = searchKeyword.trim();
+        navigate(keyword ? `/jobs?keyword=${encodeURIComponent(keyword)}` : "/jobs");
     };
 
     return (
@@ -147,77 +168,91 @@ const Home: React.FC = () => {
             {/* Hero: Job search */}
             <section id="trang-chu" className="relative scroll-mt-24 overflow-hidden py-20">
                 <div
-                    className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                    className="absolute inset-0 bg-cover bg-center bg-no-repeat hero-bg-zoom"
                     style={{ backgroundImage: `url(${mscBackground})` }}
                     aria-hidden="true"
                 />
                 <div className="absolute inset-0 bg-white/75" aria-hidden="true" />
                 <div className="absolute inset-0 bg-primary/10" aria-hidden="true" />
 
-                <div className="relative z-10 container mx-auto px-4 text-center">
+                <div className="relative z-10 container mx-auto px-4 text-center flex flex-col items-center justify-center min-h-[420px] md:min-h-[520px]">
                     <div className="mb-6">
                         <h1 className="text-5xl md:text-7xl font-extrabold mb-2 text-primary">
                             InternHiring
                         </h1>
                         <p className="text-2xl md:text-3xl font-medium text-black">
-                            Kết nối Sinh viên & Doanh nghiệp
+                            {t("home.heroSubtitle")}
                         </p>
                     </div>
 
                     <p className="text-lg text-black mb-8 max-w-3xl mx-auto">
-                        Tìm công việc thực tập, việc làm bán thời gian và cơ hội nghề nghiệp từ các công ty hàng đầu.
+                        {t("home.heroDescription")}
                     </p>
+                </div>
+            </section>
 
-                    <div className="max-w-3xl mx-auto">
-                        <div className="bg-white rounded-lg shadow-md p-4 flex gap-2 items-center">
-                            <div className="flex-1">
-                                <input
-                                    aria-label="Tìm kiếm công việc"
-                                    className="w-full h-12 px-4 rounded-md border border-gray-300 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
-                                    placeholder="Ví dụ: Frontend, Data, Sales..."
-                                />
+            {/* Featured Jobs */}
+            {/* About / Introduction */}
+            <section id="gioi-thieu" className="scroll-mt-24 py-12 bg-white">
+                <div className="container mx-auto px-4">
+                    <div className="max-w-4xl mx-auto text-center mb-6">
+                        <h2 className="text-3xl md:text-4xl font-bold mb-2">{t("home.aboutTitle")}</h2>
+                        <p className="text-lg text-muted-foreground mb-4">{t("home.aboutIntro")}</p>
+                        <p className="text-sm text-muted-foreground">{t("home.aboutIntroLong")}</p>
+                    </div>
+
+                    <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="rounded-xl p-[1px] bg-gradient-to-br from-primary-light to-primary">
+                            <div className="bg-card rounded-lg p-6 relative border border-primary/20">
+                                <div className="absolute -top-6 left-6 inline-flex items-center justify-center h-12 w-12 rounded-full bg-white text-primary shadow-md ring-1 ring-primary/10 z-10">
+                                    <Briefcase className="h-6 w-6" />
+                                </div>
+                                <div className="pt-8">
+                                    <h3 className="text-lg font-semibold mb-2">{t("home.aboutCardProjectTitle")}</h3>
+                                    <p className="text-sm text-muted-foreground">{t("home.aboutCardProjectBody")}</p>
+                                </div>
                             </div>
-                            <Button variant="cta" className="h-12 px-4">
-                                <Search className="mr-2 h-4 w-4" />
-                                Tìm kiếm
-                            </Button>
+                        </div>
+
+                        <div className="rounded-xl p-[1px] bg-gradient-to-br from-primary-light to-primary">
+                            <div className="bg-card rounded-lg p-6 relative border border-primary/20">
+                                <div className="absolute -top-6 left-6 inline-flex items-center justify-center h-12 w-12 rounded-full bg-white text-primary shadow-md ring-1 ring-primary/10 z-10">
+                                    <Users className="h-6 w-6" />
+                                </div>
+                                <div className="pt-8">
+                                    <h3 className="text-lg font-semibold mb-2">{t("home.aboutMissionTitle")}</h3>
+                                    <p className="text-sm text-muted-foreground">{t("home.aboutMission")}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="rounded-xl p-[1px] bg-gradient-to-br from-primary-light to-primary">
+                            <div className="bg-card rounded-lg p-6 relative border border-primary/20">
+                                <div className="absolute -top-6 left-6 inline-flex items-center justify-center h-12 w-12 rounded-full bg-white text-primary shadow-md ring-1 ring-primary/10 z-10">
+                                    <Award className="h-6 w-6" />
+                                </div>
+                                <div className="pt-8">
+                                    <h3 className="text-lg font-semibold mb-2">{t("home.aboutValuesTitle")}</h3>
+                                    <p className="text-sm text-muted-foreground">{t("home.aboutValues")}</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </section>
 
             {/* Featured Jobs */}
-            <section className="py-16">
+            <section id="viec-lam-noi-bat" className="scroll-mt-24 py-16">
                 <div className="container mx-auto px-4">
-                    <div id="tim-kiem" className="mb-8 scroll-mt-24">
-                        <JobSearchFilters options={managedConfig.filters} />
+                    <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-2xl font-bold">{t("home.featuredJobsTitle")}</h2>
+                        <Button variant="cta" size="lg" className="flex items-center gap-2" onClick={() => navigate("/jobs")}>{t("home.viewAll")} <ArrowRight className="ml-1 h-4 w-4" /></Button>
                     </div>
-
-                    <div id="viec-lam" className="flex scroll-mt-24 items-center justify-between mb-6">
-                        <h2 className="text-2xl font-bold">Việc làm nổi bật</h2>
-                        <Button variant="link" size="sm">Xem tất cả <ArrowRight className="ml-2 h-4 w-4" /></Button>
-                    </div>
-                    <div className="grid md:grid-cols-3 gap-4">
-                        {featuredJobs.map((job) => (
-                            <Card key={job.id} className="p-4">
-                                <CardContent className="p-0">
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <h3 className="font-semibold text-lg">{job.title}</h3>
-                                            <p className="text-sm text-muted-foreground">{job.company} • {job.location}</p>
-                                            <div className="mt-3 flex gap-2">
-                                                <span className="text-xs px-3 py-1 bg-muted rounded-full">{job.type}</span>
-                                                <span className="text-xs px-3 py-1 bg-muted rounded-full">{job.salary}</span>
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <Button variant="outline" size="sm">Nộp hồ sơ</Button>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
+                    <Card>
+                        <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                            {t("home.featuredJobsEmpty")}
+                        </CardContent>
+                    </Card>
                 </div>
             </section>
 
@@ -226,10 +261,10 @@ const Home: React.FC = () => {
                 <div className="container mx-auto px-4">
                     <div className="text-center mb-8">
                         <h2 className="text-4xl md:text-5xl font-extrabold mb-2 text-primary">
-                            Đối tác & Tập đoàn
+                            {t("home.partnersTitle")}
                         </h2>
                         <p className="text-2xl md:text-3xl font-medium text-black">
-                            Các công ty tuyển dụng hàng đầu
+                            {t("home.partnersSubtitle")}
                         </p>
                     </div>
                     <div className="mt-8 space-y-6 overflow-hidden">
@@ -237,7 +272,7 @@ const Home: React.FC = () => {
                             <div
                                 key={rowIndex}
                                 className="relative overflow-hidden"
-                                aria-label={`Dòng đối tác ${rowIndex + 1}`}
+                                aria-label={t("home.partnerRowAria", { number: rowIndex + 1 })}
                             >
                                 <div className={`partner-marquee ${row.reverse ? "partner-marquee-reverse" : ""}`}>
                                     {[...row.partners, ...row.partners].map((p, index) => {
@@ -266,26 +301,26 @@ const Home: React.FC = () => {
             <section id="tuyen-dung" className="scroll-mt-24 py-16 hero-gradient">
                 <div className="container mx-auto px-4 text-center text-white">
                     <h2 className="text-3xl font-bold mb-4">
-                        Bạn là nhà tuyển dụng? Hãy tiến thành xác thực với chúng tôi.
+                        {t("home.recruiterCtaTitle")}
                     </h2>
                     <div className="flex justify-center mt-6">
-                        <Button variant="secondary" onClick={openEmployerRequestDialog}>Yêu cầu xác thực</Button>
+                        <Button variant="secondary" onClick={openEmployerRequestDialog}>{t("home.recruiterCtaButton")}</Button>
                     </div>
                 </div>
             </section>
 
             <footer className="border-t bg-white py-6">
                 <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-                    © 2026 InternHiring MSC Center. All rights reserved.
+                    {t("home.footer")}
                 </div>
             </footer>
 
             <Dialog open={isEmployerDialogOpen} onOpenChange={setIsEmployerDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Yêu cầu xác thực nhà tuyển dụng</DialogTitle>
+                        <DialogTitle>{t("home.employerRequest.title")}</DialogTitle>
                         <DialogDescription>
-                            Gửi thông tin doanh nghiệp để quản trị viên duyệt quyền nhà tuyển dụng.
+                            {t("home.employerRequest.description")}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
@@ -301,7 +336,7 @@ const Home: React.FC = () => {
                                         {field.required && <span className="ml-1 text-destructive">*</span>}
                                     </Label>
                                     <Input
-                                        type={field.type.toLowerCase()}
+                                        type="text"
                                         value={employerRequest[field.name] || ""}
                                         onChange={(event) =>
                                             setEmployerRequest({ ...employerRequest, [field.name]: event.target.value })
@@ -315,11 +350,11 @@ const Home: React.FC = () => {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsEmployerDialogOpen(false)} disabled={isSubmittingEmployerRequest}>
-                            Hủy
+                            {t("home.employerRequest.cancel")}
                         </Button>
                         <Button onClick={submitEmployerRequest} disabled={isSubmittingEmployerRequest}>
                             {isSubmittingEmployerRequest && <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
-                            Gửi yêu cầu
+                            {t("home.employerRequest.submit")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

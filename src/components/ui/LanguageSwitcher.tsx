@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/select";
 
 export function LanguageSwitcher() {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
 
   const changeLanguage = (lng: string) => {
     i18n.changeLanguage(lng);
@@ -17,12 +17,12 @@ export function LanguageSwitcher() {
 
   return (
     <Select value={i18n.language} onValueChange={changeLanguage}>
-      <SelectTrigger className="w-[120px] h-9 text-sm border-none bg-transparent hover:bg-accent hover:text-accent-foreground">
-        <SelectValue placeholder="Language" />
+      <SelectTrigger className="w-[120px] h-9 text-sm border-none bg-transparent hover:bg-primary/10 hover:text-primary transition">
+        <SelectValue placeholder={t("language.placeholder")} />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="vi">Tiếng Việt</SelectItem>
-        <SelectItem value="en">English</SelectItem>
+        <SelectItem value="vi">{t("language.vi")}</SelectItem>
+        <SelectItem value="en">{t("language.en")}</SelectItem>
       </SelectContent>
     </Select>
   );

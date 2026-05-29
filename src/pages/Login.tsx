@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,7 +8,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { authApi, isApiError } from "@/lib/api";
-import { isAdminRole, isRestrictedAccount } from "@/lib/roles";
+import { isAdminRole, isRecruiterRole, isRestrictedAccount } from "@/lib/roles";
 import ResetPasswordDialog from "@/components/ResetPasswordDialog";
 import {
   Card,
@@ -29,20 +30,29 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
 
-const loginSchema = z.object({
-  email: z
-    .string()
-    .regex(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9._-]+\.[a-zA-Z]{2,}$/, "Email không hợp lệ"),
-  password: z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự"),
-});
+type LoginFormValues = {
+  email: string;
+  password: string;
+};
 
 const Login = () => {
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isResetOpen, setIsResetOpen] = useState(false);
   const navigate = useNavigate();
+  const loginSchema = useMemo(
+    () =>
+      z.object({
+        email: z
+          .string()
+          .regex(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9._-]+\.[a-zA-Z]{2,}$/, t("validation.emailInvalid")),
+        password: z.string().min(6, t("validation.passwordMin")),
+      }),
+    [t],
+  );
 
-  const form = useForm<z.infer<typeof loginSchema>>({
+  const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: "",
@@ -50,7 +60,7 @@ const Login = () => {
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof loginSchema>) => {
+  const onSubmit = async (values: LoginFormValues) => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -68,25 +78,27 @@ const Login = () => {
 
         if (isRestrictedAccount(profile)) {
           await supabase.auth.signOut();
-          toast.error("Tài khoản của bạn đang bị hạn chế và không thể đăng nhập vào hệ thống.");
+          toast.error(t("auth.restrictedLoginError"));
           return;
         }
 
         if (isAdminRole(profile.role)) {
           redirectTo = "/admin";
+        } else if (isRecruiterRole(profile.role)) {
+          redirectTo = "/recruiter";
         }
       }
 
-      toast.success("Đăng nhập thành công!");
+      toast.success(t("login.success"));
       navigate(redirectTo);
     } catch (error: unknown) {
       if (isApiError(error) && error.status === 403) {
         await supabase.auth.signOut();
-        toast.error("Tài khoản của bạn đang bị hạn chế và không thể đăng nhập vào hệ thống.");
+        toast.error(t("auth.restrictedLoginError"));
         return;
       }
 
-      toast.error(error instanceof Error ? error.message : "Không thể kết nối đến hệ thống");
+      toast.error(error instanceof Error ? error.message : t("auth.systemConnectionError"));
     } finally {
       setIsLoading(false);
     }
@@ -104,16 +116,16 @@ const Login = () => {
           <section className="hidden hero-gradient p-8 text-white md:flex md:flex-col md:justify-between">
             <div>
               <h1 className="text-3xl font-bold leading-tight">
-                Chào mừng bạn quay lại InternHiring
+                {t("login.heroTitle")}
               </h1>
               <p className="mt-4 max-w-sm text-sm leading-6 text-white/85">
-                Tiếp tục kết nối với chương trình thực tập, doanh nghiệp đối tác và các cơ hội phát triển nghề nghiệp.
+                {t("login.heroDescription")}
               </p>
             </div>
             <div className="flex items-center gap-3 rounded-lg bg-white/10 p-4">
               <ShieldCheck className="h-6 w-6 text-yellow-300" />
               <p className="text-sm text-white/90">
-                Tài khoản được xác thực qua Supabase Auth và đồng bộ với hồ sơ ứng viên.
+                {t("login.heroSecurity")}
               </p>
             </div>
           </section>
@@ -121,10 +133,10 @@ const Login = () => {
           <Card className="border-0 shadow-none">
             <CardHeader className="space-y-2 px-6 pb-4 pt-6 sm:px-8">
               <CardTitle className="text-2xl font-bold text-foreground">
-                Đăng nhập
+                {t("login.title")}
               </CardTitle>
               <CardDescription>
-                Nhập email và mật khẩu để truy cập tài khoản của bạn.
+                {t("login.description")}
               </CardDescription>
             </CardHeader>
             <CardContent className="px-6 pb-4 sm:px-8">
@@ -155,19 +167,19 @@ const Login = () => {
                     name="password"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Mật khẩu</FormLabel>
+                        <FormLabel>{t("login.passwordLabel")}</FormLabel>
                         <FormControl>
                           <div className="relative">
                             <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                             <Input
                               type={showPassword ? "text" : "password"}
-                              placeholder="Nhập mật khẩu"
+                              placeholder={t("login.passwordPlaceholder")}
                               className="h-10 pl-10 pr-10"
                               {...field}
                             />
                             <button
                               type="button"
-                              aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                              aria-label={showPassword ? t("login.hidePassword") : t("login.showPassword")}
                               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-primary"
                               onClick={() => setShowPassword((current) => !current)}
                             >
@@ -189,7 +201,7 @@ const Login = () => {
                       onClick={() => setIsResetOpen(true)}
                       className="text-sm text-primary hover:underline"
                     >
-                      Quên mật khẩu?
+                      {t("login.forgotPassword")}
                     </button>
                   </div>
 
@@ -204,16 +216,16 @@ const Login = () => {
                     ) : (
                       <ArrowRight className="mr-2 h-4 w-4" />
                     )}
-                    Đăng nhập
+                    {t("login.submit")}
                   </Button>
                 </form>
               </Form>
             </CardContent>
             <CardFooter className="flex justify-center border-t bg-secondary/40 px-6 py-4 sm:px-8">
               <p className="text-sm text-muted-foreground">
-                Chưa có tài khoản?{" "}
+                {t("login.noAccount")}{" "}
                 <Link to="/register" className="font-medium text-primary hover:underline">
-                  Đăng ký ngay
+                  {t("login.registerNow")}
                 </Link>
               </p>
             </CardFooter>

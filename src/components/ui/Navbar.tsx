@@ -16,7 +16,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { isAdminRole } from "@/lib/roles";
+import { isAdminRole, isRecruiterRole } from "@/lib/roles";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 
@@ -31,11 +31,13 @@ const Navbar = () => {
   };
 
   const navItems = [
-    { label: t("nav.search"), targetId: "tim-kiem" },
-    { label: t("nav.jobs"), targetId: "viec-lam" },
+    { label: t("nav.about"), targetId: "gioi-thieu" },
+    { label: t("nav.featured"), targetId: "viec-lam-noi-bat" },
     { label: t("nav.partners"), targetId: "doi-tac" },
     { label: t("nav.recruitment"), targetId: "tuyen-dung" },
   ];
+
+  type NavItem = (typeof navItems)[number];
 
   const scrollToSection = (targetId?: string) => {
     if (window.location.pathname !== "/") {
@@ -55,25 +57,34 @@ const Navbar = () => {
     }, 80);
   };
 
+  const handleNavItem = (item: NavItem) => {
+    if ("path" in item) {
+      navigate(item.path);
+      return;
+    }
+
+    scrollToSection(item.targetId);
+  };
+
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-white shadow-sm">
       <div className="container mx-auto relative flex h-16 items-center px-4">
 
         {/* LEFT - Logo */}
-        <button type="button" className="flex items-center" onClick={() => scrollToSection()}>
+        <button type="button" className="flex shrink-0 items-center" onClick={() => scrollToSection()}>
           <span className="font-bold text-xl text-primary">
             InternHiring
           </span>
         </button>
 
         {/* CENTER - Menu (desktop) */}
-        <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center gap-10 lg:gap-12">
+        <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 xl:flex 2xl:gap-10">
           {navItems.map((item) => (
             <button
-              key={item.targetId}
+              key={"path" in item ? item.path : item.targetId}
               type="button"
-              onClick={() => scrollToSection(item.targetId)}
-              className="text-sm font-semibold text-black hover:text-primary transition"
+              onClick={() => handleNavItem(item)}
+              className="whitespace-nowrap px-2 text-center text-sm font-semibold text-black transition hover:text-primary"
             >
               {item.label}
             </button>
@@ -81,13 +92,9 @@ const Navbar = () => {
         </div>
 
         {/* RIGHT */}
-        <div className="ml-auto flex items-center gap-3">
-          <div className="hidden md:flex">
-            <LanguageSwitcher />
-          </div>
-
+        <div className="ml-auto flex shrink-0 items-center gap-3">
           {/* DESKTOP AUTH */}
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden items-center gap-3 xl:flex">
             {isAuthenticated ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -108,8 +115,18 @@ const Navbar = () => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {isAdminRole(user?.role) && (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin">{t("nav.admin")}</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin?section=audit-logs">{t("nav.auditLog")}</Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  {isRecruiterRole(user?.role) && (
                     <DropdownMenuItem asChild>
-                      <Link to="/admin">Quản trị viên</Link>
+                      <Link to="/recruiter">{t("nav.recruiterDashboard")}</Link>
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem asChild>
@@ -126,7 +143,7 @@ const Navbar = () => {
                 <Button
                   variant="cta"
                   size="sm"
-                  className="bg-primary text-primary-foreground hover:bg-primary-dark"
+                  className="w-28 bg-primary text-primary-foreground hover:bg-primary-dark"
                   onClick={() => navigate("/login")}
                 >
                   {t("nav.login")}
@@ -134,17 +151,18 @@ const Navbar = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-primary bg-white text-primary hover:bg-primary/10 hover:text-primary"
+                  className="w-28 border-primary bg-white text-primary hover:bg-primary/10 hover:text-primary"
                   onClick={() => navigate("/register")}
                 >
-                  Đăng ký
+                  {t("nav.register")}
                 </Button>
               </>
             )}
+            <LanguageSwitcher />
           </div>
 
           {/* MOBILE MENU */}
-          <div className="md:hidden">
+          <div className="xl:hidden">
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon">
@@ -158,11 +176,11 @@ const Navbar = () => {
 
                   {/* MENU ITEMS */}
                   {navItems.map((item) => (
-                    <SheetClose asChild key={item.targetId}>
+                    <SheetClose asChild key={"path" in item ? item.path : item.targetId}>
                       <button
                         type="button"
-                        onClick={() => scrollToSection(item.targetId)}
-                        className="text-left text-base font-semibold"
+                        onClick={() => handleNavItem(item)}
+                        className="w-full text-left text-base font-semibold"
                       >
                         {item.label}
                       </button>
@@ -174,9 +192,21 @@ const Navbar = () => {
                     {isAuthenticated ? (
                       <>
                         {isAdminRole(user?.role) && (
-                          <Link to="/admin" className="mb-2 flex items-center gap-2 rounded-md p-2 hover:bg-muted transition">
+                          <>
+                            <Link to="/admin" className="mb-2 flex items-center gap-2 rounded-md p-2 hover:bg-muted transition">
+                              <UserIcon className="h-4 w-4" />
+                              <span className="text-sm font-medium">{t("nav.admin")}</span>
+                            </Link>
+                            <Link to="/admin?section=audit-logs" className="mb-2 flex items-center gap-2 rounded-md p-2 hover:bg-muted transition">
+                              <UserIcon className="h-4 w-4" />
+                              <span className="text-sm font-medium">{t("nav.auditLog")}</span>
+                            </Link>
+                          </>
+                        )}
+                        {isRecruiterRole(user?.role) && (
+                          <Link to="/recruiter" className="mb-2 flex items-center gap-2 rounded-md p-2 hover:bg-muted transition">
                             <UserIcon className="h-4 w-4" />
-                            <span className="text-sm font-medium">Quản trị viên</span>
+                            <span className="text-sm font-medium">{t("nav.recruiterDashboard")}</span>
                           </Link>
                         )}
                         <Link to="/profile" className="flex items-center gap-2 mb-2 rounded-md p-2 hover:bg-muted transition">
@@ -192,7 +222,7 @@ const Navbar = () => {
                           onClick={handleLogout}
                           className="w-full"
                         >
-                          Đăng xuất
+                          {t("nav.logout")}
                         </Button>
                       </>
                     ) : (
@@ -202,14 +232,14 @@ const Navbar = () => {
                           className="w-full mb-2 bg-primary text-primary-foreground hover:bg-primary-dark"
                           onClick={() => navigate("/login")}
                         >
-                          Đăng nhập
+                          {t("nav.login")}
                         </Button>
                         <Button
                           variant="outline"
                           className="w-full border-primary bg-white text-primary hover:bg-primary/10 hover:text-primary"
                           onClick={() => navigate("/register")}
                         >
-                          Đăng ký
+                          {t("nav.register")}
                         </Button>
                       </>
                     )}
