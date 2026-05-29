@@ -368,7 +368,12 @@
     "themeColor": "Màu trang cá nhân",
     "changeThemeColor": "Đổi màu trang cá nhân",
     "themeColorSaved": "Đã lưu màu trang cá nhân",
-    "themeColorSaveError": "Không thể lưu màu trang cá nhân"
+    "themeColorSaveError": "Không thể lưu màu trang cá nhân",
+    "matchAvatarColor": "Chọn màu trùng màu chủ đạo của avatar",
+    "matchAvatarColorShort": "Theo avatar",
+    "avatarColorMatched": "Đã chọn màu theo avatar.",
+    "avatarColorMissing": "Bạn cần tải avatar trước.",
+    "avatarColorMatchError": "Không thể lấy màu từ avatar."
   },
   "avatarCrop": {
     "title": "Cắt ảnh đại diện",

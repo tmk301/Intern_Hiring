@@ -78,6 +78,52 @@ const parseProfileDate = (value: string) => {
   return `${yearValue}-${monthValue}-${dayValue}`;
 };
 
+const rgbToHex = (red: number, green: number, blue: number) =>
+  `#${[red, green, blue].map((value) => value.toString(16).padStart(2, "0")).join("")}`;
+
+const getDominantImageColor = (imageUrl: string) =>
+  new Promise<string>((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      const size = 48;
+      canvas.width = size;
+      canvas.height = size;
+
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) {
+        reject(new Error("Canvas is not available"));
+        return;
+      }
+
+      context.drawImage(image, 0, 0, size, size);
+      const { data } = context.getImageData(0, 0, size, size);
+      let red = 0;
+      let green = 0;
+      let blue = 0;
+      let count = 0;
+
+      for (let index = 0; index < data.length; index += 16) {
+        const alpha = data[index + 3];
+        if (alpha < 128) continue;
+        red += data[index];
+        green += data[index + 1];
+        blue += data[index + 2];
+        count += 1;
+      }
+
+      if (!count) {
+        reject(new Error("No visible pixels found"));
+        return;
+      }
+
+      resolve(rgbToHex(Math.round(red / count), Math.round(green / count), Math.round(blue / count)));
+    };
+    image.onerror = () => reject(new Error("Avatar image could not be loaded"));
+    image.src = imageUrl;
+  });
+
 const Profile = () => {
   const { user, token, refreshUser } = useAuth();
   const navigate = useNavigate();
@@ -329,18 +375,43 @@ const Profile = () => {
     }
   };
 
-  const handleThemeColorChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const themeColor = e.target.value;
-
+  const saveThemeColor = async (themeColor: string, successMessage = t("profile.themeColorSaved")) => {
     setIsSavingTheme(true);
     try {
       await userApi.updateProfile(token, { themeColor });
       await refreshUser();
-      toast({ title: t("toast.success"), description: t("profile.themeColorSaved") });
+      toast({ title: t("toast.success"), description: successMessage });
     } catch (err: unknown) {
       toast({
         title: t("toast.error"),
         description: getErrorMessage(err, t("profile.themeColorSaveError")),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingTheme(false);
+    }
+  };
+
+  const handleThemeColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    saveThemeColor(e.target.value);
+  };
+
+  const handleMatchAvatarColor = async () => {
+    if (!user.avatarUrl) {
+      toast({ title: t("toast.error"), description: t("profile.avatarColorMissing"), variant: "destructive" });
+      return;
+    }
+
+    setIsSavingTheme(true);
+    try {
+      const themeColor = await getDominantImageColor(user.avatarUrl);
+      await userApi.updateProfile(token, { themeColor });
+      await refreshUser();
+      toast({ title: t("toast.success"), description: t("profile.avatarColorMatched") });
+    } catch (err: unknown) {
+      toast({
+        title: t("toast.error"),
+        description: getErrorMessage(err, t("profile.avatarColorMatchError")),
         variant: "destructive",
       });
     } finally {
@@ -375,17 +446,31 @@ const Profile = () => {
                     className="relative h-28 transition-colors duration-300"
                     style={{ background: `linear-gradient(135deg, ${profileThemeColor}cc, ${profileThemeColor})` }}
                   >
-                    <button
-                      type="button"
-                      onClick={() => themeColorInputRef.current?.click()}
-                      disabled={isSavingTheme}
-                      className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white/80 bg-white/95 shadow transition-transform hover:scale-110 disabled:opacity-50"
-                      style={{ color: profileThemeColor }}
-                      aria-label={t("profile.changeThemeColor")}
-                      title={profileThemeColor}
-                    >
-                      {isSavingTheme ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
-                    </button>
+                    <div className="absolute right-3 top-3 flex items-center gap-2 rounded-full bg-white/95 p-1 shadow">
+                      <button
+                        type="button"
+                        onClick={handleMatchAvatarColor}
+                        disabled={isSavingTheme}
+                        className="flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-colors hover:bg-slate-100 disabled:opacity-50"
+                        style={{ color: profileThemeColor }}
+                        aria-label={t("profile.matchAvatarColor")}
+                        title={t("profile.matchAvatarColor")}
+                      >
+                        {isSavingTheme ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                        {t("profile.matchAvatarColorShort")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => themeColorInputRef.current?.click()}
+                        disabled={isSavingTheme}
+                        className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-slate-100 disabled:opacity-50"
+                        style={{ color: profileThemeColor }}
+                        aria-label={t("profile.changeThemeColor")}
+                        title={profileThemeColor}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                    </div>
                     <input
                       ref={themeColorInputRef}
                       type="color"

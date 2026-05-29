@@ -357,7 +357,12 @@
     "themeColor": "Profile theme color",
     "changeThemeColor": "Change profile theme color",
     "themeColorSaved": "Profile color saved",
-    "themeColorSaveError": "Could not save profile color"
+    "themeColorSaveError": "Could not save profile color",
+    "matchAvatarColor": "Match the avatar dominant color",
+    "matchAvatarColorShort": "Match avatar",
+    "avatarColorMatched": "Matched theme color to avatar.",
+    "avatarColorMissing": "Upload an avatar first.",
+    "avatarColorMatchError": "Unable to read color from avatar."
   },
   "avatarCrop": {
     "title": "Crop avatar",
