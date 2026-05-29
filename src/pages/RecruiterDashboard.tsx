@@ -37,6 +37,7 @@ type RecruiterJob = {
   location: string | null;
   salary: string | null;
   status: string | null;
+  hidden: boolean;
   title: string | null;
   type: string | null;
   updated_at: string | null;
@@ -64,19 +65,13 @@ const emptyJobFormValue: JobFormValue = {
   description: "",
 };
 
-const visibleStatus = "ACTIVE";
-const hiddenStatus = "HIDDEN";
-
 const jobTypes = ["Internship", "Part-time", "Full-time"];
 
-const normalizeStatus = (status?: string | null) => status?.trim().toUpperCase() || visibleStatus;
+const normalizeStatus = (status?: string | null) => status?.trim().toUpperCase() || "PENDING";
 
-const isHiddenJob = (job: RecruiterJob) => normalizeStatus(job.status) === hiddenStatus;
+const isHiddenJob = (job: RecruiterJob) => job.hidden;
 
-const isDeletedJob = (job: RecruiterJob) => {
-  const status = normalizeStatus(job.status);
-  return Boolean(job.deleted_at || status === "TRASHED" || status === "DELETED");
-};
+const isDeletedJob = (job: RecruiterJob) => Boolean(job.deleted_at);
 
 const formatDate = (value?: string | null, locale = "en-US") => {
   if (!value) return "-";
@@ -87,17 +82,12 @@ const formatDate = (value?: string | null, locale = "en-US") => {
 
 const getStatusBadgeClassName = (status?: string | null) => {
   switch (normalizeStatus(status)) {
-    case hiddenStatus:
-      return "border-amber-200 bg-amber-50 text-amber-700";
-    case "TRASHED":
-    case "DELETED":
-      return "border-red-200 bg-red-50 text-red-700";
-    case visibleStatus:
     case "APPROVED":
-    case "PENDING":
-    case "VISIBLE":
-    case "PUBLISHED":
       return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "PENDING":
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    case "REJECTED":
+      return "border-red-200 bg-red-50 text-red-700";
     default:
       return "border-slate-200 bg-slate-50 text-slate-700";
   }
@@ -206,13 +196,13 @@ const RecruiterDashboard: React.FC = () => {
     }
   };
 
-  const updateJobStatus = async (job: RecruiterJob, status: string) => {
+  const updateJobHidden = async (job: RecruiterJob, hidden: boolean) => {
     if (!token) return;
 
     setActionId(job.id);
     try {
-      await recruiterApi.updateJobStatus(token, job.id, status);
-      toast.success(status === hiddenStatus ? t("recruiter.toast.hideSuccess") : t("recruiter.toast.showSuccess"));
+      await recruiterApi.updateJobHidden(token, job.id, hidden);
+      toast.success(hidden ? t("recruiter.toast.hideSuccess") : t("recruiter.toast.showSuccess"));
       await loadJobs();
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : t("recruiter.toast.statusError"));
@@ -464,7 +454,7 @@ const RecruiterDashboard: React.FC = () => {
                                 size="sm"
                                 className="w-auto"
                                 disabled={actionId === job.id}
-                                onClick={() => updateJobStatus(job, visibleStatus)}
+                                onClick={() => updateJobHidden(job, false)}
                               >
                                 <Eye className="h-4 w-4" />
                                 {t("recruiter.jobs.show")}
@@ -476,7 +466,7 @@ const RecruiterDashboard: React.FC = () => {
                                 size="sm"
                                 className="w-auto"
                                 disabled={actionId === job.id}
-                                onClick={() => updateJobStatus(job, hiddenStatus)}
+                                onClick={() => updateJobHidden(job, true)}
                               >
                                 <EyeOff className="h-4 w-4" />
                                 {t("recruiter.jobs.hide")}
