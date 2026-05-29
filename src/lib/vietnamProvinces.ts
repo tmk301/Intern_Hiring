@@ -1,6 +1,6 @@
 import type { JobFilterOption } from "@/components/jobs/jobFilterConfig";
 
-const VIETNAM_PROVINCES_API_BASE_URL = "https://provinces.open-api.vn/api/v1";
+const VIETNAM_PROVINCES_API_BASE_URL = "https://provinces.open-api.vn/api/v2";
 
 type VietnamProvince = {
   name: string;
@@ -8,15 +8,6 @@ type VietnamProvince = {
   division_type?: string;
   codename?: string;
   phone_code?: number;
-  districts?: VietnamDistrict[] | null;
-};
-
-type VietnamDistrict = {
-  name: string;
-  code: number;
-  division_type?: string;
-  codename?: string;
-  province_code?: number;
   wards?: VietnamWard[] | null;
 };
 
@@ -25,11 +16,10 @@ type VietnamWard = {
   code: number;
   division_type?: string;
   codename?: string;
-  district_code?: number;
+  province_code?: number;
 };
 
 let provinceOptionsCache: Promise<JobFilterOption[]> | null = null;
-const districtOptionsCache = new Map<string, Promise<JobFilterOption[]>>();
 const wardOptionsCache = new Map<string, Promise<JobFilterOption[]>>();
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -47,12 +37,12 @@ const normalizeForAlias = (value: string) =>
 
 const stripAdministrativePrefix = (name: string) =>
   normalizeForAlias(name)
-    .replace(/^(thanh pho|tinh|quan|huyen|thi xa|phuong|xa|thi tran)\s+/i, "")
+    .replace(/^(thanh pho|tinh|quan|huyen|thi xa|phuong|xa|thi tran|dac khu)\s+/i, "")
     .trim();
 
 const codenameToLabel = (codename?: string) =>
   codename
-    ?.replace(/^(thanh_pho|tinh|quan|huyen|thi_xa|phuong|xa|thi_tran)_/, "")
+    ?.replace(/^(thanh_pho|tinh|quan|huyen|thi_xa|phuong|xa|thi_tran|dac_khu)_/, "")
     .replace(/_/g, " ")
     .trim();
 
@@ -110,40 +100,17 @@ export async function getVietnamProvinceOptions() {
   return provinceOptionsCache;
 }
 
-export async function getVietnamDistrictOptions(provinceCode: string) {
+export async function getVietnamWardOptions(provinceCode: string) {
   if (!provinceCode) return [];
 
   const cacheKey = String(provinceCode);
-  const cached = districtOptionsCache.get(cacheKey);
+  const cached = wardOptionsCache.get(cacheKey);
 
   if (cached) return cached;
 
   const request = fetchJson<VietnamProvince>(`/p/${encodeURIComponent(cacheKey)}?depth=2`)
     .then((province) =>
-      (Array.isArray(province.districts) ? province.districts : [])
-        .filter(hasRequiredAdministrativeFields)
-        .map(toFilterOption),
-    )
-    .catch((error) => {
-      districtOptionsCache.delete(cacheKey);
-      throw error;
-    });
-
-  districtOptionsCache.set(cacheKey, request);
-  return request;
-}
-
-export async function getVietnamWardOptions(districtCode: string) {
-  if (!districtCode) return [];
-
-  const cacheKey = String(districtCode);
-  const cached = wardOptionsCache.get(cacheKey);
-
-  if (cached) return cached;
-
-  const request = fetchJson<VietnamDistrict>(`/d/${encodeURIComponent(cacheKey)}?depth=2`)
-    .then((district) =>
-      (Array.isArray(district.wards) ? district.wards : [])
+      (Array.isArray(province.wards) ? province.wards : [])
         .filter(hasRequiredAdministrativeFields)
         .map(toFilterOption),
     )
