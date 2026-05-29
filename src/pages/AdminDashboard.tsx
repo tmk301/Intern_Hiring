@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Navigate, useSearchParams } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import {
   AlertTriangle,
   Briefcase,
-  ClipboardList,
   CheckCircle2,
   Eye,
   FileCheck2,
@@ -20,7 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
-import { adminApi, isApiError, moderatorApi, recruiterApi, type AdminJobPost, type AdminUser, type AuditAction, type AuditLog, type AuditTargetType, type RecruiterApplication } from "@/lib/api";
+import { adminApi, isApiError, recruiterApi, type AdminJobPost, type AdminUser, type RecruiterApplication } from "@/lib/api";
 import { isAdminRole, USER_ROLES, type UserRole } from "@/lib/roles";
 import { CategoryManagementPanel } from "@/components/admin/CategoryManagementPanel";
 import { Button } from "@/components/ui/button";
@@ -39,14 +38,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 
-type AdminSection = "users" | "jobs" | "employer-requests" | "categories" | "audit-logs";
+type AdminSection = "users" | "jobs" | "employer-requests" | "categories";
 
 const getErrorMessage = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback);
 
 
-const isTrashedJob = (job: AdminJobPost) => Boolean(job.deletedAt);
-
-const normalizeJobStatus = (status?: string | null) => status?.trim().toUpperCase() || "PENDING";
+const isTrashedJob = (job: AdminJobPost) => {
+  const status = job.status?.toUpperCase();
+  return Boolean(job.deletedAt || status === "TRASHED" || status === "DELETED");
+};
 
 const formatDate = (value?: string | null, locale = "en-US") => {
   if (!value) return "-";
@@ -96,41 +96,13 @@ const getRequestStatusBadgeClassName = (status?: string | null) => {
   }
 };
 
-const auditActions: AuditAction[] = [
-  "USER_ROLE_UPDATED",
-  "USER_RESTRICTION_UPDATED",
-  "ADMIN_JOB_CREATED",
-  "ADMIN_JOB_TRASHED",
-  "ADMIN_JOB_RESTORED",
-  "ADMIN_JOB_DELETED",
-  "JOB_APPROVED",
-  "JOB_REJECTED",
-  "CATEGORY_CREATED",
-  "CATEGORY_UPDATED",
-  "CATEGORY_DELETED",
-  "RECRUITER_APPLICATION_APPROVED",
-  "RECRUITER_APPLICATION_REJECTED",
-  "RECRUITER_FORM_FIELD_CREATED",
-  "RECRUITER_FORM_FIELD_UPDATED",
-  "RECRUITER_FORM_FIELD_DELETED",
-];
-
-const auditTargetTypes: AuditTargetType[] = ["USER", "JOB", "CATEGORY_OPTION", "RECRUITER_APPLICATION", "RECRUITER_FORM_FIELD"];
-
 const AdminDashboard: React.FC = () => {
   const { t, i18n } = useTranslation();
-  const [searchParams, setSearchParams] = useSearchParams();
   const { user, token, isAuthenticated, isLoading } = useAuth();
   const [activeSection, setActiveSection] = useState<AdminSection>("users");
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [jobs, setJobs] = useState<AdminJobPost[]>([]);
   const [requests, setRequests] = useState<RecruiterApplication[]>([]);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [auditTotal, setAuditTotal] = useState(0);
-  const [auditPage, setAuditPage] = useState(0);
-  const [auditAction, setAuditAction] = useState<AuditAction | "">("");
-  const [auditTargetType, setAuditTargetType] = useState<AuditTargetType | "">("");
-  const [auditActorEmail, setAuditActorEmail] = useState("");
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [selectedJob, setSelectedJob] = useState<AdminJobPost | null>(null);
   const [rejectingRequest, setRejectingRequest] = useState<RecruiterApplication | null>(null);
@@ -140,44 +112,12 @@ const AdminDashboard: React.FC = () => {
 
   const activeJobs = useMemo(() => jobs.filter((job) => !isTrashedJob(job)), [jobs]);
   const trashedJobs = useMemo(() => jobs.filter(isTrashedJob), [jobs]);
-  const pendingJobs = useMemo(
-    () => activeJobs.filter((job) => normalizeJobStatus(job.status) === "PENDING"),
-    [activeJobs],
-  );
   const pendingRequests = useMemo(
     () => requests.filter((request) => request.status === "PENDING"),
     [requests],
   );
   const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
   const formatAdminDate = useCallback((value?: string | null) => formatDate(value, dateLocale), [dateLocale]);
-
-  useEffect(() => {
-    if (searchParams.get("section") === "audit-logs") {
-      setActiveSection("audit-logs");
-    }
-  }, [searchParams]);
-
-  const openSection = (section: AdminSection) => {
-    setActiveSection(section);
-    setSearchParams(section === "audit-logs" ? { section } : {});
-  };
-
-  const loadAuditLogs = useCallback(async () => {
-    if (!token) return;
-    try {
-      const page = await adminApi.listAuditLogs(token, {
-        page: auditPage,
-        size: 20,
-        action: auditAction,
-        targetType: auditTargetType,
-        actorEmail: auditActorEmail.trim(),
-      });
-      setAuditLogs(page.content);
-      setAuditTotal(page.totalElements);
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, t("admin.auditLogs.loadError")));
-    }
-  }, [auditAction, auditActorEmail, auditPage, auditTargetType, token, t]);
 
   const loadData = useCallback(async () => {
     if (!token) return;
@@ -203,12 +143,6 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  useEffect(() => {
-    if (activeSection === "audit-logs") {
-      loadAuditLogs();
-    }
-  }, [activeSection, loadAuditLogs]);
 
   const requireConfirm = (message: string) => window.confirm(message);
 
@@ -366,27 +300,6 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleReviewJob = async (job: AdminJobPost, approved: boolean) => {
-    if (!token) return;
-    if (!approved && !requireConfirm("Bạn chắc chắn muốn từ chối JD này?")) return;
-
-    setActionId(job.id);
-    try {
-      if (approved) {
-        await moderatorApi.approveJob(token, job.id);
-        toast.success("Đã duyệt JD.");
-      } else {
-        await moderatorApi.rejectJob(token, job.id);
-        toast.success("Đã từ chối JD.");
-      }
-      await loadData();
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, approved ? "Không thể duyệt JD." : "Không thể từ chối JD."));
-    } finally {
-      setActionId(null);
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -424,10 +337,10 @@ const AdminDashboard: React.FC = () => {
       </section>
 
       <section className="container mx-auto space-y-6 px-4 py-8">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Card
             className={`cursor-pointer transition hover:shadow-md ${activeSection === "users" ? "border-primary" : ""}`}
-            onClick={() => openSection("users")}
+            onClick={() => setActiveSection("users")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t("admin.stats.usersTitle")}</CardTitle>
@@ -441,14 +354,14 @@ const AdminDashboard: React.FC = () => {
 
           <Card
             className={`cursor-pointer transition hover:shadow-md ${activeSection === "jobs" ? "border-primary" : ""}`}
-            onClick={() => openSection("jobs")}
+            onClick={() => setActiveSection("jobs")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t("admin.stats.jobsTitle")}</CardTitle>
               <Briefcase className="h-5 w-5 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{pendingJobs.length}</div>
+              <div className="text-3xl font-bold">{activeJobs.length}</div>
               <p className="text-xs text-muted-foreground">{t("admin.stats.trashCount", { count: trashedJobs.length })}</p>
             </CardContent>
           </Card>
@@ -457,7 +370,7 @@ const AdminDashboard: React.FC = () => {
             className={`cursor-pointer transition hover:shadow-md ${
               activeSection === "employer-requests" ? "border-primary" : ""
             }`}
-            onClick={() => openSection("employer-requests")}
+            onClick={() => setActiveSection("employer-requests")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t("admin.stats.requestsTitle")}</CardTitle>
@@ -471,7 +384,7 @@ const AdminDashboard: React.FC = () => {
 
           <Card
             className={`cursor-pointer transition hover:shadow-md ${activeSection === "categories" ? "border-primary" : ""}`}
-            onClick={() => openSection("categories")}
+            onClick={() => setActiveSection("categories")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t("admin.stats.categoriesTitle")}</CardTitle>
@@ -479,20 +392,6 @@ const AdminDashboard: React.FC = () => {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">{t("admin.stats.categoriesDescription")}</p>
-            </CardContent>
-          </Card>
-
-          <Card
-            className={`cursor-pointer transition hover:shadow-md ${activeSection === "audit-logs" ? "border-primary" : ""}`}
-            onClick={() => openSection("audit-logs")}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("admin.stats.auditLogsTitle")}</CardTitle>
-              <ClipboardList className="h-5 w-5 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{auditTotal}</div>
-              <p className="text-xs text-muted-foreground">{t("admin.stats.auditLogsDescription")}</p>
             </CardContent>
           </Card>
         </div>
@@ -606,8 +505,6 @@ const AdminDashboard: React.FC = () => {
                             <TableHead>{t("common.company")}</TableHead>
                             <TableHead>{t("common.recruiter")}</TableHead>
                             <TableHead>{t("admin.jobs.postedDate")}</TableHead>
-                            <TableHead>{t("common.status")}</TableHead>
-                            <TableHead>Ẩn</TableHead>
                             <TableHead className="text-center">{t("common.actions")}</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -619,29 +516,11 @@ const AdminDashboard: React.FC = () => {
                               <TableCell>{job.employerEmail || job.employerName || "-"}</TableCell>
                               <TableCell>{formatAdminDate(job.createdAt)}</TableCell>
                               <TableCell>
-                                <Badge variant="outline" className={getRequestStatusBadgeClassName(job.status)}>
-                                  {normalizeJobStatus(job.status)}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>{job.hidden ? "Có" : "Không"}</TableCell>
-                              <TableCell>
-                                <div className="flex flex-wrap justify-center gap-2">
+                                <div className="flex justify-center gap-2">
                                   <Button variant="outline" size="sm" onClick={() => setSelectedJob(job)}>
                                     <Eye className="h-4 w-4" />
                                     {t("common.details")}
                                   </Button>
-                                  {normalizeJobStatus(job.status) === "PENDING" && (
-                                    <>
-                                      <Button variant="outline" size="sm" disabled={actionId === job.id} onClick={() => handleReviewJob(job, true)}>
-                                        <CheckCircle2 className="h-4 w-4" />
-                                        Duyệt
-                                      </Button>
-                                      <Button variant="destructive" size="sm" disabled={actionId === job.id} onClick={() => handleReviewJob(job, false)}>
-                                        <XCircle className="h-4 w-4" />
-                                        Từ chối
-                                      </Button>
-                                    </>
-                                  )}
                                   <Button
                                     variant="destructive"
                                     size="sm"
@@ -809,79 +688,6 @@ const AdminDashboard: React.FC = () => {
 
             {activeSection === "categories" && token && (
               <CategoryManagementPanel token={token} />
-            )}
-
-            {activeSection === "audit-logs" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t("admin.auditLogs.title")}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-3 md:grid-cols-4">
-                    <Select value={auditAction || "all"} onValueChange={(value) => { setAuditPage(0); setAuditAction(value === "all" ? "" : value as AuditAction); }}>
-                      <SelectTrigger><SelectValue placeholder={t("admin.auditLogs.action")} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">{t("admin.auditLogs.allActions")}</SelectItem>
-                        {auditActions.map((action) => <SelectItem key={action} value={action}>{t(`admin.auditLogs.actions.${action}`, { defaultValue: action })}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <Select value={auditTargetType || "all"} onValueChange={(value) => { setAuditPage(0); setAuditTargetType(value === "all" ? "" : value as AuditTargetType); }}>
-                      <SelectTrigger><SelectValue placeholder={t("admin.auditLogs.targetType")} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">{t("admin.auditLogs.allTargets")}</SelectItem>
-                        {auditTargetTypes.map((target) => <SelectItem key={target} value={target}>{t(`admin.auditLogs.targets.${target}`, { defaultValue: target })}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <input
-                      className="rounded-md border px-3 py-2 text-sm"
-                      value={auditActorEmail}
-                      onChange={(event) => { setAuditPage(0); setAuditActorEmail(event.target.value); }}
-                      placeholder={t("admin.auditLogs.actorPlaceholder")}
-                    />
-                    <Button variant="outline" onClick={loadAuditLogs}>
-                      <RefreshCw className="h-4 w-4" />
-                      {t("common.refresh")}
-                    </Button>
-                  </div>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t("admin.auditLogs.time")}</TableHead>
-                        <TableHead>{t("admin.auditLogs.actor")}</TableHead>
-                        <TableHead>{t("admin.auditLogs.action")}</TableHead>
-                        <TableHead>{t("admin.auditLogs.target")}</TableHead>
-                        <TableHead>{t("common.description")}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {auditLogs.map((log) => (
-                        <TableRow key={log.id}>
-                          <TableCell className="whitespace-nowrap text-xs">{formatAdminDate(log.createdAt)}</TableCell>
-                          <TableCell>{log.actorEmail}</TableCell>
-                          <TableCell><Badge variant="outline">{t(`admin.auditLogs.actions.${log.action}`, { defaultValue: log.action })}</Badge></TableCell>
-                          <TableCell>{t(`admin.auditLogs.targets.${log.targetType}`, { defaultValue: log.targetType })} #{log.targetId ?? "-"}</TableCell>
-                          <TableCell>
-                            <div>{log.description}</div>
-                            {log.metadata && Object.keys(log.metadata).length > 0 && (
-                              <div className="mt-1 text-xs text-muted-foreground">
-                                {Object.entries(log.metadata).map(([key, value]) => `${key}: ${value}`).join(" · ")}
-                              </div>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  {auditLogs.length === 0 && <p className="py-8 text-center text-muted-foreground">{t("admin.auditLogs.empty")}</p>}
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>{t("admin.auditLogs.total", { count: auditTotal })}</span>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" disabled={auditPage === 0} onClick={() => setAuditPage((page) => Math.max(0, page - 1))}>{t("admin.auditLogs.previous")}</Button>
-                      <Button variant="outline" size="sm" disabled={(auditPage + 1) * 20 >= auditTotal} onClick={() => setAuditPage((page) => page + 1)}>{t("admin.auditLogs.next")}</Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
             )}
           </>
         )}
