@@ -167,6 +167,55 @@ export type RecruiterJobPayload = {
   description: string;
 };
 
+export type AuditAction =
+  | "USER_ROLE_UPDATED"
+  | "USER_RESTRICTION_UPDATED"
+  | "ADMIN_JOB_CREATED"
+  | "ADMIN_JOB_TRASHED"
+  | "ADMIN_JOB_RESTORED"
+  | "ADMIN_JOB_DELETED"
+  | "JOB_APPROVED"
+  | "JOB_REJECTED"
+  | "CATEGORY_CREATED"
+  | "CATEGORY_UPDATED"
+  | "CATEGORY_DELETED"
+  | "RECRUITER_APPLICATION_APPROVED"
+  | "RECRUITER_APPLICATION_REJECTED"
+  | "RECRUITER_FORM_FIELD_CREATED"
+  | "RECRUITER_FORM_FIELD_UPDATED"
+  | "RECRUITER_FORM_FIELD_DELETED";
+
+export type AuditTargetType = "USER" | "JOB" | "CATEGORY_OPTION" | "RECRUITER_APPLICATION" | "RECRUITER_FORM_FIELD";
+
+export type AuditLog = {
+  id: number;
+  actorId?: number | null;
+  actorEmail: string;
+  actorRole: string;
+  action: AuditAction;
+  targetType: AuditTargetType;
+  targetId?: number | null;
+  description: string;
+  metadata: Record<string, string>;
+  createdAt: string;
+};
+
+export type PageResponse<T> = {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+};
+
+export type AuditLogFilters = {
+  page?: number;
+  size?: number;
+  action?: AuditAction | "";
+  targetType?: AuditTargetType | "";
+  actorEmail?: string;
+};
+
 export const adminApi = {
   listUsers: (token: string) =>
     apiRequest<AdminUser[]>("/api/admin/users", {
@@ -186,6 +235,17 @@ export const adminApi = {
       method: "PATCH",
       headers: authHeaders(token),
       body: JSON.stringify({ role }),
+    }),
+
+  listAuditLogs: (token: string, filters: AuditLogFilters = {}) =>
+    apiRequest<PageResponse<AuditLog>>("/api/admin/audit-logs", {
+      headers: authHeaders(token),
+      params: {
+        ...filters,
+        action: filters.action || undefined,
+        targetType: filters.targetType || undefined,
+        actorEmail: filters.actorEmail || undefined,
+      },
     }),
 
   listJobs: (token: string, includeTrash = true) =>

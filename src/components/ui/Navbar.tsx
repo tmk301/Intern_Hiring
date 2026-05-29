@@ -115,9 +115,14 @@ const Navbar = () => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {isAdminRole(user?.role) && (
-                    <DropdownMenuItem asChild>
-                      <Link to="/admin">{t("nav.admin")}</Link>
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin">{t("nav.admin")}</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin?section=audit-logs">{t("nav.auditLog")}</Link>
+                      </DropdownMenuItem>
+                    </>
                   )}
                   {isRecruiterRole(user?.role) && (
                     <DropdownMenuItem asChild>
@@ -187,10 +192,16 @@ const Navbar = () => {
                     {isAuthenticated ? (
                       <>
                         {isAdminRole(user?.role) && (
-                          <Link to="/admin" className="mb-2 flex items-center gap-2 rounded-md p-2 hover:bg-muted transition">
-                            <UserIcon className="h-4 w-4" />
-                            <span className="text-sm font-medium">{t("nav.admin")}</span>
-                          </Link>
+                          <>
+                            <Link to="/admin" className="mb-2 flex items-center gap-2 rounded-md p-2 hover:bg-muted transition">
+                              <UserIcon className="h-4 w-4" />
+                              <span className="text-sm font-medium">{t("nav.admin")}</span>
+                            </Link>
+                            <Link to="/admin?section=audit-logs" className="mb-2 flex items-center gap-2 rounded-md p-2 hover:bg-muted transition">
+                              <UserIcon className="h-4 w-4" />
+                              <span className="text-sm font-medium">{t("nav.auditLog")}</span>
+                            </Link>
+                          </>
                         )}
                         {isRecruiterRole(user?.role) && (
                           <Link to="/recruiter" className="mb-2 flex items-center gap-2 rounded-md p-2 hover:bg-muted transition">

@@ -65,7 +65,8 @@
     "jobs": "Việc làm",
     "partners": "Đối tác",
     "recruitment": "Tuyển dụng",
-    "recruiterDashboard": "Tuyển dụng"
+    "recruiterDashboard": "Tuyển dụng",
+    "auditLog": "Nhật ký audit"
   },
   "auth": {
     "restrictedMessage": "Tài khoản của bạn đang bị hạn chế. Vui lòng liên hệ quản trị viên.",
@@ -409,7 +410,9 @@
       "requestsTitle": "Duyệt nhà tuyển dụng",
       "requestsDescription": "Yêu cầu đang chờ duyệt",
       "categoriesTitle": "Quản lý danh mục",
-      "categoriesDescription": "Danh mục & Form xác thực"
+      "categoriesDescription": "Danh mục & Form xác thực",
+      "auditLogsTitle": "Audit log",
+      "auditLogsDescription": "Theo dõi thao tác admin"
     },
     "users": {
       "title": "Danh sách tài khoản người dùng",
@@ -505,6 +508,47 @@
       "invalidRegex": "Regex không hợp lệ.",
       "noRegex": "Không áp dụng",
       "newFieldsHint": "Các trường mới sẽ xuất hiện trong form yêu cầu xác thực ở trang chủ và được lưu vào phần dữ liệu bổ sung của yêu cầu."
+    },
+    "auditLogs": {
+      "loadError": "Không thể tải audit log.",
+      "title": "Nhật ký hoạt động quản trị",
+      "action": "Hành động",
+      "targetType": "Đối tượng",
+      "allActions": "Tất cả hành động",
+      "allTargets": "Tất cả đối tượng",
+      "actorPlaceholder": "Lọc theo email admin",
+      "time": "Thời gian",
+      "actor": "Người thực hiện",
+      "target": "Đối tượng",
+      "empty": "Chưa có audit log.",
+      "total": "{{count}} bản ghi",
+      "previous": "Trước",
+      "next": "Sau",
+      "actions": {
+        "USER_ROLE_UPDATED": "Cập nhật vai trò",
+        "USER_RESTRICTION_UPDATED": "Cập nhật hạn chế",
+        "ADMIN_JOB_CREATED": "Tạo bài đăng admin",
+        "ADMIN_JOB_TRASHED": "Đưa bài vào thùng rác",
+        "ADMIN_JOB_RESTORED": "Khôi phục bài đăng",
+        "ADMIN_JOB_DELETED": "Xóa vĩnh viễn bài đăng",
+        "JOB_APPROVED": "Duyệt bài đăng",
+        "JOB_REJECTED": "Từ chối bài đăng",
+        "CATEGORY_CREATED": "Tạo danh mục",
+        "CATEGORY_UPDATED": "Cập nhật danh mục",
+        "CATEGORY_DELETED": "Xóa danh mục",
+        "RECRUITER_APPLICATION_APPROVED": "Duyệt nhà tuyển dụng",
+        "RECRUITER_APPLICATION_REJECTED": "Từ chối nhà tuyển dụng",
+        "RECRUITER_FORM_FIELD_CREATED": "Tạo trường form",
+        "RECRUITER_FORM_FIELD_UPDATED": "Cập nhật trường form",
+        "RECRUITER_FORM_FIELD_DELETED": "Xóa trường form"
+      },
+      "targets": {
+        "USER": "Người dùng",
+        "JOB": "Bài đăng",
+        "CATEGORY_OPTION": "Danh mục",
+        "RECRUITER_APPLICATION": "Yêu cầu tuyển dụng",
+        "RECRUITER_FORM_FIELD": "Trường form"
+      }
     }
   },
   "notFound": {
