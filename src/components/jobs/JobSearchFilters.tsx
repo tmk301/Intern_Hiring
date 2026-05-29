@@ -108,7 +108,6 @@ export function JobSearchFilters({
   const filterOptions = { ...defaultJobFilterOptions, ...options };
   const selectedAreaQuery = [
     getOptionLabel(filterOptions.wards, filterValue.ward, t),
-    getOptionLabel(filterOptions.districts, filterValue.district, t),
     getOptionLabel(filterOptions.cities, filterValue.city, t),
   ]
     .filter(Boolean)
@@ -140,12 +139,8 @@ export function JobSearchFilters({
     onReset?.();
   };
 
-  const districtDisabled = !filterValue.city || filterOptions.districts.length === 0;
-  const wardDisabled = !filterValue.district || filterOptions.wards.length === 0;
-  const districtPlaceholder = filterValue.city
-    ? t("jobs.filters.districtSelectPlaceholder")
-    : t("jobs.filters.districtPlaceholder");
-  const wardPlaceholder = filterValue.district
+  const wardDisabled = !filterValue.city || filterOptions.wards.length === 0;
+  const wardPlaceholder = filterValue.city
     ? t("jobs.filters.wardSelectPlaceholder")
     : t("jobs.filters.wardPlaceholder");
 
@@ -228,15 +223,6 @@ export function JobSearchFilters({
                 value={filterValue.city}
                 options={filterOptions.cities}
                 onChange={(nextValue) => updateValue("city", nextValue)}
-              />
-
-              <SelectFilter
-                label={t("jobs.filters.district")}
-                value={filterValue.district}
-                options={filterOptions.districts}
-                placeholder={districtPlaceholder}
-                disabled={districtDisabled}
-                onChange={(nextValue) => updateValue("district", nextValue)}
               />
 
               <SelectFilter

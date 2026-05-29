@@ -17,7 +17,7 @@ import {
   type JobFilterValue,
 } from "@/components/jobs/jobFilterConfig";
 import { supabase } from "@/lib/supabase";
-import { getVietnamDistrictOptions, getVietnamProvinceOptions, getVietnamWardOptions } from "@/lib/vietnamProvinces";
+import { getVietnamProvinceOptions, getVietnamWardOptions } from "@/lib/vietnamProvinces";
 
 type SupabaseJob = {
   id: string | number;
@@ -137,7 +137,6 @@ const Jobs: React.FC = () => {
   const initialKeyword = searchParams.get("keyword") ?? "";
   const [managedConfig, setManagedConfig] = useState<ManagedSiteConfig>(defaultManagedSiteConfig);
   const [provinceOptions, setProvinceOptions] = useState<JobFilterOption[]>([]);
-  const [districtOptions, setDistrictOptions] = useState<JobFilterOption[]>([]);
   const [wardOptions, setWardOptions] = useState<JobFilterOption[]>([]);
   const [jobs, setJobs] = useState<SupabaseJob[]>([]);
   const [filterValue, setFilterValue] = useState<JobFilterValue>({
@@ -176,37 +175,6 @@ const Jobs: React.FC = () => {
     const selectedProvince = provinceOptions.find((option) => option.value === filterValue.city);
 
     if (!selectedProvince) {
-      setDistrictOptions([]);
-      setWardOptions([]);
-      return () => {
-        mounted = false;
-      };
-    }
-
-    setDistrictOptions([]);
-    setWardOptions([]);
-    getVietnamDistrictOptions(filterValue.city)
-      .then((options) => {
-        if (mounted) {
-          setDistrictOptions(options);
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          setDistrictOptions([]);
-        }
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [filterValue.city, provinceOptions]);
-
-  useEffect(() => {
-    let mounted = true;
-    const selectedDistrict = districtOptions.find((option) => option.value === filterValue.district);
-
-    if (!selectedDistrict) {
       setWardOptions([]);
       return () => {
         mounted = false;
@@ -214,7 +182,7 @@ const Jobs: React.FC = () => {
     }
 
     setWardOptions([]);
-    getVietnamWardOptions(filterValue.district)
+    getVietnamWardOptions(filterValue.city)
       .then((options) => {
         if (mounted) {
           setWardOptions(options);
@@ -229,7 +197,7 @@ const Jobs: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, [filterValue.district, districtOptions]);
+  }, [filterValue.city, provinceOptions]);
 
   useEffect(() => {
     let mounted = true;
@@ -273,10 +241,10 @@ const Jobs: React.FC = () => {
     return {
       ...managedConfig.filters,
       cities: provinceOptions,
-      districts: districtOptions,
+      districts: [],
       wards: wardOptions,
     };
-  }, [districtOptions, managedConfig.filters, provinceOptions, wardOptions]);
+  }, [managedConfig.filters, provinceOptions, wardOptions]);
 
   const filteredJobs = useMemo(
     () => filterJobs(jobs, filterValue, filterOptions, t),
