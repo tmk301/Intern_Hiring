@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Navigate } from "react-router-dom";
 import {
@@ -105,13 +106,72 @@ const getStatusBadgeClassName = (status?: string | null) => {
 
 const RecruiterDashboard: React.FC = () => {
   const { t, i18n } = useTranslation();
-  const { user, token, isAuthenticated, isLoading } = useAuth();
-  const [jobs, setJobs] = useState<RecruiterJob[]>([]);
+  const { user, token, isAuthenticated, isLoading: authLoading } = useAuth();
+  const queryClient = useQueryClient();
+
   const [formValue, setFormValue] = useState<JobFormValue>(emptyJobFormValue);
-  const [loadingJobs, setLoadingJobs] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [actionId, setActionId] = useState<string | number | null>(null);
   const [jobPendingDelete, setJobPendingDelete] = useState<RecruiterJob | null>(null);
+
+  const {
+    data: jobs = [],
+    isLoading: loadingJobs,
+    refetch,
+  } = useQuery({
+    queryKey: ["recruiter", "jobs", user?.email],
+    queryFn: async () => {
+      const data = await recruiterApi.listJobs(token!);
+      return (data ?? []).filter((job) => !isDeletedJob(job));
+    },
+    enabled: !!token && isAuthenticated,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const createJobMutation = useMutation({
+    mutationFn: (data: Parameters<typeof recruiterApi.createJob>[1]) => recruiterApi.createJob(token!, data),
+    onSuccess: () => {
+      toast.success(t("recruiter.toast.createSuccess"));
+      resetForm();
+      queryClient.invalidateQueries({ queryKey: ["recruiter", "jobs"] });
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof Error ? error.message : t("recruiter.toast.createError"));
+    },
+    onSettled: () => {
+      setActionId(null);
+      setSubmitting(false);
+    },
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string | number; status: string }) =>
+      recruiterApi.updateJobStatus(token!, id, status),
+    onSuccess: (_, variables) => {
+      toast.success(
+        variables.status === hiddenStatus ? t("recruiter.toast.hideSuccess") : t("recruiter.toast.showSuccess"),
+      );
+      queryClient.invalidateQueries({ queryKey: ["recruiter", "jobs"] });
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof Error ? error.message : t("recruiter.toast.statusError"));
+    },
+    onSettled: () => setActionId(null),
+  });
+
+  const deleteJobMutation = useMutation({
+    mutationFn: (id: string | number) => recruiterApi.deleteJob(token!, id),
+    onSuccess: () => {
+      toast.success(t("recruiter.toast.deleteSuccess"));
+      setJobPendingDelete(null);
+      queryClient.invalidateQueries({ queryKey: ["recruiter", "jobs"] });
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof Error ? error.message : t("recruiter.toast.deleteError"));
+    },
+    onSettled: () => setActionId(null),
+  });
+
+  const [submitting, setSubmitting] = useState(false);
 
   const recruiterEmail = user?.email ?? "";
   const recruiterName = useMemo(
@@ -131,31 +191,10 @@ const RecruiterDashboard: React.FC = () => {
   }, [recruiterEmail, recruiterName]);
 
   useEffect(() => {
-    resetForm();
-  }, [resetForm]);
-
-  const loadJobs = useCallback(async () => {
-    if (!recruiterEmail || !token) {
-      setJobs([]);
-      setLoadingJobs(false);
-      return;
+    if (isAuthenticated) {
+      resetForm();
     }
-
-    setLoadingJobs(true);
-    try {
-      const data = await recruiterApi.listJobs(token);
-      setJobs((data ?? []).filter((job) => !isDeletedJob(job)));
-    } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : t("recruiter.toast.loadError"));
-      setJobs([]);
-    } finally {
-      setLoadingJobs(false);
-    }
-  }, [recruiterEmail, t, token]);
-
-  useEffect(() => {
-    loadJobs();
-  }, [loadJobs]);
+  }, [resetForm, isAuthenticated]);
 
   const updateFormValue = (field: keyof JobFormValue, value: string) => {
     setFormValue((current) => ({ ...current, [field]: value }));
@@ -186,39 +225,22 @@ const RecruiterDashboard: React.FC = () => {
     if (!token) return;
 
     setSubmitting(true);
-    try {
-      await recruiterApi.createJob(token, {
-        title: formValue.title.trim(),
-        company: formValue.company.trim(),
-        employerName: formValue.employerName.trim(),
-        location: formValue.location.trim(),
-        type: formValue.type.trim(),
-        salary: formValue.salary.trim() || undefined,
-        description: formValue.description.trim(),
-      });
-      toast.success(t("recruiter.toast.createSuccess"));
-      resetForm();
-      await loadJobs();
-    } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : t("recruiter.toast.createError"));
-    } finally {
-      setSubmitting(false);
-    }
+    createJobMutation.mutate({
+      title: formValue.title.trim(),
+      company: formValue.company.trim(),
+      employerName: formValue.employerName.trim(),
+      location: formValue.location.trim(),
+      type: formValue.type.trim(),
+      salary: formValue.salary.trim() || undefined,
+      description: formValue.description.trim(),
+    });
   };
 
   const updateJobStatus = async (job: RecruiterJob, status: string) => {
     if (!token) return;
 
     setActionId(job.id);
-    try {
-      await recruiterApi.updateJobStatus(token, job.id, status);
-      toast.success(status === hiddenStatus ? t("recruiter.toast.hideSuccess") : t("recruiter.toast.showSuccess"));
-      await loadJobs();
-    } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : t("recruiter.toast.statusError"));
-    } finally {
-      setActionId(null);
-    }
+    updateStatusMutation.mutate({ id: job.id, status });
   };
 
   const handleDeleteJob = async () => {
@@ -226,19 +248,10 @@ const RecruiterDashboard: React.FC = () => {
     if (!token) return;
 
     setActionId(jobPendingDelete.id);
-    try {
-      await recruiterApi.deleteJob(token, jobPendingDelete.id);
-      toast.success(t("recruiter.toast.deleteSuccess"));
-      setJobPendingDelete(null);
-      await loadJobs();
-    } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : t("recruiter.toast.deleteError"));
-    } finally {
-      setActionId(null);
-    }
+    deleteJobMutation.mutate(jobPendingDelete.id);
   };
 
-  if (isLoading) {
+  if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -264,7 +277,7 @@ const RecruiterDashboard: React.FC = () => {
               <h1 className="text-3xl font-bold text-slate-950">{t("recruiter.title")}</h1>
               <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{t("recruiter.description")}</p>
             </div>
-            <Button type="button" variant="outline" className="w-auto" onClick={loadJobs} disabled={loadingJobs}>
+            <Button type="button" variant="outline" className="w-auto" onClick={() => refetch()} disabled={loadingJobs}>
               {loadingJobs ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               {t("common.refresh")}
             </Button>
@@ -463,7 +476,7 @@ const RecruiterDashboard: React.FC = () => {
                                 variant="outline"
                                 size="sm"
                                 className="w-auto"
-                                disabled={actionId === job.id}
+                                disabled={String(actionId) === String(job.id)}
                                 onClick={() => updateJobStatus(job, visibleStatus)}
                               >
                                 <Eye className="h-4 w-4" />
@@ -475,7 +488,7 @@ const RecruiterDashboard: React.FC = () => {
                                 variant="outline"
                                 size="sm"
                                 className="w-auto"
-                                disabled={actionId === job.id}
+                                disabled={String(actionId) === String(job.id)}
                                 onClick={() => updateJobStatus(job, hiddenStatus)}
                               >
                                 <EyeOff className="h-4 w-4" />
@@ -487,7 +500,7 @@ const RecruiterDashboard: React.FC = () => {
                               variant="destructive"
                               size="sm"
                               className="w-auto"
-                              disabled={actionId === job.id}
+                              disabled={String(actionId) === String(job.id)}
                               onClick={() => setJobPendingDelete(job)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -514,13 +527,13 @@ const RecruiterDashboard: React.FC = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={actionId === jobPendingDelete?.id}>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogCancel disabled={String(actionId) === String(jobPendingDelete?.id)}>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={actionId === jobPendingDelete?.id}
+              disabled={String(actionId) === String(jobPendingDelete?.id)}
               onClick={handleDeleteJob}
             >
-              {actionId === jobPendingDelete?.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              {String(actionId) === String(jobPendingDelete?.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
               {t("recruiter.deleteDialog.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>

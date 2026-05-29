@@ -221,7 +221,7 @@ export const adminApi = {
 export type CategoryKey = "CITIES" | "WORK_MODES" | "JOB_TYPES" | "DISTRICTS" | "WARDS" | "COMPANIES" | "CURRENCIES";
 
 export type CategoryOption = {
-  id: number;
+  id: string | number;
   categoryKey: CategoryKey;
   value: string;
   label: string;
@@ -230,7 +230,7 @@ export type CategoryOption = {
 };
 
 export type RecruiterFormField = {
-  id: number;
+  id: string | number;
   name: string;
   label: string;
   validationRegex?: string;
@@ -241,13 +241,13 @@ export type RecruiterFormField = {
 };
 
 export type RecruiterApplication = {
-  id: number;
-  applicantId: number;
+  id: string | number;
+  applicantId: string | number;
   applicantEmail: string;
   formData: Record<string, string>;
   status: "PENDING" | "APPROVED" | "REJECTED" | "REVOKED";
   reviewNote?: string;
-  reviewedById?: number;
+  reviewedById?: string | number;
   reviewedAt?: string;
   createdAt?: string;
 };
@@ -263,15 +263,15 @@ export const configApi = {
       body: JSON.stringify(data),
     }),
 
-  updateCategoryOption: (token: string, id: number, data: Omit<CategoryOption, "id">) =>
-    apiRequest<CategoryOption>(`/api/categories/${id}`, {
+  updateCategoryOption: (token: string, id: string | number, data: Omit<CategoryOption, "id">) =>
+    apiRequest<CategoryOption>(`/api/categories/${encodeURIComponent(String(id))}`, {
       method: "PUT",
       headers: authHeaders(token),
       body: JSON.stringify(data),
     }),
 
-  deleteCategoryOption: (token: string, id: number) =>
-    apiRequest<void>(`/api/categories/${id}`, {
+  deleteCategoryOption: (token: string, id: string | number) =>
+    apiRequest<void>(`/api/categories/${encodeURIComponent(String(id))}`, {
       method: "DELETE",
       headers: authHeaders(token),
     }),
@@ -286,15 +286,15 @@ export const configApi = {
       body: JSON.stringify(data),
     }),
 
-  updateRecruiterFormField: (token: string, id: number, data: Omit<RecruiterFormField, "id">) =>
-    apiRequest<RecruiterFormField>(`/api/recruiter/form-fields/${id}`, {
+  updateRecruiterFormField: (token: string, id: string | number, data: Omit<RecruiterFormField, "id">) =>
+    apiRequest<RecruiterFormField>(`/api/recruiter/form-fields/${encodeURIComponent(String(id))}`, {
       method: "PUT",
       headers: authHeaders(token),
       body: JSON.stringify(data),
     }),
 
-  deleteRecruiterFormField: (token: string, id: number) =>
-    apiRequest<void>(`/api/recruiter/form-fields/${id}`, {
+  deleteRecruiterFormField: (token: string, id: string | number) =>
+    apiRequest<void>(`/api/recruiter/form-fields/${encodeURIComponent(String(id))}`, {
       method: "DELETE",
       headers: authHeaders(token),
     }),
@@ -314,21 +314,21 @@ export const recruiterApi = {
       params: { status },
     }),
 
-  reviewApplication: (token: string, id: number, approved: boolean, reviewNote?: string) =>
-    apiRequest<RecruiterApplication>(`/api/recruiter/applications/${id}/review`, {
+  reviewApplication: (token: string, id: string | number, approved: boolean, reviewNote?: string) =>
+    apiRequest<RecruiterApplication>(`/api/recruiter/applications/${encodeURIComponent(String(id))}/review`, {
       method: "POST",
       headers: authHeaders(token),
       body: JSON.stringify({ approved, reviewNote }),
     }),
 
-  revokeApplication: (token: string, id: number) =>
-    apiRequest<RecruiterApplication>(`/api/recruiter/applications/${id}/revoke`, {
+  revokeApplication: (token: string, id: string | number) =>
+    apiRequest<RecruiterApplication>(`/api/recruiter/applications/${encodeURIComponent(String(id))}/revoke`, {
       method: "POST",
       headers: authHeaders(token),
     }),
 
-  restoreApplication: (token: string, id: number) =>
-    apiRequest<RecruiterApplication>(`/api/recruiter/applications/${id}/restore`, {
+  restoreApplication: (token: string, id: string | number) =>
+    apiRequest<RecruiterApplication>(`/api/recruiter/applications/${encodeURIComponent(String(id))}/restore`, {
       method: "POST",
       headers: authHeaders(token),
     }),

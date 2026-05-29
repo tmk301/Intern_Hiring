@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Navigate } from "react-router-dom";
 import {
@@ -98,17 +99,138 @@ const getRequestStatusBadgeClassName = (status?: string | null) => {
 
 const AdminDashboard: React.FC = () => {
   const { t, i18n } = useTranslation();
-  const { user, token, isAuthenticated, isLoading } = useAuth();
+  const { user, token, isAuthenticated, isLoading: authLoading } = useAuth();
+  const queryClient = useQueryClient();
+
   const [activeSection, setActiveSection] = useState<AdminSection>("users");
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [jobs, setJobs] = useState<AdminJobPost[]>([]);
-  const [requests, setRequests] = useState<RecruiterApplication[]>([]);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [selectedJob, setSelectedJob] = useState<AdminJobPost | null>(null);
   const [rejectingRequest, setRejectingRequest] = useState<RecruiterApplication | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
-  const [loadingData, setLoadingData] = useState(true);
   const [actionId, setActionId] = useState<string | number | null>(null);
+
+  const {
+    data: adminData = { users: [], jobs: [], requests: [] },
+    isLoading: loadingData,
+    refetch,
+  } = useQuery({
+    queryKey: ["admin", "dashboard"],
+    queryFn: async () => {
+      const [userList, jobList, requestList] = await Promise.all([
+        adminApi.listUsers(token!),
+        adminApi.listJobs(token!),
+        recruiterApi.listApplications(token!).catch(() => []),
+      ]);
+      return { users: userList, jobs: jobList, requests: requestList };
+    },
+    enabled: !!token && isAuthenticated,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const { users, jobs, requests } = adminData;
+
+  const invalidateAdmin = () => queryClient.invalidateQueries({ queryKey: ["admin", "dashboard"] });
+
+  const roleMutation = useMutation({
+    mutationFn: ({ userId, role }: { userId: string | number; role: UserRole }) =>
+      adminApi.setUserRole(token!, userId, role),
+    onSuccess: () => {
+      toast.success(t("admin.roleUpdateSuccess"));
+      invalidateAdmin();
+    },
+    onError: (error: unknown) => {
+      if (isApiError(error) && error.status === 403) {
+        toast.error(t("admin.roleUpdateForbidden"));
+      } else {
+        toast.error(error instanceof Error ? error.message : t("admin.roleUpdateError"));
+      }
+    },
+    onSettled: () => setActionId(null),
+  });
+
+  const restrictionMutation = useMutation({
+    mutationFn: ({ userId, restricted }: { userId: string | number; restricted: boolean }) =>
+      adminApi.setUserRestriction(token!, userId, restricted),
+    onSuccess: (_, variables) => {
+      toast.success(
+        variables.restricted ? t("admin.restrictionSetSuccess") : t("admin.restrictionRemovedSuccess"),
+      );
+      invalidateAdmin();
+    },
+    onError: (error: unknown) => {
+      if (isApiError(error) && error.status === 403) {
+        toast.error(t("admin.restrictionForbidden"));
+      } else {
+        toast.error(error instanceof Error ? error.message : t("admin.restrictionUpdateError"));
+      }
+    },
+    onSettled: () => setActionId(null),
+  });
+
+  const applicationMutation = useMutation({
+    mutationFn: ({
+      id,
+      action,
+      approved,
+      reason,
+    }: {
+      id: string | number;
+      action: string;
+      approved?: boolean;
+      reason?: string;
+    }) => {
+      switch (action) {
+        case "revoke":
+          return recruiterApi.revokeApplication(token!, id);
+        case "restore":
+          return recruiterApi.restoreApplication(token!, id);
+        case "review":
+          return recruiterApi.reviewApplication(token!, id, approved!, reason);
+        default:
+          throw new Error("Unknown action");
+      }
+    },
+    onSuccess: (_, variables) => {
+      if (variables.action === "review") {
+        toast.success(variables.approved ? t("admin.approveRecruiterSuccess") : t("admin.rejectRequestSuccess"));
+      } else if (variables.action === "revoke") {
+        toast.success(t("admin.revokeRecruiterSuccess"));
+      } else if (variables.action === "restore") {
+        toast.success(t("admin.restoreRecruiterSuccess"));
+      }
+      invalidateAdmin();
+    },
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Operation failed"));
+    },
+    onSettled: () => setActionId(null),
+  });
+
+  const jobMutation = useMutation({
+    mutationFn: (variables: { id: string | number; action: string }) => {
+      const { id, action } = variables;
+      switch (action) {
+        case "trash":
+          return adminApi.moveJobToTrash(token!, id);
+        case "restore":
+          return adminApi.restoreJob(token!, id);
+        case "delete":
+          return adminApi.deleteJobPermanently(token!, id);
+        default:
+          throw new Error("Unknown action");
+      }
+    },
+    onSuccess: (_, variables) => {
+      if (variables.action === "trash") toast.success(t("admin.trashJobSuccess"));
+      else if (variables.action === "restore") toast.success(t("admin.restoreJobSuccess"));
+      else if (variables.action === "delete") toast.success(t("admin.deleteJobSuccess"));
+      invalidateAdmin();
+    },
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Operation failed"));
+    },
+    onSettled: () => setActionId(null),
+  });
 
   const activeJobs = useMemo(() => jobs.filter((job) => !isTrashedJob(job)), [jobs]);
   const trashedJobs = useMemo(() => jobs.filter(isTrashedJob), [jobs]);
@@ -118,31 +240,6 @@ const AdminDashboard: React.FC = () => {
   );
   const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
   const formatAdminDate = useCallback((value?: string | null) => formatDate(value, dateLocale), [dateLocale]);
-
-  const loadData = useCallback(async () => {
-    if (!token) return;
-
-    setLoadingData(true);
-    try {
-      const [userList, jobList, requestList] = await Promise.all([
-        adminApi.listUsers(token),
-        adminApi.listJobs(token),
-        recruiterApi.listApplications(token).catch(() => []),
-      ]);
-
-      setUsers(userList);
-      setJobs(jobList);
-      setRequests(requestList);
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, t("admin.loadError")));
-    } finally {
-      setLoadingData(false);
-    }
-  }, [token, t]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
 
   const requireConfirm = (message: string) => window.confirm(message);
 
@@ -155,111 +252,43 @@ const AdminDashboard: React.FC = () => {
     }
 
     setActionId(targetUser.id);
-    try {
-      await adminApi.setUserRole(token, targetUser.id, role);
-
-      toast.success(t("admin.roleUpdateSuccess"));
-      await loadData();
-    } catch (error: unknown) {
-      if (isApiError(error) && error.status === 403) {
-        toast.error(t("admin.roleUpdateForbidden"));
-      } else {
-        toast.error(error instanceof Error ? error.message : t("admin.roleUpdateError"));
-      }
-    } finally {
-      setActionId(null);
-    }
+    roleMutation.mutate({ userId: targetUser.id, role });
   };
 
   const handleRevokeRecruiterApplication = async (application: RecruiterApplication) => {
     if (!token) return;
-    if (
-      !requireConfirm(
-        t("admin.revokeRecruiterConfirm"),
-      )
-    ) {
-      return;
-    }
+    if (!requireConfirm(t("admin.revokeRecruiterConfirm"))) return;
 
     setActionId(application.id);
-    try {
-      await recruiterApi.revokeApplication(token, application.id);
-
-      toast.success(t("admin.revokeRecruiterSuccess"));
-      await loadData();
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, t("admin.revokeRecruiterError")));
-    } finally {
-      setActionId(null);
-    }
+    applicationMutation.mutate({ id: application.id, action: "revoke" });
   };
 
   const handleRestoreRecruiterApplication = async (application: RecruiterApplication) => {
     if (!token) return;
 
     setActionId(application.id);
-    try {
-      await recruiterApi.restoreApplication(token, application.id);
-
-      toast.success(t("admin.restoreRecruiterSuccess"));
-      await loadData();
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, t("admin.restoreRecruiterError")));
-    } finally {
-      setActionId(null);
-    }
+    applicationMutation.mutate({ id: application.id, action: "restore" });
   };
 
   const handleRestriction = async (targetUser: AdminUser, restricted: boolean) => {
     if (!token) return;
 
     setActionId(targetUser.id);
-    try {
-      await adminApi.setUserRestriction(token, targetUser.id, restricted);
-
-      toast.success(restricted ? t("admin.restrictionSetSuccess") : t("admin.restrictionRemovedSuccess"));
-      await loadData();
-    } catch (error: unknown) {
-      if (isApiError(error) && error.status === 403) {
-        toast.error(t("admin.restrictionForbidden"));
-      } else {
-        toast.error(error instanceof Error ? error.message : t("admin.restrictionUpdateError"));
-      }
-    } finally {
-      setActionId(null);
-    }
+    restrictionMutation.mutate({ userId: targetUser.id, restricted });
   };
 
   const handleTrashJob = async (job: AdminJobPost) => {
     if (!token) return;
 
     setActionId(job.id);
-    try {
-      await adminApi.moveJobToTrash(token, job.id);
-
-      toast.success(t("admin.trashJobSuccess"));
-      await loadData();
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, t("admin.trashJobError")));
-    } finally {
-      setActionId(null);
-    }
+    jobMutation.mutate({ id: job.id, action: "trash" });
   };
 
   const handleRestoreJob = async (job: AdminJobPost) => {
     if (!token) return;
 
     setActionId(job.id);
-    try {
-      await adminApi.restoreJob(token, job.id);
-
-      toast.success(t("admin.restoreJobSuccess"));
-      await loadData();
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, t("admin.restoreJobError")));
-    } finally {
-      setActionId(null);
-    }
+    jobMutation.mutate({ id: job.id, action: "restore" });
   };
 
   const handleDeleteJobPermanently = async (job: AdminJobPost) => {
@@ -267,40 +296,21 @@ const AdminDashboard: React.FC = () => {
     if (!requireConfirm(t("admin.deleteJobConfirm"))) return;
 
     setActionId(job.id);
-    try {
-      await adminApi.deleteJobPermanently(token, job.id);
-      toast.success(t("admin.deleteJobSuccess"));
-      await loadData();
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, t("admin.deleteJobError")));
-    } finally {
-      setActionId(null);
-    }
+    jobMutation.mutate({ id: job.id, action: "delete" });
   };
 
-  const handleReviewRequest = async (
-    application: RecruiterApplication,
-    approved: boolean,
-    reason?: string,
-  ) => {
+  const handleReviewRequest = async (application: RecruiterApplication, approved: boolean, reason?: string) => {
     if (!token) return;
 
     setActionId(application.id);
-    try {
-      await recruiterApi.reviewApplication(token, application.id, approved, reason);
-
-      toast.success(approved ? t("admin.approveRecruiterSuccess") : t("admin.rejectRequestSuccess"));
+    applicationMutation.mutate({ id: application.id, action: "review", approved, reason });
+    if (!approved) {
       setRejectingRequest(null);
       setRejectionReason("");
-      await loadData();
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, t("admin.reviewRequestError")));
-    } finally {
-      setActionId(null);
     }
   };
 
-  if (isLoading) {
+  if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -328,7 +338,7 @@ const AdminDashboard: React.FC = () => {
                 {t("admin.description")}
               </p>
             </div>
-            <Button variant="outline" onClick={loadData} disabled={loadingData}>
+            <Button variant="outline" onClick={() => refetch()} disabled={loadingData}>
               {loadingData ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               {t("common.refresh")}
             </Button>
@@ -437,7 +447,7 @@ const AdminDashboard: React.FC = () => {
                             <TableCell>
                               <Select
                                 value={normalizeRole(account.role)}
-                                disabled={actionId === account.id || isAdminRole(account.role)}
+                                disabled={String(actionId) === String(account.id) || isAdminRole(account.role)}
                                 onValueChange={(role) => handleRoleChange(account, role as UserRole)}
                               >
                                 <SelectTrigger
@@ -468,7 +478,7 @@ const AdminDashboard: React.FC = () => {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  disabled={actionId === account.id || isAdminRole(account.role)}
+                                  disabled={String(actionId) === String(account.id) || isAdminRole(account.role)}
                                   onClick={() => handleRestriction(account, !restricted)}
                                 >
                                   <ShieldAlert className="h-4 w-4" />
@@ -524,7 +534,7 @@ const AdminDashboard: React.FC = () => {
                                   <Button
                                     variant="destructive"
                                     size="sm"
-                                    disabled={actionId === job.id}
+                                    disabled={String(actionId) === String(job.id)}
                                     onClick={() => handleTrashJob(job)}
                                   >
                                     <Trash2 className="h-4 w-4" />
@@ -562,7 +572,7 @@ const AdminDashboard: React.FC = () => {
                                   <Button
                                     variant="destructive"
                                     size="sm"
-                                    disabled={actionId === job.id}
+                                    disabled={String(actionId) === String(job.id)}
                                     onClick={() => handleDeleteJobPermanently(job)}
                                   >
                                     <Trash2 className="h-4 w-4" />
@@ -613,7 +623,7 @@ const AdminDashboard: React.FC = () => {
                                   <div className="space-y-1 text-xs">
                                     {Object.entries(application.formData).map(([key, value]) => (
                                       <div key={key}>
-                                        <span className="font-medium">{key}:</span> {value || "-"}
+                                        <span className="font-medium">{key}:</span> {String(value || "-")}
                                       </div>
                                     ))}
                                   </div>
@@ -633,7 +643,7 @@ const AdminDashboard: React.FC = () => {
                                       <Button
                                         variant="outline"
                                         size="sm"
-                                        disabled={actionId === application.id}
+                                        disabled={String(actionId) === String(application.id)}
                                         onClick={() => handleReviewRequest(application, true)}
                                       >
                                         <CheckCircle2 className="h-4 w-4" />
@@ -642,7 +652,7 @@ const AdminDashboard: React.FC = () => {
                                       <Button
                                         variant="destructive"
                                         size="sm"
-                                        disabled={actionId === application.id}
+                                        disabled={String(actionId) === String(application.id)}
                                         onClick={() => setRejectingRequest(application)}
                                       >
                                         <XCircle className="h-4 w-4" />
@@ -655,7 +665,7 @@ const AdminDashboard: React.FC = () => {
                                       variant="outline"
                                       size="sm"
                                       className="border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800"
-                                      disabled={actionId === application.id}
+                                      disabled={String(actionId) === String(application.id)}
                                       onClick={() => handleRevokeRecruiterApplication(application)}
                                     >
                                       <UserCog className="h-4 w-4" />
@@ -667,7 +677,7 @@ const AdminDashboard: React.FC = () => {
                                       variant="outline"
                                       size="sm"
                                       className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
-                                      disabled={actionId === application.id}
+                                      disabled={String(actionId) === String(application.id)}
                                       onClick={() => handleRestoreRecruiterApplication(application)}
                                     >
                                       <RotateCcw className="h-4 w-4" />
