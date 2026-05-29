@@ -184,17 +184,30 @@ const AdminDashboard: React.FC = () => {
 
     setLoadingData(true);
     try {
-      const [userList, jobList, requestList] = await Promise.all([
+      const [userResult, jobResult, requestResult] = await Promise.allSettled([
         adminApi.listUsers(token),
         adminApi.listJobs(token),
-        recruiterApi.listApplications(token).catch(() => []),
+        recruiterApi.listApplications(token),
       ]);
 
-      setUsers(userList);
-      setJobs(jobList);
-      setRequests(requestList);
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, t("admin.loadError")));
+      if (userResult.status === "fulfilled") {
+        setUsers(userResult.value);
+      } else {
+        toast.error(getErrorMessage(userResult.reason, t("admin.loadError")));
+      }
+
+      if (jobResult.status === "fulfilled") {
+        setJobs(jobResult.value);
+      } else {
+        setJobs([]);
+        toast.error(getErrorMessage(jobResult.reason, "Không thể tải danh sách JD."));
+      }
+
+      if (requestResult.status === "fulfilled") {
+        setRequests(requestResult.value);
+      } else {
+        setRequests([]);
+      }
     } finally {
       setLoadingData(false);
     }
