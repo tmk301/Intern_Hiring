@@ -23,6 +23,7 @@ import {
   CalendarDays,
   Eye,
   EyeOff,
+  Pencil,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -84,6 +85,7 @@ const Profile = () => {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resumeInputRef = useRef<HTMLInputElement>(null);
+  const themeColorInputRef = useRef<HTMLInputElement>(null);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -110,6 +112,8 @@ const Profile = () => {
     confirmPassword: false,
   });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isSavingTheme, setIsSavingTheme] = useState(false);
+  const profileThemeColor = user.themeColor || "#2563eb";
 
   if (!user || !token) {
     navigate("/login");
@@ -325,6 +329,25 @@ const Profile = () => {
     }
   };
 
+  const handleThemeColorChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const themeColor = e.target.value;
+
+    setIsSavingTheme(true);
+    try {
+      await userApi.updateProfile(token, { themeColor });
+      await refreshUser();
+      toast({ title: t("toast.success"), description: t("profile.themeColorSaved") });
+    } catch (err: unknown) {
+      toast({
+        title: t("toast.error"),
+        description: getErrorMessage(err, t("profile.themeColorSaveError")),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingTheme(false);
+    }
+  };
+
   return (
     <main className="h-[calc(100dvh-4rem)] overflow-hidden bg-gradient-to-b from-slate-50 to-white">
       <div className="container mx-auto flex h-full items-start justify-center px-4 py-4">
@@ -348,7 +371,30 @@ const Profile = () => {
               {/* MIDDLE - avatar card */}
               <div className="flex flex-col gap-4 h-full">
                 <Card className="overflow-hidden h-full">
-                  <div className="h-28 bg-gradient-to-r from-primary/80 to-primary" />
+                  <div
+                    className="relative h-28 transition-colors duration-300"
+                    style={{ background: `linear-gradient(135deg, ${profileThemeColor}cc, ${profileThemeColor})` }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => themeColorInputRef.current?.click()}
+                      disabled={isSavingTheme}
+                      className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white/80 bg-white/95 shadow transition-transform hover:scale-110 disabled:opacity-50"
+                      style={{ color: profileThemeColor }}
+                      aria-label={t("profile.changeThemeColor")}
+                      title={profileThemeColor}
+                    >
+                      {isSavingTheme ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
+                    </button>
+                    <input
+                      ref={themeColorInputRef}
+                      type="color"
+                      value={profileThemeColor}
+                      onChange={handleThemeColorChange}
+                      className="sr-only"
+                      aria-label={t("profile.themeColor")}
+                    />
+                  </div>
                   <div className="relative px-4 pb-4 flex flex-col items-center h-full justify-start">
                     <div className="relative -mt-12 mb-3">
                       <Avatar className="h-24 w-24 border-4 border-white shadow bg-white">
@@ -360,7 +406,9 @@ const Profile = () => {
                       <button
                         onClick={handleAvatarClick}
                         disabled={isUploading}
-                        className="absolute -right-1 bottom-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-white shadow transition-transform hover:scale-110 disabled:opacity-50"
+                        className="absolute -right-1 bottom-0 flex h-8 w-8 items-center justify-center rounded-full text-white shadow transition-transform hover:scale-110 disabled:opacity-50"
+                        style={{ backgroundColor: profileThemeColor }}
+                        aria-label={t("profile.changeAvatar")}
                       >
                         {isUploading ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -368,6 +416,7 @@ const Profile = () => {
                           <Camera className="h-4 w-4" />
                         )}
                       </button>
+
                       <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
                     </div>
 
@@ -375,7 +424,10 @@ const Profile = () => {
                       {user.lastName} {user.firstName}
                     </h3>
                     <p className="text-sm text-muted-foreground text-center">{user.email}</p>
-                    <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                    <div
+                      className="mt-2 inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium text-white"
+                      style={{ backgroundColor: profileThemeColor }}
+                    >
                       <Shield className="h-3 w-3" />
                       {user.role}
                     </div>

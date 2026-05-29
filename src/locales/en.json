@@ -351,7 +351,12 @@
     "passwordChanged": "Password changed",
     "currentPasswordRequired": "Please enter your current password",
     "currentPasswordInvalid": "Current password is incorrect",
-    "passwordChangeError": "Could not change password"
+    "passwordChangeError": "Could not change password",
+    "changeAvatar": "Change avatar",
+    "themeColor": "Profile theme color",
+    "changeThemeColor": "Change profile theme color",
+    "themeColorSaved": "Profile color saved",
+    "themeColorSaveError": "Could not save profile color"
   },
   "avatarCrop": {
     "title": "Crop avatar",

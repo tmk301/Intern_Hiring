@@ -362,7 +362,12 @@
     "passwordChanged": "Đã đổi mật khẩu",
     "currentPasswordRequired": "Vui lòng nhập mật khẩu cũ",
     "currentPasswordInvalid": "Mật khẩu cũ không đúng",
-    "passwordChangeError": "Không thể đổi mật khẩu"
+    "passwordChangeError": "Không thể đổi mật khẩu",
+    "changeAvatar": "Đổi ảnh đại diện",
+    "themeColor": "Màu trang cá nhân",
+    "changeThemeColor": "Đổi màu trang cá nhân",
+    "themeColorSaved": "Đã lưu màu trang cá nhân",
+    "themeColorSaveError": "Không thể lưu màu trang cá nhân"
   },
   "avatarCrop": {
     "title": "Cắt ảnh đại diện",

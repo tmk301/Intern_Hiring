@@ -90,6 +90,7 @@ export type ApiUser = {
   gender?: string;
   dob?: string;
   cvUrl?: string;
+  themeColor?: string;
 };
 
 export type UpdateProfilePayload = {
@@ -100,6 +101,7 @@ export type UpdateProfilePayload = {
   gender?: string;
   dob?: string | null;
   cvUrl?: string;
+  themeColor?: string;
 };
 
 // Auth API
