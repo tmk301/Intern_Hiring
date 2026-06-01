@@ -75,6 +75,14 @@ function authHeaders(token: string) {
   return { Authorization: `Bearer ${token}` };
 }
 
+//CVItem for CV
+export type CvItem = {
+    id: string;
+    name: string;
+    url: string;
+    uploadedAt: number;
+};
+
 // User type shared across API consumers
 export type ApiUser = {
   id: string | number;
@@ -89,7 +97,7 @@ export type ApiUser = {
   phoneNumber?: string;
   gender?: string;
   dob?: string;
-  cvUrl?: string;
+  cvList?: CvItem[],
   themeColor?: string;
 };
 
@@ -100,8 +108,8 @@ export type UpdateProfilePayload = {
   avatarUrl?: string;
   gender?: string;
   dob?: string | null;
-  cvUrl?: string;
   themeColor?: string;
+  cvList?: CvItem[];
 };
 
 // Auth API
