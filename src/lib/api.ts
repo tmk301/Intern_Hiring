@@ -472,3 +472,42 @@ export const moderatorApi = {
       headers: authHeaders(token),
     }),
 };
+
+export type PublicJobPost = {
+    id: string | number;
+    title: string;
+    company: string | null;
+    employerName: string | null;
+    employerEmail: string | null;
+    location: string | null;
+    type: string | null;
+    salary: string | null;
+    description: string | null;
+    status: string;
+    hidden: boolean;
+    recruiterId: string | number | null;
+    createdAt: string;
+    updatedAt: string | null;
+    deletedAt: string | null;
+};
+
+export const jobApi = {
+    listJobs: () =>
+        apiRequest<PublicJobPost[]>("/api/jobs", {
+            method: "GET",
+        }),
+
+    getJobDetail: (id: string | number) =>
+        apiRequest<PublicJobPost>(`/api/jobs/${encodeURIComponent(String(id))}`, {
+            method: "GET",
+        }),
+};
+
+export const candidateApi = {
+  applyJob: (token: string, jobId: string | number, cvId: string) =>
+    apiRequest<void>(`/api/candidates/jobs/${encodeURIComponent(String(jobId))}/apply`, {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify({ cvId }), // Chỉ gửi cvId lên như đã thiết kế bảo mật
+    }),
+};
