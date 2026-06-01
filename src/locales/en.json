@@ -65,7 +65,8 @@
     "jobs": "Jobs",
     "partners": "Partners",
     "recruitment": "Recruitment",
-    "recruiterDashboard": "Recruiter dashboard"
+    "recruiterDashboard": "Recruiter dashboard",
+    "auditLog": "Audit log"
   },
   "auth": {
     "restrictedMessage": "Your account is restricted. Please contact an administrator.",
@@ -399,7 +400,9 @@
       "requestsTitle": "Review recruiters",
       "requestsDescription": "Requests pending review",
       "categoriesTitle": "Manage categories",
-      "categoriesDescription": "Categories & verification form"
+      "categoriesDescription": "Categories & verification form",
+      "auditLogsTitle": "Audit log",
+      "auditLogsDescription": "Track admin activity"
     },
     "users": {
       "title": "User account list",
@@ -496,6 +499,47 @@
       "invalidRegex": "Invalid regex.",
       "noRegex": "Not applied",
       "newFieldsHint": "New fields will appear in the verification request form on the home page and will be saved in the request's additional data."
+    },
+    "auditLogs": {
+      "loadError": "Unable to load audit logs.",
+      "title": "Admin activity audit log",
+      "action": "Action",
+      "targetType": "Target type",
+      "allActions": "All actions",
+      "allTargets": "All targets",
+      "actorPlaceholder": "Filter by admin email",
+      "time": "Time",
+      "actor": "Actor",
+      "target": "Target",
+      "empty": "No audit logs yet.",
+      "total": "{{count}} records",
+      "previous": "Previous",
+      "next": "Next",
+      "actions": {
+        "USER_ROLE_UPDATED": "Updated role",
+        "USER_RESTRICTION_UPDATED": "Updated restriction",
+        "ADMIN_JOB_CREATED": "Created admin job",
+        "ADMIN_JOB_TRASHED": "Moved job to trash",
+        "ADMIN_JOB_RESTORED": "Restored job",
+        "ADMIN_JOB_DELETED": "Permanently deleted job",
+        "JOB_APPROVED": "Approved job",
+        "JOB_REJECTED": "Rejected job",
+        "CATEGORY_CREATED": "Created category",
+        "CATEGORY_UPDATED": "Updated category",
+        "CATEGORY_DELETED": "Deleted category",
+        "RECRUITER_APPLICATION_APPROVED": "Approved recruiter application",
+        "RECRUITER_APPLICATION_REJECTED": "Rejected recruiter application",
+        "RECRUITER_FORM_FIELD_CREATED": "Created form field",
+        "RECRUITER_FORM_FIELD_UPDATED": "Updated form field",
+        "RECRUITER_FORM_FIELD_DELETED": "Deleted form field"
+      },
+      "targets": {
+        "USER": "User",
+        "JOB": "Job",
+        "CATEGORY_OPTION": "Category option",
+        "RECRUITER_APPLICATION": "Recruiter application",
+        "RECRUITER_FORM_FIELD": "Form field"
+      }
     }
   },
   "notFound": {
