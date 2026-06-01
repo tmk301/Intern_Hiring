@@ -10,12 +10,16 @@ import {
   PlusCircle,
   RefreshCw,
   Trash2,
+  Users,
+  CheckCircle,
+  XCircle,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/context/AuthContext";
 import { isRecruiterRole } from "@/lib/roles";
-import { recruiterApi } from "@/lib/api";
+import { recruiterApi, CandidateApplication } from "@/lib/api";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -82,6 +86,7 @@ const formatDate = (value?: string | null, locale = "en-US") => {
 
 const getStatusBadgeClassName = (status?: string | null) => {
   switch (normalizeStatus(status)) {
+    case "ACCEPTED":
     case "APPROVED":
       return "border-emerald-200 bg-emerald-50 text-emerald-700";
     case "PENDING":
@@ -102,6 +107,10 @@ const RecruiterDashboard: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [actionId, setActionId] = useState<string | number | null>(null);
   const [jobPendingDelete, setJobPendingDelete] = useState<RecruiterJob | null>(null);
+  
+  // State quản lý ứng viên
+  const [applications, setApplications] = useState<CandidateApplication[]>([]);
+  const [loadingApps, setLoadingApps] = useState(false);
 
   const recruiterEmail = user?.email ?? "";
   const recruiterName = useMemo(
@@ -124,6 +133,7 @@ const RecruiterDashboard: React.FC = () => {
     resetForm();
   }, [resetForm]);
 
+  // Load danh sách công việc
   const loadJobs = useCallback(async () => {
     if (!recruiterEmail || !token) {
       setJobs([]);
@@ -147,6 +157,56 @@ const RecruiterDashboard: React.FC = () => {
     loadJobs();
   }, [loadJobs]);
 
+  // Load danh sách ứng viên (Dựa trên mảng jobs đã có)
+  const loadApplications = useCallback(async () => {
+    if (!token) return;
+    
+    if (jobs.length === 0) {
+      setApplications([]);
+      setLoadingApps(false);
+      return;
+    }
+
+    setLoadingApps(true);
+    try {
+      // Gọi API lấy danh sách ứng viên cho từng công việc
+      const promises = jobs.map(job => 
+        recruiterApi.listJobApplications(token, job.id).catch(() => []) 
+      );
+      
+      const results = await Promise.all(promises);
+      const allApplications = results.flat();
+      
+      // Sắp xếp mới nhất lên đầu
+      allApplications.sort((a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime());
+      
+      setApplications(allApplications);
+    } catch (error: unknown) {
+      toast.error("Không thể tải danh sách ứng viên");
+    } finally {
+      setLoadingApps(false);
+    }
+  }, [token, jobs]);
+
+  useEffect(() => {
+    loadApplications();
+  }, [loadApplications]);
+
+  // Xử lý Duyệt/Từ chối hồ sơ
+  const handleUpdateAppStatus = async (jobId: string | number, appId: string | number, newStatus: CandidateApplication["status"]) => {
+    if (!token) return;
+    setActionId(appId);
+    try {
+      await recruiterApi.updateApplicationStatus(token, jobId, appId, newStatus);
+      toast.success("Đã cập nhật trạng thái hồ sơ");
+      await loadApplications(); 
+    } catch (error: unknown) {
+      toast.error("Lỗi khi cập nhật trạng thái");
+    } finally {
+      setActionId(null);
+    }
+  };
+
   const updateFormValue = (field: keyof JobFormValue, value: string) => {
     setFormValue((current) => ({ ...current, [field]: value }));
   };
@@ -161,7 +221,6 @@ const RecruiterDashboard: React.FC = () => {
       "type",
       "description",
     ];
-
     return requiredFields.every((field) => formValue[field].trim().length > 0);
   };
 
@@ -212,8 +271,7 @@ const RecruiterDashboard: React.FC = () => {
   };
 
   const handleDeleteJob = async () => {
-    if (!jobPendingDelete) return;
-    if (!token) return;
+    if (!jobPendingDelete || !token) return;
 
     setActionId(jobPendingDelete.id);
     try {
@@ -263,6 +321,7 @@ const RecruiterDashboard: React.FC = () => {
         </section>
 
         <section className="container mx-auto space-y-6 px-4 py-8">
+          {/* Thống kê */}
           <div className="grid gap-4 md:grid-cols-3">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -293,6 +352,7 @@ const RecruiterDashboard: React.FC = () => {
             </Card>
           </div>
 
+          {/* Form tạo việc làm mới */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
@@ -490,6 +550,97 @@ const RecruiterDashboard: React.FC = () => {
                       })}
                     </TableBody>
                   </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <Users className="h-5 w-5 text-primary" />
+                Hồ sơ ứng tuyển
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingApps ? (
+                <div className="flex items-center justify-center py-14">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : applications.length === 0 ? (
+                <p className="py-10 text-center text-sm text-muted-foreground">Chưa có ứng viên nào nộp hồ sơ.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Ứng viên</TableHead>
+                      <TableHead>Vị trí ứng tuyển</TableHead>
+                      <TableHead>CV</TableHead>
+                      <TableHead>Trạng thái</TableHead>
+                      <TableHead>Ngày nộp</TableHead>
+                      <TableHead className="text-center">Thao tác</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {applications.map((app) => (
+                      <TableRow key={app.id}>
+                        <TableCell>
+                          <div className="font-medium">{app.applicantName || "Ứng viên"}</div>
+                          <div className="text-xs text-muted-foreground">{app.applicantEmail}</div>
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate" title={app.jobTitle}>
+                          {app.jobTitle}
+                        </TableCell>
+                        <TableCell>
+                          <a 
+                            href={app.appliedCvUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                          >
+                            <FileText className="h-4 w-4" />
+                            Xem CV
+                          </a>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={getStatusBadgeClassName(app.status)}>
+                            {app.status === "ACCEPTED" ? "Đã duyệt" : app.status === "REJECTED" ? "Từ chối" : "Chờ duyệt"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{formatDate(app.appliedAt, dateLocale)}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap justify-center gap-2">
+                            {app.status === "PENDING" && (
+                              <>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="w-auto border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                                  disabled={actionId === app.id}
+                                  onClick={() => handleUpdateAppStatus(app.jobId, app.id, "ACCEPTED")}
+                                  title="Duyệt CV"
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="w-auto border-red-200 text-red-700 hover:bg-red-50"
+                                  disabled={actionId === app.id}
+                                  onClick={() => handleUpdateAppStatus(app.jobId, app.id, "REJECTED")}
+                                  title="Từ chối"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>

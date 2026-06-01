@@ -167,6 +167,18 @@ export type RecruiterJobPost = {
   deleted_at: string | null;
 };
 
+export type CandidateApplication = {
+  id: string | number;
+  jobId: string | number;
+  jobTitle: string; 
+  applicantId: string | number;
+  applicantName: string;
+  applicantEmail: string;
+  appliedCvUrl: string;
+  status: "PENDING" | "REVIEWED" | "ACCEPTED" | "REJECTED";
+  appliedAt: string;
+};
+
 export type RecruiterJobPayload = {
   title: string;
   company: string;
@@ -428,6 +440,20 @@ export const recruiterApi = {
     apiRequest<void>(`/api/recruiter/jobs/${encodeURIComponent(String(id))}`, {
       method: "DELETE",
       headers: authHeaders(token),
+    }),
+
+  // Duyet CV ứng tuyển cho một job cụ thể
+  listJobApplications: (token: string, jobId: string | number) =>
+    apiRequest<CandidateApplication[]>(`/api/recruiter/jobs/${encodeURIComponent(String(jobId))}/applications`, {
+      headers: authHeaders(token),
+      params: jobId ? { jobId } : undefined,
+    }),
+
+  updateApplicationStatus: (token: string, jobId: string | number, applicationId: string | number, status: CandidateApplication["status"]) =>
+    apiRequest<CandidateApplication>(`/api/recruiter/jobs/${encodeURIComponent(String(jobId))}/applications/${encodeURIComponent(String(applicationId))}/status`, {
+      method: "PATCH",
+      headers: authHeaders(token),
+      body: JSON.stringify({ status }),
     }),
 };
 
