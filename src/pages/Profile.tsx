@@ -2,7 +2,7 @@ import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { userApi } from "@/lib/api";
+import { userApi, CvItem } from "@/lib/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,10 @@ import {
   Eye,
   EyeOff,
   Pencil,
+  FileText,
+  Trash2,
+  Plus,
+  UploadCloud,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -181,9 +185,18 @@ const Profile = () => {
     resumeInputRef.current?.click();
   };
 
+  const MAX_CVS = 3;
+  const cvList = user.cvList || [];
+
   const uploadResumeFile = async (file: File) => {
     if (!file) return;
-    // accept pdf/doc/docx
+
+    // Kiểm tra giới hạn số lượng CV
+    if (cvList.length >= MAX_CVS) {
+      toast({ title: t("toast.error"), description: `Bạn chỉ được lưu tối đa ${MAX_CVS} CV`, variant: "destructive" });
+      return;
+    }
+
     const allowed = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
     if (!allowed.includes(file.type)) {
       toast({ title: t("toast.error"), description: t("profile.resumeTypeError"), variant: "destructive" });
@@ -199,16 +212,29 @@ const Profile = () => {
       const { data: { user: supaUser } } = await supabase.auth.getUser();
       if (!supaUser) throw new Error("Not authenticated");
 
+      // Tạo tên file bằng timestamp để không bị ghi đè trên Bucket
       const ext = file.name.split('.').pop();
-      const filePath = `${supaUser.id}/resume.${ext}`;
+      const uniqueFileName = `resume_${Date.now()}.${ext}`;
+      const filePath = `${supaUser.id}/${uniqueFileName}`;
 
-      const { error: uploadError } = await supabase.storage.from('cv').upload(filePath, file, { upsert: true });
+      // Bỏ { upsert: true } vì tên file đã unique
+      const { error: uploadError } = await supabase.storage.from('cv').upload(filePath, file);
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage.from('cv').getPublicUrl(filePath);
-      const cvUrl = `${publicUrl}?t=${Date.now()}`;
 
-      await userApi.updateProfile(token, { cvUrl });
+      // Tạo object CV mới
+      const newCv = {
+        id: crypto.randomUUID(),
+        name: file.name,
+        url: publicUrl,
+        uploadedAt: Date.now(),
+      };
+
+      // Cập nhật mảng vào Database
+      const updatedCvList = [...cvList, newCv];
+      await userApi.updateProfile(token, { cvList: updatedCvList });
+
       await refreshUser();
       toast({ title: t("toast.success"), description: t("profile.resumeUploadSuccess") });
     } catch (err: unknown) {
@@ -216,6 +242,21 @@ const Profile = () => {
       toast({ title: t("toast.error"), description: getErrorMessage(err, t("profile.resumeUploadError")), variant: "destructive" });
     } finally {
       setIsUploadingResume(false);
+    }
+  };
+
+  const handleDeleteCv = async (cvIdToDelete: string) => {
+    try {
+      // Lọc bỏ CV cần xóa khỏi mảng
+      const updatedCvList = cvList.filter((cv: CvItem) => cv.id !== cvIdToDelete);
+
+      // Update DB (Không gọi xóa file trên Supabase để giữ Snapshot cho NTD)
+      await userApi.updateProfile(token, { cvList: updatedCvList });
+      await refreshUser();
+
+      toast({ title: t("toast.success"), description: "Đã xóa CV khỏi hồ sơ" });
+    } catch (err: unknown) {
+      toast({ title: t("toast.error"), description: "Lỗi khi xóa CV", variant: "destructive" });
     }
   };
 
@@ -670,29 +711,64 @@ const Profile = () => {
             <div className="grid md:grid-cols-[48px_320px_1fr] gap-6">
               <div />
               <div>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">{t("profile.cv_title")}</CardTitle>
+                <Card className="h-full flex flex-col">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-semibold">
+                      {t("profile.cv_title")} ({cvList.length}/{MAX_CVS})
+                    </CardTitle>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleResumeClick}
+                        disabled={isUploadingResume || cvList.length >= MAX_CVS}
+                    >
+                      {isUploadingResume ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                      Tải lên mới
+                    </Button>
+                    <input ref={resumeInputRef} type="file" accept=".pdf,.doc,.docx" onChange={handleResumeInput} className="hidden" />
                   </CardHeader>
                   <Separator />
-                  <CardContent className="p-4">
-                    <div
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={handleResumeDrop}
-                      onClick={handleResumeClick}
-                      className="min-h-[80px] flex items-center justify-center rounded-md border border-dashed border-muted/50 bg-muted/5 px-3 py-6 text-sm text-muted-foreground cursor-pointer text-center"
-                    >
-                      {isUploadingResume ? (
-                        <div>{t("profile.uploading")}</div>
-                      ) : user?.cvUrl ? (
-                        <a href={user.cvUrl} target="_blank" rel="noreferrer" className="text-primary underline">
-                          {t("profile.view_cv")}
-                        </a>
-                      ) : (
-                        <div>{t("profile.drag_drop_cv")}</div>
-                      )}
-                    </div>
-                    <input ref={resumeInputRef} type="file" accept=".pdf,.doc,.docx" onChange={handleResumeInput} className="hidden" />
+                  <CardContent className="p-4 flex-1">
+                    {cvList.length === 0 ? (
+                        <div
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={handleResumeDrop}
+                            onClick={handleResumeClick}
+                            className="min-h-[120px] h-full flex flex-col items-center justify-center rounded-md border-2 border-dashed border-muted/50 bg-muted/10 text-muted-foreground cursor-pointer hover:bg-muted/20 transition-colors text-center p-4"
+                        >
+                          <UploadCloud className="h-8 w-8 mb-2 opacity-50" />
+                          <p className="text-sm">{t("profile.drag_drop_cv")}</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                          {cvList.map((cv: CvItem) => (
+                              <div key={cv.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                                <div className="flex items-center gap-3 overflow-hidden">
+                                  <div className="p-2 bg-primary/10 text-primary rounded-md shrink-0">
+                                    <FileText className="h-5 w-5" />
+                                  </div>
+                                  <div className="flex flex-col overflow-hidden">
+                                    <a href={cv.url} target="_blank" rel="noreferrer" className="text-sm font-medium hover:underline truncate">
+                                      {cv.name}
+                                    </a>
+                                    <span className="text-xs text-muted-foreground">
+                                  {new Date(cv.uploadedAt).toLocaleDateString('vi-VN')}
+                                </span>
+                                  </div>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-destructive hover:bg-destructive/10 hover:text-destructive shrink-0"
+                                    onClick={() => handleDeleteCv(cv.id)}
+                                    title="Xóa CV"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                          ))}
+                        </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>

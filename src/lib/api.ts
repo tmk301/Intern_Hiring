@@ -75,6 +75,14 @@ function authHeaders(token: string) {
   return { Authorization: `Bearer ${token}` };
 }
 
+//CVItem for CV
+export type CvItem = {
+    id: string;
+    name: string;
+    url: string;
+    uploadedAt: number;
+};
+
 // User type shared across API consumers
 export type ApiUser = {
   id: string | number;
@@ -89,7 +97,7 @@ export type ApiUser = {
   phoneNumber?: string;
   gender?: string;
   dob?: string;
-  cvUrl?: string;
+  cvList?: CvItem[],
   themeColor?: string;
 };
 
@@ -100,8 +108,8 @@ export type UpdateProfilePayload = {
   avatarUrl?: string;
   gender?: string;
   dob?: string | null;
-  cvUrl?: string;
   themeColor?: string;
+  cvList?: CvItem[];
 };
 
 // Auth API
@@ -157,6 +165,18 @@ export type RecruiterJobPost = {
   created_at: string | null;
   updated_at: string | null;
   deleted_at: string | null;
+};
+
+export type CandidateApplication = {
+  id: string | number;
+  jobId: string | number;
+  jobTitle: string; 
+  applicantId: string | number;
+  applicantName: string;
+  applicantEmail: string;
+  appliedCvUrl: string;
+  status: "PENDING" | "REVIEWED" | "ACCEPTED" | "REJECTED";
+  appliedAt: string;
 };
 
 export type RecruiterJobPayload = {
@@ -285,7 +305,7 @@ export const adminApi = {
 export type CategoryKey = "CITIES" | "WORK_MODES" | "JOB_TYPES" | "DISTRICTS" | "WARDS" | "COMPANIES" | "CURRENCIES";
 
 export type CategoryOption = {
-  id: number;
+  id: string | number;
   categoryKey: CategoryKey;
   value: string;
   label: string;
@@ -294,7 +314,7 @@ export type CategoryOption = {
 };
 
 export type RecruiterFormField = {
-  id: number;
+  id: string | number;
   name: string;
   label: string;
   validationRegex?: string;
@@ -305,13 +325,13 @@ export type RecruiterFormField = {
 };
 
 export type RecruiterApplication = {
-  id: number;
-  applicantId: number;
+  id: string | number;
+  applicantId: string | number;
   applicantEmail: string;
   formData: Record<string, string>;
   status: "PENDING" | "APPROVED" | "REJECTED" | "REVOKED";
   reviewNote?: string;
-  reviewedById?: number;
+  reviewedById?: string | number;
   reviewedAt?: string;
   createdAt?: string;
 };
@@ -327,15 +347,15 @@ export const configApi = {
       body: JSON.stringify(data),
     }),
 
-  updateCategoryOption: (token: string, id: number, data: Omit<CategoryOption, "id">) =>
-    apiRequest<CategoryOption>(`/api/categories/${id}`, {
+  updateCategoryOption: (token: string, id: string | number, data: Omit<CategoryOption, "id">) =>
+    apiRequest<CategoryOption>(`/api/categories/${encodeURIComponent(String(id))}`, {
       method: "PUT",
       headers: authHeaders(token),
       body: JSON.stringify(data),
     }),
 
-  deleteCategoryOption: (token: string, id: number) =>
-    apiRequest<void>(`/api/categories/${id}`, {
+  deleteCategoryOption: (token: string, id: string | number) =>
+    apiRequest<void>(`/api/categories/${encodeURIComponent(String(id))}`, {
       method: "DELETE",
       headers: authHeaders(token),
     }),
@@ -350,15 +370,15 @@ export const configApi = {
       body: JSON.stringify(data),
     }),
 
-  updateRecruiterFormField: (token: string, id: number, data: Omit<RecruiterFormField, "id">) =>
-    apiRequest<RecruiterFormField>(`/api/recruiter/form-fields/${id}`, {
+  updateRecruiterFormField: (token: string, id: string | number, data: Omit<RecruiterFormField, "id">) =>
+    apiRequest<RecruiterFormField>(`/api/recruiter/form-fields/${encodeURIComponent(String(id))}`, {
       method: "PUT",
       headers: authHeaders(token),
       body: JSON.stringify(data),
     }),
 
-  deleteRecruiterFormField: (token: string, id: number) =>
-    apiRequest<void>(`/api/recruiter/form-fields/${id}`, {
+  deleteRecruiterFormField: (token: string, id: string | number) =>
+    apiRequest<void>(`/api/recruiter/form-fields/${encodeURIComponent(String(id))}`, {
       method: "DELETE",
       headers: authHeaders(token),
     }),
@@ -378,21 +398,21 @@ export const recruiterApi = {
       params: { status },
     }),
 
-  reviewApplication: (token: string, id: number, approved: boolean, reviewNote?: string) =>
-    apiRequest<RecruiterApplication>(`/api/recruiter/applications/${id}/review`, {
+  reviewApplication: (token: string, id: string | number, approved: boolean, reviewNote?: string) =>
+    apiRequest<RecruiterApplication>(`/api/recruiter/applications/${encodeURIComponent(String(id))}/review`, {
       method: "POST",
       headers: authHeaders(token),
       body: JSON.stringify({ approved, reviewNote }),
     }),
 
-  revokeApplication: (token: string, id: number) =>
-    apiRequest<RecruiterApplication>(`/api/recruiter/applications/${id}/revoke`, {
+  revokeApplication: (token: string, id: string | number) =>
+    apiRequest<RecruiterApplication>(`/api/recruiter/applications/${encodeURIComponent(String(id))}/revoke`, {
       method: "POST",
       headers: authHeaders(token),
     }),
 
-  restoreApplication: (token: string, id: number) =>
-    apiRequest<RecruiterApplication>(`/api/recruiter/applications/${id}/restore`, {
+  restoreApplication: (token: string, id: string | number) =>
+    apiRequest<RecruiterApplication>(`/api/recruiter/applications/${encodeURIComponent(String(id))}/restore`, {
       method: "POST",
       headers: authHeaders(token),
     }),
@@ -420,6 +440,20 @@ export const recruiterApi = {
     apiRequest<void>(`/api/recruiter/jobs/${encodeURIComponent(String(id))}`, {
       method: "DELETE",
       headers: authHeaders(token),
+    }),
+
+  // Duyet CV ứng tuyển cho một job cụ thể
+  listJobApplications: (token: string, jobId: string | number) =>
+    apiRequest<CandidateApplication[]>(`/api/recruiter/jobs/${encodeURIComponent(String(jobId))}/applications`, {
+      headers: authHeaders(token),
+      params: jobId ? { jobId } : undefined,
+    }),
+
+  updateApplicationStatus: (token: string, jobId: string | number, applicationId: string | number, status: CandidateApplication["status"]) =>
+    apiRequest<CandidateApplication>(`/api/recruiter/jobs/${encodeURIComponent(String(jobId))}/applications/${encodeURIComponent(String(applicationId))}/status`, {
+      method: "PATCH",
+      headers: authHeaders(token),
+      body: JSON.stringify({ status }),
     }),
 };
 
@@ -462,5 +496,44 @@ export const moderatorApi = {
     apiRequest<ModeratorJobPost>(`/api/moderator/jobs/${encodeURIComponent(String(jobId))}/reject`, {
       method: "PATCH",
       headers: authHeaders(token),
+    }),
+};
+
+export type PublicJobPost = {
+    id: string | number;
+    title: string;
+    company: string | null;
+    employerName: string | null;
+    employerEmail: string | null;
+    location: string | null;
+    type: string | null;
+    salary: string | null;
+    description: string | null;
+    status: string;
+    hidden: boolean;
+    recruiterId: string | number | null;
+    createdAt: string;
+    updatedAt: string | null;
+    deletedAt: string | null;
+};
+
+export const jobApi = {
+    listJobs: () =>
+        apiRequest<PublicJobPost[]>("/api/jobs", {
+            method: "GET",
+        }),
+
+    getJobDetail: (id: string | number) =>
+        apiRequest<PublicJobPost>(`/api/jobs/${encodeURIComponent(String(id))}`, {
+            method: "GET",
+        }),
+};
+
+export const candidateApi = {
+  applyJob: (token: string, jobId: string | number, cvId: string) =>
+    apiRequest<void>(`/api/candidates/jobs/${encodeURIComponent(String(jobId))}/apply`, {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify({ cvId }), // Chỉ gửi cvId lên như đã thiết kế bảo mật
     }),
 };

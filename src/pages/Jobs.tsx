@@ -1,10 +1,20 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom"; // MỚI THÊM: useNavigate
 import { useTranslation } from "react-i18next";
-import { Briefcase, CalendarDays, Loader2, MapPin } from "lucide-react";
+import { Briefcase, CalendarDays, Loader2, MapPin, FileText } from "lucide-react"; // MỚI THÊM: FileText
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"; // MỚI THÊM: CardFooter
+import { Button } from "@/components/ui/button"; // MỚI THÊM
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"; // MỚI THÊM
 import { JobSearchFilters } from "@/components/jobs/JobSearchFilters";
+import { jobApi, PublicJobPost, candidateApi } from "@/lib/api"; // MỚI THÊM: candidateApi
 import {
   defaultManagedSiteConfig,
   loadManagedSiteConfig,
@@ -16,25 +26,9 @@ import {
   type JobFilterOptions,
   type JobFilterValue,
 } from "@/components/jobs/jobFilterConfig";
-import { supabase } from "@/lib/supabase";
 import { getVietnamProvinceOptions, getVietnamWardOptions } from "@/lib/vietnamProvinces";
-
-type SupabaseJob = {
-  id: string | number;
-  title: string | null;
-  company: string | null;
-  employer_name: string | null;
-  employer_email: string | null;
-  location: string | null;
-  type: string | null;
-  salary: string | null;
-  description: string | null;
-  status: string | null;
-  hidden: boolean | null;
-  created_at: string | null;
-  updated_at: string | null;
-  deleted_at: string | null;
-};
+import { useAuth } from "@/context/AuthContext"; // MỚI THÊM
+import { useToast } from "@/hooks/use-toast"; // MỚI THÊM
 
 const normalizeText = (value?: string | number | null) =>
   String(value ?? "")
@@ -46,12 +40,12 @@ const normalizeText = (value?: string | number | null) =>
     .trim()
     .toLowerCase();
 
-const getSearchText = (job: SupabaseJob) =>
+const getSearchText = (job: PublicJobPost) =>
   [
     job.title,
     job.company,
-    job.employer_name,
-    job.employer_email,
+    job.employerName,
+    job.employerEmail,
     job.location,
     job.type,
     job.salary,
@@ -61,11 +55,6 @@ const getSearchText = (job: SupabaseJob) =>
 const getMaxNumber = (value?: string | null) => {
   const numbers = value?.match(/\d+(?:[.,]\d+)?/g)?.map((item) => Number(item.replace(",", "."))) ?? [];
   return numbers.length > 0 ? Math.max(...numbers) : null;
-};
-
-const isVisibleJob = (job: SupabaseJob) => {
-  const status = job.status?.toUpperCase();
-  return !job.deleted_at && !job.hidden && status === "APPROVED";
 };
 
 const matchesOption = (
@@ -107,7 +96,7 @@ const matchesLocationText = (source: string | null, selectedLocation: string) =>
 };
 
 const filterJobs = (
-  jobs: SupabaseJob[],
+  jobs: PublicJobPost[],
   value: JobFilterValue,
   options: JobFilterOptions,
   translate: (key: string) => string,
@@ -138,7 +127,7 @@ const Jobs: React.FC = () => {
   const [managedConfig, setManagedConfig] = useState<ManagedSiteConfig>(defaultManagedSiteConfig);
   const [provinceOptions, setProvinceOptions] = useState<JobFilterOption[]>([]);
   const [wardOptions, setWardOptions] = useState<JobFilterOption[]>([]);
-  const [jobs, setJobs] = useState<SupabaseJob[]>([]);
+  const [jobs, setJobs] = useState<PublicJobPost[]>([]);
   const [filterValue, setFilterValue] = useState<JobFilterValue>({
     ...emptyJobFilterValue,
     keyword: initialKeyword,
@@ -146,25 +135,27 @@ const Jobs: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // MỚI THÊM: Các state và hook cho phần nộp đơn
+  const { user, token } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [applyJobId, setApplyJobId] = useState<string | number | null>(null);
+  const [selectedCvId, setSelectedCvId] = useState<string>("");
+  const [isApplying, setIsApplying] = useState(false);
+
   useEffect(() => {
     setFilterValue((current) => ({ ...current, keyword: initialKeyword }));
   }, [initialKeyword]);
 
   useEffect(() => {
     let mounted = true;
-
     getVietnamProvinceOptions()
       .then((options) => {
-        if (mounted) {
-          setProvinceOptions(options);
-        }
+        if (mounted) setProvinceOptions(options);
       })
       .catch(() => {
-        if (mounted) {
-          setProvinceOptions([]);
-        }
+        if (mounted) setProvinceOptions([]);
       });
-
     return () => {
       mounted = false;
     };
@@ -184,14 +175,10 @@ const Jobs: React.FC = () => {
     setWardOptions([]);
     getVietnamWardOptions(filterValue.city)
       .then((options) => {
-        if (mounted) {
-          setWardOptions(options);
-        }
+        if (mounted) setWardOptions(options);
       })
       .catch(() => {
-        if (mounted) {
-          setWardOptions([]);
-        }
+        if (mounted) setWardOptions([]);
       });
 
     return () => {
@@ -201,35 +188,28 @@ const Jobs: React.FC = () => {
 
   useEffect(() => {
     let mounted = true;
-
     const loadData = async () => {
       setLoading(true);
       setErrorMessage(null);
-
-      const [config, jobsResult] = await Promise.all([
-        loadManagedSiteConfig(),
-        supabase
-          .from("jobs")
-          .select("id,title,company,employer_name,employer_email,location,type,salary,description,status,hidden,created_at,updated_at,deleted_at")
-          .order("created_at", { ascending: false }),
-      ]);
-
-      if (!mounted) return;
-
-      setManagedConfig(config);
-
-      if (jobsResult.error) {
-        setErrorMessage(jobsResult.error.message || t("jobs.page.loadError"));
+      try {
+        const [config, jobsResult] = await Promise.all([
+          loadManagedSiteConfig(),
+          jobApi.listJobs(),
+        ]);
+        if (!mounted) return;
+        setManagedConfig(config);
+        setJobs(jobsResult || []);
+      } catch (error: any) {
+        if (!mounted) return;
+        setErrorMessage(error.message || t("jobs.page.loadError"));
         setJobs([]);
-      } else {
-        setJobs(((jobsResult.data ?? []) as SupabaseJob[]).filter(isVisibleJob));
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
       }
-
-      setLoading(false);
     };
-
     loadData();
-
     return () => {
       mounted = false;
     };
@@ -237,7 +217,6 @@ const Jobs: React.FC = () => {
 
   const filterOptions = useMemo<JobFilterOptions>(() => {
     if (provinceOptions.length === 0) return managedConfig.filters;
-
     return {
       ...managedConfig.filters,
       cities: provinceOptions,
@@ -251,6 +230,43 @@ const Jobs: React.FC = () => {
     [jobs, filterValue, filterOptions, t],
   );
   const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
+
+  // MỚI THÊM: Hàm xử lý mở popup nộp đơn
+  const handleOpenApplyModal = (jobId: string | number) => {
+    if (!user || !token) {
+      toast({ description: "Vui lòng đăng nhập để nộp đơn", variant: "default" });
+      navigate("/login");
+      return;
+    }
+    if (user.role !== "CANDIDATE") {
+      toast({ description: "Chỉ tài khoản Ứng viên mới có thể nộp đơn", variant: "destructive" });
+      return;
+    }
+    setApplyJobId(jobId);
+  };
+
+  // MỚI THÊM: Hàm gọi API nộp đơn
+  const submitApplication = async () => {
+    if (!applyJobId || !selectedCvId || !token) return;
+    
+    setIsApplying(true);
+    try {
+      // Gọi xuống Backend với cvId (Theo đúng chuẩn bảo mật đã thiết kế)
+      await candidateApi.applyJob(token, applyJobId, selectedCvId);
+      
+      toast({ title: "Thành công!", description: "Đã nộp CV thành công cho công việc này." });
+      setApplyJobId(null);
+      setSelectedCvId("");
+    } catch (error: any) {
+      toast({ 
+        title: "Không thể nộp đơn", 
+        description: error.message || "Bạn đã nộp đơn cho công việc này rồi hoặc có lỗi xảy ra.", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsApplying(false);
+    }
+  };
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -295,48 +311,130 @@ const Jobs: React.FC = () => {
         ) : (
           <div className="grid gap-4">
             {filteredJobs.map((job) => (
-              <Card key={job.id} className="overflow-hidden">
+              <Card key={job.id} className="overflow-hidden flex flex-col h-full hover:shadow-md transition-shadow">
                 <CardHeader className="space-y-3">
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div>
                       <CardTitle className="text-xl">{job.title || t("jobs.page.untitled")}</CardTitle>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {job.company || job.employer_name || t("jobs.page.notProvided")}
+                      <p className="mt-1 text-sm font-medium text-slate-700">
+                        {job.company || job.employerName || t("jobs.page.notProvided")}
                       </p>
                     </div>
                     {job.status && <Badge variant="secondary">{job.status}</Badge>}
                   </div>
-                  <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+                  <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
                     {job.location && (
                       <span className="inline-flex items-center gap-1">
                         <MapPin className="h-4 w-4" />
                         {job.location}
                       </span>
                     )}
-                    {job.created_at && (
+                    {job.createdAt && (
                       <span className="inline-flex items-center gap-1">
                         <CalendarDays className="h-4 w-4" />
-                        {new Date(job.created_at).toLocaleDateString(dateLocale)}
+                        {new Date(job.createdAt).toLocaleDateString(dateLocale)}
                       </span>
                     )}
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 flex-1">
                   <div className="flex flex-wrap gap-2">
                     {job.type && <Badge variant="outline">{job.type}</Badge>}
                     {job.salary && <Badge variant="outline">{job.salary}</Badge>}
                   </div>
                   {job.description && (
-                    <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                    <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">
                       {job.description}
                     </p>
                   )}
                 </CardContent>
+                
+                {/* MỚI THÊM: Nút nộp đơn */}
+                <CardFooter className="bg-slate-50/50 border-t p-4 flex justify-end">
+                  <Button onClick={() => handleOpenApplyModal(job.id)}>
+                    Nộp đơn ứng tuyển
+                  </Button>
+                </CardFooter>
               </Card>
             ))}
           </div>
         )}
       </section>
+
+      {/* MỚI THÊM: Giao diện Modal Chọn CV nộp đơn */}
+      <Dialog 
+        open={!!applyJobId} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setApplyJobId(null);
+            setSelectedCvId("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Chọn CV ứng tuyển</DialogTitle>
+            <DialogDescription>
+              Vui lòng chọn 1 CV từ hồ sơ của bạn để nộp cho vị trí này.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            {!user?.cvList || user.cvList.length === 0 ? (
+              <div className="text-center py-6 border-2 border-dashed rounded-lg bg-slate-50">
+                <FileText className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
+                <p className="text-sm font-medium text-slate-900">Bạn chưa có CV nào</p>
+                <p className="text-sm text-muted-foreground mt-1 mb-4">Vui lòng tải lên CV trước khi nộp đơn.</p>
+                <Button variant="outline" onClick={() => navigate("/profile")}>
+                  Đến trang cá nhân để tải lên CV
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                {user.cvList.map((cv) => (
+                  <div
+                    key={cv.id}
+                    onClick={() => setSelectedCvId(cv.id)}
+                    className={`flex items-center gap-4 p-4 border rounded-xl cursor-pointer transition-all ${
+                      selectedCvId === cv.id 
+                        ? "border-primary bg-primary/5 shadow-sm" 
+                        : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className={`p-2 rounded-lg ${selectedCvId === cv.id ? "bg-primary/10 text-primary" : "bg-slate-100 text-slate-500"}`}>
+                      <FileText className="h-6 w-6" />
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <p className={`text-sm font-semibold truncate ${selectedCvId === cv.id ? "text-primary" : "text-slate-900"}`}>
+                        {cv.name}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Ngày tải lên: {new Date(cv.uploadedAt).toLocaleDateString('vi-VN')}
+                      </p>
+                    </div>
+                    <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                      selectedCvId === cv.id ? "border-primary" : "border-slate-300"
+                    }`}>
+                      {selectedCvId === cv.id && <div className="h-2.5 w-2.5 rounded-full bg-primary" />}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setApplyJobId(null)}>Hủy bỏ</Button>
+            <Button 
+              onClick={submitApplication} 
+              disabled={!selectedCvId || isApplying || !user?.cvList?.length}
+            >
+              {isApplying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Gửi hồ sơ
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 };
