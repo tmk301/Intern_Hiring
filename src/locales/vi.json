@@ -24,7 +24,9 @@
     "loading": "Đang tải...",
     "emptyValue": "-",
     "required": "Bắt buộc",
-    "optional": "Không bắt buộc"
+    "optional": "Không bắt buộc",
+    "yes": "Có",
+    "no": "Không"
   },
   "toast": {
     "error": "Lỗi",
@@ -431,13 +433,37 @@
     "jobs": {
       "title": "Quản lý tin tuyển dụng",
       "activeTab": "Đang hiển thị",
+      "pendingTab": "Chưa duyệt",
+      "approvedTab": "Đã duyệt",
       "trashTab": "Thùng rác",
       "titleColumn": "Tiêu đề",
       "postedDate": "Ngày đăng",
       "deletedDate": "Ngày xóa",
+      "hiddenColumn": "Ẩn",
       "moveToTrash": "Vào thùng rác",
       "restore": "Khôi phục",
-      "deletePermanent": "Xóa vĩnh viễn"
+      "deletePermanent": "Xóa vĩnh viễn",
+      "approve": "Duyệt",
+      "reject": "Từ chối",
+      "rejectConfirm": "Bạn chắc chắn muốn từ chối JD này?",
+      "approveSuccess": "Đã duyệt JD.",
+      "rejectSuccess": "Đã từ chối JD.",
+      "approveError": "Không thể duyệt JD.",
+      "rejectError": "Không thể từ chối JD.",
+      "filters": {
+        "status": "Trạng thái",
+        "hidden": "Ẩn",
+        "date": "Ngày đăng",
+        "allStatuses": "Tất cả trạng thái",
+        "allVisibility": "Tất cả hiển thị",
+        "visibleOnly": "Không ẩn",
+        "hiddenOnly": "Đã ẩn"
+      },
+      "statuses": {
+        "PENDING": "Chưa duyệt",
+        "APPROVED": "Đã duyệt",
+        "REJECTED": "Từ chối"
+      }
     },
     "requests": {
       "title": "Duyệt yêu cầu xác thực nhà tuyển dụng",
