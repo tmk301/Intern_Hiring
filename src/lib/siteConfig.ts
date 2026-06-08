@@ -31,6 +31,7 @@ export const filterCategoryLabels: Record<FilterCategoryKey, string> = {
   wards: "Ward",
   companies: "Company",
   currencies: "Currency",
+  experience: "Experience",
 };
 
 export const defaultCorporatePartners: ManagedPartner[] = [

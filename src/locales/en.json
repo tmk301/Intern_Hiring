@@ -209,7 +209,9 @@
       "keywordPlaceholder": "Job title, company name...",
       "city": "Province/City",
       "workMode": "Work mode",
+      "workModePlaceholder": "Example: Remote, Hybrid, On-site",
       "jobType": "Job type",
+      "jobTypePlaceholder": "Example: Internship, Part-time",
       "advanced": "Advanced search",
       "district": "District",
       "ward": "Ward/Commune/Special zone",
@@ -226,9 +228,14 @@
         "iframeTitle": "Embedded Google Map"
       },
       "company": "Company",
-      "minOpenings": "Minimum openings",
+      "companyPlaceholder": "Enter company name",
       "minSalary": "Minimum salary",
+      "salary": "Salary",
+      "salaryMin": "Minimum salary",
+      "salaryMax": "Maximum salary",
       "currency": "Currency",
+      "currencyPlaceholder": "Enter currency, e.g. VND, USD",
+      "experience": "Experience",
       "reset": "Reset filters",
       "options": {
         "workModes": {
@@ -240,6 +247,14 @@
           "internship": "Internship",
           "partTime": "Part-time",
           "fullTime": "Full-time"
+        },
+        "experience": {
+          "noExperience": "No experience",
+          "underOneYear": "Under 1 year",
+          "oneYear": "1 year",
+          "twoYears": "2 years",
+          "threeYears": "3 years",
+          "overThreeYears": "Over 3 years"
         }
       }
     }

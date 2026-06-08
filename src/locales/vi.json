@@ -209,7 +209,9 @@
       "keywordPlaceholder": "Tên việc, tên công ty...",
       "city": "Tỉnh/Thành phố",
       "workMode": "Hình thức làm việc",
+      "workModePlaceholder": "Ví dụ: Remote, Hybrid, tại văn phòng",
       "jobType": "Loại công việc",
+      "jobTypePlaceholder": "Ví dụ: Thực tập, Part-time",
       "advanced": "Tìm kiếm nâng cao",
       "district": "Quận/Huyện",
       "ward": "Phường/Xã/Đặc khu",
@@ -226,9 +228,14 @@
         "iframeTitle": "Google Map nhúng"
       },
       "company": "Công ty",
-      "minOpenings": "Số lượng tuyển tối thiểu",
+      "companyPlaceholder": "Nhập tên công ty",
       "minSalary": "Mức lương tối thiểu",
+      "salary": "Mức lương",
+      "salaryMin": "Mức lương tối thiểu",
+      "salaryMax": "Mức lương tối đa",
       "currency": "Đơn vị tiền tệ",
+      "currencyPlaceholder": "Nhập tiền tệ, ví dụ: VND, USD",
+      "experience": "Kinh nghiệm",
       "reset": "Đặt lại bộ lọc",
       "options": {
         "cities": {
@@ -246,6 +253,14 @@
           "internship": "Thực tập",
           "partTime": "Part-time",
           "fullTime": "Full-time"
+        },
+        "experience": {
+          "noExperience": "Chưa có kinh nghiệm",
+          "underOneYear": "Dưới 1 năm",
+          "oneYear": "1 năm",
+          "twoYears": "2 năm",
+          "threeYears": "3 năm",
+          "overThreeYears": "Trên 3 năm"
         },
         "districts": {
           "district1": "Quận 1",

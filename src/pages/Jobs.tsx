@@ -52,9 +52,103 @@ const getSearchText = (job: PublicJobPost) =>
     job.description,
   ].join(" ");
 
-const getMaxNumber = (value?: string | null) => {
-  const numbers = value?.match(/\d+(?:[.,]\d+)?/g)?.map((item) => Number(item.replace(",", "."))) ?? [];
-  return numbers.length > 0 ? Math.max(...numbers) : null;
+const parseNumberToken = (token: string) => {
+  if (/^\d{1,3}([.,]\d{3})+$/.test(token)) {
+    return Number(token.replace(/[.,]/g, ""));
+  }
+
+  return Number(token.replace(",", "."));
+};
+
+const getSalaryNumbers = (value?: string | null) => {
+  const normalizedValue = normalizeText(value);
+  const hasMillionUnit = /\b(trieu|million|m)\b/.test(normalizedValue);
+  const hasThousandUnit = /\b(k|nghin|thousand)\b/.test(normalizedValue);
+
+  return (
+    value
+      ?.match(/\d+(?:[.,]\d+)*/g)
+      ?.map((item) => {
+        const parsedValue = parseNumberToken(item);
+
+        if (!Number.isFinite(parsedValue)) return null;
+        if (hasMillionUnit && parsedValue < 1_000) return parsedValue * 1_000_000;
+        if (hasThousandUnit && parsedValue < 100_000) return parsedValue * 1_000;
+        return parsedValue;
+      })
+      .filter((item): item is number => item !== null) ?? []
+  );
+};
+
+const matchesText = (source: string | null, selectedValue: string) => {
+  if (!selectedValue) return true;
+
+  const normalizedSource = normalizeText(source);
+  const normalizedSelected = normalizeText(selectedValue);
+
+  return Boolean(normalizedSelected && normalizedSource.includes(normalizedSelected));
+};
+
+const matchesSalaryRange = (source: string | null, minSalary: number, maxSalary: number, isActive: boolean) => {
+  if (!isActive) return true;
+
+  const salaryNumbers = getSalaryNumbers(source);
+  if (salaryNumbers.length === 0) return false;
+
+  const jobMinSalary = Math.min(...salaryNumbers);
+  const jobMaxSalary = Math.max(...salaryNumbers);
+
+  return jobMaxSalary >= minSalary && jobMinSalary <= maxSalary;
+};
+
+const hasAnyPhrase = (source: string, phrases: string[]) =>
+  phrases.some((phrase) => source.includes(normalizeText(phrase)));
+
+const matchesExperience = (source: string | null, selectedValue: string) => {
+  if (!selectedValue) return true;
+
+  const normalizedSource = normalizeText(source);
+  if (!normalizedSource) return false;
+
+  switch (selectedValue) {
+    case "no-experience":
+      return hasAnyPhrase(normalizedSource, [
+        "Chưa có kinh nghiệm",
+        "Không yêu cầu kinh nghiệm",
+        "Không cần kinh nghiệm",
+        "No experience",
+        "Fresher",
+        "Entry level",
+      ]);
+    case "under-1-year":
+      return hasAnyPhrase(normalizedSource, [
+        "Dưới 1 năm",
+        "Ít hơn 1 năm",
+        "Less than 1 year",
+        "Under 1 year",
+      ]);
+    case "1-year":
+      return (
+        !hasAnyPhrase(normalizedSource, ["Dưới 1 năm", "Ít hơn 1 năm", "Less than 1 year", "Under 1 year"]) &&
+        hasAnyPhrase(normalizedSource, ["1 năm kinh nghiệm", "Kinh nghiệm 1 năm", "1 year experience"])
+      );
+    case "2-years":
+      return hasAnyPhrase(normalizedSource, ["2 năm kinh nghiệm", "Kinh nghiệm 2 năm", "2 years experience"]);
+    case "3-years":
+      return (
+        !hasAnyPhrase(normalizedSource, ["Trên 3 năm", "Hơn 3 năm", "More than 3 years", "Over 3 years"]) &&
+        hasAnyPhrase(normalizedSource, ["3 năm kinh nghiệm", "Kinh nghiệm 3 năm", "3 years experience"])
+      );
+    case "over-3-years":
+      return hasAnyPhrase(normalizedSource, [
+        "Trên 3 năm",
+        "Hơn 3 năm",
+        "More than 3 years",
+        "Over 3 years",
+      ]);
+    default:
+      return false;
+  }
 };
 
 const matchesOption = (
@@ -103,8 +197,12 @@ const filterJobs = (
 ) =>
   jobs.filter((job) => {
     const searchText = normalizeText(getSearchText(job));
-    const minSalary = Number(value.minSalary || 0);
-    const jobSalary = getMaxNumber(job.salary);
+    const rawMinSalary = Number(value.salaryMin || 0);
+    const rawMaxSalary = Number(value.salaryMax || 50_000_000);
+    const minSalary = Math.min(rawMinSalary, rawMaxSalary);
+    const maxSalary = Math.max(rawMinSalary, rawMaxSalary);
+    const salaryFilterActive =
+      Boolean(value.salaryMin || value.salaryMax) && !(minSalary === 0 && maxSalary === 50_000_000);
 
     return (
       (!value.keyword || searchText.includes(normalizeText(value.keyword))) &&
@@ -112,11 +210,12 @@ const filterJobs = (
       matchesOption(job.location, value.district, options.districts, translate) &&
       matchesOption(job.location, value.ward, options.wards, translate) &&
       matchesLocationText(job.location, value.location) &&
-      matchesOption(`${job.type ?? ""} ${job.description ?? ""}`, value.workMode, options.workModes, translate) &&
-      matchesOption(job.type, value.jobType, options.jobTypes, translate) &&
-      matchesOption(job.company, value.company, options.companies, translate) &&
-      matchesOption(job.salary, value.currency, options.currencies, translate) &&
-      (!minSalary || (jobSalary !== null && jobSalary >= minSalary))
+      matchesText(`${job.type ?? ""} ${job.description ?? ""}`, value.workMode) &&
+      matchesText(job.type, value.jobType) &&
+      matchesText(job.company, value.company) &&
+      matchesText(job.salary, value.currency) &&
+      matchesExperience(job.description, value.experience) &&
+      matchesSalaryRange(job.salary, minSalary, maxSalary, salaryFilterActive)
     );
   });
 
