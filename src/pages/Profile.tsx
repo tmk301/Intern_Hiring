@@ -231,6 +231,7 @@ const Profile = () => {
         name: file.name,
         url: publicUrl,
         uploadedAt: Date.now(),
+        isDefault: cvList.length === 0,
       };
 
       // Cập nhật mảng vào Database
@@ -249,8 +250,11 @@ const Profile = () => {
 
   const handleDeleteCv = async (cvIdToDelete: string) => {
     try {
-      // Lọc bỏ CV cần xóa khỏi mảng
-      const updatedCvList = cvList.filter((cv: CvItem) => cv.id !== cvIdToDelete);
+      const remainingCvList = cvList.filter((cv: CvItem) => cv.id !== cvIdToDelete);
+      const hadDefault = cvList.some((cv: CvItem) => cv.id === cvIdToDelete && cv.isDefault);
+      const updatedCvList = hadDefault && remainingCvList.length > 0
+        ? remainingCvList.map((cv: CvItem, index) => ({ ...cv, isDefault: index === 0 }))
+        : remainingCvList;
 
       // Update DB (Không gọi xóa file trên Supabase để giữ Snapshot cho NTD)
       await userApi.updateProfile(token, { cvList: updatedCvList });
@@ -259,6 +263,22 @@ const Profile = () => {
       toast({ title: t("toast.success"), description: "Đã xóa CV khỏi hồ sơ" });
     } catch (err: unknown) {
       toast({ title: t("toast.error"), description: "Lỗi khi xóa CV", variant: "destructive" });
+    }
+  };
+
+  const handleSetDefaultCv = async (cvId: string) => {
+    try {
+      const updatedCvList = cvList.map((cv: CvItem) => ({
+        ...cv,
+        isDefault: cv.id === cvId,
+      }));
+
+      await userApi.updateProfile(token, { cvList: updatedCvList });
+      await refreshUser();
+
+      toast({ title: t("toast.success"), description: "Đã đặt CV mặc định" });
+    } catch (err: unknown) {
+      toast({ title: t("toast.error"), description: "Lỗi khi đặt CV mặc định", variant: "destructive" });
     }
   };
 
@@ -743,10 +763,15 @@ const Profile = () => {
                           <p className="text-sm">{t("profile.drag_drop_cv")}</p>
                         </div>
                       ) : (
-                        <div className="space-y-3">
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-[1fr_64px_40px] items-center gap-2 px-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            <span>CV</span>
+                            <span className="text-center">Default</span>
+                            <span className="sr-only">Xóa</span>
+                          </div>
                           {cvList.map((cv: CvItem) => (
-                            <div key={cv.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
-                              <div className="flex items-center gap-3 overflow-hidden">
+                            <div key={cv.id} className="grid grid-cols-[1fr_64px_40px] items-center gap-2 p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                              <div className="flex min-w-0 items-center gap-3 overflow-hidden">
                                 <div className="p-2 bg-primary/10 text-primary rounded-md shrink-0">
                                   <FileText className="h-5 w-5" />
                                 </div>
@@ -759,10 +784,22 @@ const Profile = () => {
                                   </span>
                                 </div>
                               </div>
+                              <div className="flex justify-center">
+                                <input
+                                  type="radio"
+                                  name="defaultCv"
+                                  checked={Boolean(cv.isDefault)}
+                                  onChange={() => {
+                                    if (!cv.isDefault) handleSetDefaultCv(cv.id);
+                                  }}
+                                  className="h-4 w-4 accent-primary cursor-pointer"
+                                  aria-label={`Đặt ${cv.name} làm CV mặc định`}
+                                />
+                              </div>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="text-destructive hover:bg-destructive/10 hover:text-destructive shrink-0"
+                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                                 onClick={() => handleDeleteCv(cv.id)}
                                 title="Xóa CV"
                               >
