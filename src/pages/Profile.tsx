@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { userApi, CvItem } from "@/lib/api";
+import { isAdminRole, isModeratorRole } from "@/lib/roles";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -187,6 +188,7 @@ const Profile = () => {
 
   const MAX_CVS = 3;
   const cvList = user.cvList || [];
+  const showCvSection = !isAdminRole(user.role) && !isModeratorRole(user.role);
 
   const uploadResumeFile = async (file: File) => {
     if (!file) return;
@@ -229,6 +231,7 @@ const Profile = () => {
         name: file.name,
         url: publicUrl,
         uploadedAt: Date.now(),
+        isDefault: cvList.length === 0,
       };
 
       // Cập nhật mảng vào Database
@@ -247,8 +250,11 @@ const Profile = () => {
 
   const handleDeleteCv = async (cvIdToDelete: string) => {
     try {
-      // Lọc bỏ CV cần xóa khỏi mảng
-      const updatedCvList = cvList.filter((cv: CvItem) => cv.id !== cvIdToDelete);
+      const remainingCvList = cvList.filter((cv: CvItem) => cv.id !== cvIdToDelete);
+      const hadDefault = cvList.some((cv: CvItem) => cv.id === cvIdToDelete && cv.isDefault);
+      const updatedCvList = hadDefault && remainingCvList.length > 0
+        ? remainingCvList.map((cv: CvItem, index) => ({ ...cv, isDefault: index === 0 }))
+        : remainingCvList;
 
       // Update DB (Không gọi xóa file trên Supabase để giữ Snapshot cho NTD)
       await userApi.updateProfile(token, { cvList: updatedCvList });
@@ -257,6 +263,22 @@ const Profile = () => {
       toast({ title: t("toast.success"), description: "Đã xóa CV khỏi hồ sơ" });
     } catch (err: unknown) {
       toast({ title: t("toast.error"), description: "Lỗi khi xóa CV", variant: "destructive" });
+    }
+  };
+
+  const handleSetDefaultCv = async (cvId: string) => {
+    try {
+      const updatedCvList = cvList.map((cv: CvItem) => ({
+        ...cv,
+        isDefault: cv.id === cvId,
+      }));
+
+      await userApi.updateProfile(token, { cvList: updatedCvList });
+      await refreshUser();
+
+      toast({ title: t("toast.success"), description: "Đã đặt CV mặc định" });
+    } catch (err: unknown) {
+      toast({ title: t("toast.error"), description: "Lỗi khi đặt CV mặc định", variant: "destructive" });
     }
   };
 
@@ -707,71 +729,92 @@ const Profile = () => {
               </div>
             </div>
 
-            {/* BOTTOM ROW: password change (aligned to right column) */}
+            {/* BOTTOM ROW: CV (when allowed) + password change */}
             <div className="grid md:grid-cols-[48px_320px_1fr] gap-6">
               <div />
-              <div>
-                <Card className="h-full flex flex-col">
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-semibold">
-                      {t("profile.cv_title")} ({cvList.length}/{MAX_CVS})
-                    </CardTitle>
-                    <Button
+              {showCvSection ? (
+                <div>
+                  <Card className="h-full flex flex-col">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-semibold">
+                        {t("profile.cv_title")} ({cvList.length}/{MAX_CVS})
+                      </CardTitle>
+                      <Button
                         size="sm"
                         variant="outline"
                         onClick={handleResumeClick}
                         disabled={isUploadingResume || cvList.length >= MAX_CVS}
-                    >
-                      {isUploadingResume ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-                      Tải lên mới
-                    </Button>
-                    <input ref={resumeInputRef} type="file" accept=".pdf,.doc,.docx" onChange={handleResumeInput} className="hidden" />
-                  </CardHeader>
-                  <Separator />
-                  <CardContent className="p-4 flex-1">
-                    {cvList.length === 0 ? (
+                      >
+                        {isUploadingResume ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                        Tải lên mới
+                      </Button>
+                      <input ref={resumeInputRef} type="file" accept=".pdf,.doc,.docx" onChange={handleResumeInput} className="hidden" />
+                    </CardHeader>
+                    <Separator />
+                    <CardContent className="p-4 flex-1">
+                      {cvList.length === 0 ? (
                         <div
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={handleResumeDrop}
-                            onClick={handleResumeClick}
-                            className="min-h-[120px] h-full flex flex-col items-center justify-center rounded-md border-2 border-dashed border-muted/50 bg-muted/10 text-muted-foreground cursor-pointer hover:bg-muted/20 transition-colors text-center p-4"
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={handleResumeDrop}
+                          onClick={handleResumeClick}
+                          className="min-h-[120px] h-full flex flex-col items-center justify-center rounded-md border-2 border-dashed border-muted/50 bg-muted/10 text-muted-foreground cursor-pointer hover:bg-muted/20 transition-colors text-center p-4"
                         >
                           <UploadCloud className="h-8 w-8 mb-2 opacity-50" />
                           <p className="text-sm">{t("profile.drag_drop_cv")}</p>
                         </div>
-                    ) : (
-                        <div className="space-y-3">
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-[1fr_64px_40px] items-center gap-2 px-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            <span>CV</span>
+                            <span className="text-center">Default</span>
+                            <span className="sr-only">Xóa</span>
+                          </div>
                           {cvList.map((cv: CvItem) => (
-                              <div key={cv.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
-                                <div className="flex items-center gap-3 overflow-hidden">
-                                  <div className="p-2 bg-primary/10 text-primary rounded-md shrink-0">
-                                    <FileText className="h-5 w-5" />
-                                  </div>
-                                  <div className="flex flex-col overflow-hidden">
-                                    <a href={cv.url} target="_blank" rel="noreferrer" className="text-sm font-medium hover:underline truncate">
-                                      {cv.name}
-                                    </a>
-                                    <span className="text-xs text-muted-foreground">
-                                  {new Date(cv.uploadedAt).toLocaleDateString('vi-VN')}
-                                </span>
-                                  </div>
+                            <div key={cv.id} className="grid grid-cols-[1fr_64px_40px] items-center gap-2 p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                              <div className="flex min-w-0 items-center gap-3 overflow-hidden">
+                                <div className="p-2 bg-primary/10 text-primary rounded-md shrink-0">
+                                  <FileText className="h-5 w-5" />
                                 </div>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="text-destructive hover:bg-destructive/10 hover:text-destructive shrink-0"
-                                    onClick={() => handleDeleteCv(cv.id)}
-                                    title="Xóa CV"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                <div className="flex flex-col overflow-hidden">
+                                  <a href={cv.url} target="_blank" rel="noreferrer" className="text-sm font-medium hover:underline truncate">
+                                    {cv.name}
+                                  </a>
+                                  <span className="text-xs text-muted-foreground">
+                                    {new Date(cv.uploadedAt).toLocaleDateString('vi-VN')}
+                                  </span>
+                                </div>
                               </div>
+                              <div className="flex justify-center">
+                                <input
+                                  type="radio"
+                                  name="defaultCv"
+                                  checked={Boolean(cv.isDefault)}
+                                  onChange={() => {
+                                    if (!cv.isDefault) handleSetDefaultCv(cv.id);
+                                  }}
+                                  className="h-4 w-4 accent-primary cursor-pointer"
+                                  aria-label={`Đặt ${cv.name} làm CV mặc định`}
+                                />
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                onClick={() => handleDeleteCv(cv.id)}
+                                title="Xóa CV"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           ))}
                         </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                <div />
+              )}
               <div>
                 <Card>
                   <CardHeader>

@@ -81,6 +81,7 @@ export type CvItem = {
     name: string;
     url: string;
     uploadedAt: number;
+    isDefault?: boolean;
 };
 
 // User type shared across API consumers

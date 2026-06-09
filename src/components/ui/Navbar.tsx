@@ -1,5 +1,5 @@
 import React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { LogOut, User as UserIcon, Menu } from "lucide-react";
@@ -16,14 +16,19 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { isAdminRole, isRecruiterRole } from "@/lib/roles";
+import { isAdminRole, isModeratorRole, isRecruiterRole } from "@/lib/roles";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 
 const Navbar = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useTranslation();
+  const showModeratorLink = isModeratorRole(user?.role) && location.pathname !== "/moderator";
+  const showProfileLink = location.pathname !== "/profile";
+  const showAdminLink = isAdminRole(user?.role) && location.pathname !== "/admin";
+  const showRecruiterLink = isRecruiterRole(user?.role) && location.pathname !== "/recruiter";
 
   const handleLogout = () => {
     logout();
@@ -114,24 +119,26 @@ const Navbar = () => {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  {isAdminRole(user?.role) && (
-                    <>
-                      <DropdownMenuItem asChild>
-                        <Link to="/admin">{t("nav.admin")}</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link to="/admin?section=audit-logs">{t("nav.auditLog")}</Link>
-                      </DropdownMenuItem>
-                    </>
+                  {showAdminLink && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin">{t("nav.admin")}</Link>
+                    </DropdownMenuItem>
                   )}
-                  {isRecruiterRole(user?.role) && (
+                  {showRecruiterLink && (
                     <DropdownMenuItem asChild>
                       <Link to="/recruiter">{t("nav.recruiterDashboard")}</Link>
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuItem asChild>
-                    <Link to="/profile">{t("nav.profile")}</Link>
-                  </DropdownMenuItem>
+                  {showModeratorLink && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/moderator">Moderator</Link>
+                    </DropdownMenuItem>
+                  )}
+                  {showProfileLink && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/profile">{t("nav.profile")}</Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="h-4 w-4 mr-2" />
                     {t("nav.logout")}
@@ -191,33 +198,35 @@ const Navbar = () => {
                   <div className="border-t pt-4">
                     {isAuthenticated ? (
                       <>
-                        {isAdminRole(user?.role) && (
-                          <>
-                            <Link to="/admin" className="mb-2 flex items-center gap-2 rounded-md p-2 hover:bg-muted transition">
-                              <UserIcon className="h-4 w-4" />
-                              <span className="text-sm font-medium">{t("nav.admin")}</span>
-                            </Link>
-                            <Link to="/admin?section=audit-logs" className="mb-2 flex items-center gap-2 rounded-md p-2 hover:bg-muted transition">
-                              <UserIcon className="h-4 w-4" />
-                              <span className="text-sm font-medium">{t("nav.auditLog")}</span>
-                            </Link>
-                          </>
+                        {showAdminLink && (
+                          <Link to="/admin" className="mb-2 flex items-center gap-2 rounded-md p-2 hover:bg-muted transition">
+                            <UserIcon className="h-4 w-4" />
+                            <span className="text-sm font-medium">{t("nav.admin")}</span>
+                          </Link>
                         )}
-                        {isRecruiterRole(user?.role) && (
+                        {showRecruiterLink && (
                           <Link to="/recruiter" className="mb-2 flex items-center gap-2 rounded-md p-2 hover:bg-muted transition">
                             <UserIcon className="h-4 w-4" />
                             <span className="text-sm font-medium">{t("nav.recruiterDashboard")}</span>
                           </Link>
                         )}
-                        <Link to="/profile" className="flex items-center gap-2 mb-2 rounded-md p-2 hover:bg-muted transition">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={user?.avatarUrl} />
-                            <AvatarFallback>
-                              {user?.firstName?.charAt(0) || <UserIcon className="h-4 w-4" />}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-sm font-medium">{user?.firstName}</span>
-                        </Link>
+                        {showModeratorLink && (
+                          <Link to="/moderator" className="mb-2 flex items-center gap-2 rounded-md p-2 hover:bg-muted transition">
+                            <UserIcon className="h-4 w-4" />
+                            <span className="text-sm font-medium">Moderator</span>
+                          </Link>
+                        )}
+                        {showProfileLink && (
+                          <Link to="/profile" className="flex items-center gap-2 mb-2 rounded-md p-2 hover:bg-muted transition">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={user?.avatarUrl} />
+                              <AvatarFallback>
+                                {user?.firstName?.charAt(0) || <UserIcon className="h-4 w-4" />}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm font-medium">{user?.firstName}</span>
+                          </Link>
+                        )}
                         <Button
                           onClick={handleLogout}
                           className="w-full"

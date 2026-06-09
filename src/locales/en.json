@@ -24,7 +24,9 @@
     "loading": "Loading...",
     "emptyValue": "-",
     "required": "Required",
-    "optional": "Optional"
+    "optional": "Optional",
+    "yes": "Yes",
+    "no": "No"
   },
   "toast": {
     "error": "Error",
@@ -459,13 +461,37 @@
     "jobs": {
       "title": "Manage job posts",
       "activeTab": "Visible",
+      "pendingTab": "Pending",
+      "approvedTab": "Approved",
       "trashTab": "Trash",
       "titleColumn": "Title",
       "postedDate": "Posted date",
       "deletedDate": "Deleted date",
+      "hiddenColumn": "Hidden",
       "moveToTrash": "Move to trash",
       "restore": "Restore",
-      "deletePermanent": "Delete permanently"
+      "deletePermanent": "Delete permanently",
+      "approve": "Approve",
+      "reject": "Reject",
+      "rejectConfirm": "Are you sure you want to reject this job post?",
+      "approveSuccess": "Job post approved.",
+      "rejectSuccess": "Job post rejected.",
+      "approveError": "Could not approve job post.",
+      "rejectError": "Could not reject job post.",
+      "filters": {
+        "status": "Status",
+        "hidden": "Hidden",
+        "date": "Posted date",
+        "allStatuses": "All statuses",
+        "allVisibility": "All visibility",
+        "visibleOnly": "Visible only",
+        "hiddenOnly": "Hidden only"
+      },
+      "statuses": {
+        "PENDING": "Pending",
+        "APPROVED": "Approved",
+        "REJECTED": "Rejected"
+      }
     },
     "requests": {
       "title": "Review recruiter verification requests",

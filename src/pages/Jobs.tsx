@@ -40,6 +40,9 @@ const normalizeText = (value?: string | number | null) =>
     .trim()
     .toLowerCase();
 
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
+
 const getSearchText = (job: PublicJobPost) =>
   [
     job.title,
@@ -298,9 +301,9 @@ const Jobs: React.FC = () => {
         if (!mounted) return;
         setManagedConfig(config);
         setJobs(jobsResult || []);
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (!mounted) return;
-        setErrorMessage(error.message || t("jobs.page.loadError"));
+        setErrorMessage(getErrorMessage(error, t("jobs.page.loadError")));
         setJobs([]);
       } finally {
         if (mounted) {
@@ -341,6 +344,8 @@ const Jobs: React.FC = () => {
       toast({ description: "Chỉ tài khoản Ứng viên mới có thể nộp đơn", variant: "destructive" });
       return;
     }
+    const defaultCv = user.cvList?.find((cv) => cv.isDefault) ?? user.cvList?.[0];
+    setSelectedCvId(defaultCv?.id ?? "");
     setApplyJobId(jobId);
   };
 
@@ -356,10 +361,10 @@ const Jobs: React.FC = () => {
       toast({ title: "Thành công!", description: "Đã nộp CV thành công cho công việc này." });
       setApplyJobId(null);
       setSelectedCvId("");
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({ 
         title: "Không thể nộp đơn", 
-        description: error.message || "Bạn đã nộp đơn cho công việc này rồi hoặc có lỗi xảy ra.", 
+        description: getErrorMessage(error, "Bạn đã nộp đơn cho công việc này rồi hoặc có lỗi xảy ra."),
         variant: "destructive" 
       });
     } finally {
@@ -509,6 +514,7 @@ const Jobs: React.FC = () => {
                       </p>
                       <p className="text-xs text-slate-500 mt-1">
                         Ngày tải lên: {new Date(cv.uploadedAt).toLocaleDateString('vi-VN')}
+                        {cv.isDefault && <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">Default</span>}
                       </p>
                     </div>
                     <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
