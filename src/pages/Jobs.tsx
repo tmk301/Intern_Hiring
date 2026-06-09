@@ -133,14 +133,14 @@ const matchesExperience = (source: string | null, selectedValue: string) => {
     case "1-year":
       return (
         !hasAnyPhrase(normalizedSource, ["Dưới 1 năm", "Ít hơn 1 năm", "Less than 1 year", "Under 1 year"]) &&
-        hasAnyPhrase(normalizedSource, ["1 năm kinh nghiệm", "Kinh nghiệm 1 năm", "1 year experience"])
+        hasAnyPhrase(normalizedSource, ["1 năm kinh nghiệm", "Kinh nghiệm 1 năm", "1 year experience", "Experience 1 year"])
       );
     case "2-years":
-      return hasAnyPhrase(normalizedSource, ["2 năm kinh nghiệm", "Kinh nghiệm 2 năm", "2 years experience"]);
+      return hasAnyPhrase(normalizedSource, ["2 năm kinh nghiệm", "Kinh nghiệm 2 năm", "2 years experience", "Experience 2 years"]);
     case "3-years":
       return (
         !hasAnyPhrase(normalizedSource, ["Trên 3 năm", "Hơn 3 năm", "More than 3 years", "Over 3 years"]) &&
-        hasAnyPhrase(normalizedSource, ["3 năm kinh nghiệm", "Kinh nghiệm 3 năm", "3 years experience"])
+        hasAnyPhrase(normalizedSource, ["3 năm kinh nghiệm", "Kinh nghiệm 3 năm", "3 years experience", "Experience 3 years"])
       );
     case "over-3-years":
       return hasAnyPhrase(normalizedSource, [

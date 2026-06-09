@@ -18,8 +18,11 @@ import {
 import { toast } from "sonner";
 
 import { useAuth } from "@/context/AuthContext";
+import { defaultJobFilterOptions } from "@/components/jobs/jobFilterConfig";
 import { isRecruiterRole } from "@/lib/roles";
 import { recruiterApi, CandidateApplication } from "@/lib/api";
+import { getVietnamProvinceOptions, getVietnamWardOptions } from "@/lib/vietnamProvinces";
+import type { JobFilterOption } from "@/components/jobs/jobFilterConfig";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +30,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -53,8 +57,16 @@ type JobFormValue = {
   employerName: string;
   employerEmail: string;
   location: string;
-  salary: string;
-  type: string;
+  streetNumber: string;
+  streetName: string;
+  city: string;
+  ward: string;
+  salaryMin: string;
+  salaryMax: string;
+  currency: string;
+  workMode: string;
+  jobType: string;
+  experience: string;
   description: string;
 };
 
@@ -64,12 +76,32 @@ const emptyJobFormValue: JobFormValue = {
   employerName: "",
   employerEmail: "",
   location: "",
-  salary: "",
-  type: "",
+  streetNumber: "",
+  streetName: "",
+  city: "",
+  ward: "",
+  salaryMin: "",
+  salaryMax: "",
+  currency: "",
+  workMode: "",
+  jobType: "",
+  experience: "",
   description: "",
 };
 
-const jobTypes = ["Internship", "Part-time", "Full-time"];
+const SALARY_RANGE_MIN = 0;
+const SALARY_RANGE_MAX = 50_000_000;
+const SALARY_STEP = 500_000;
+
+const formatCurrencyAmount = (value: number) =>
+  new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value);
+
+const formatNumberText = (value: string) => {
+  if (!value) return "";
+  return formatCurrencyAmount(Number(value));
+};
+
+const normalizeNumericText = (value: string) => value.replace(/\D/g, "");
 
 const normalizeStatus = (status?: string | null) => status?.trim().toUpperCase() || "PENDING";
 
@@ -107,15 +139,19 @@ const RecruiterDashboard: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [actionId, setActionId] = useState<string | number | null>(null);
   const [jobPendingDelete, setJobPendingDelete] = useState<RecruiterJob | null>(null);
-  
+
   // State quản lý ứng viên
   const [applications, setApplications] = useState<CandidateApplication[]>([]);
   const [loadingApps, setLoadingApps] = useState(false);
 
+  // State cho Province API
+  const [provinceOptions, setProvinceOptions] = useState<JobFilterOption[]>([]);
+  const [wardOptions, setWardOptions] = useState<JobFilterOption[]>([]);
+
   const recruiterEmail = user?.email ?? "";
   const recruiterName = useMemo(
-      () => [user?.lastName, user?.firstName].filter(Boolean).join(" ").trim() || recruiterEmail,
-      [recruiterEmail, user?.firstName, user?.lastName],
+    () => [user?.lastName, user?.firstName].filter(Boolean).join(" ").trim() || recruiterEmail,
+    [recruiterEmail, user?.firstName, user?.lastName],
   );
   const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
   const visibleJobs = useMemo(() => jobs.filter((job) => !isHiddenJob(job)), [jobs]);
@@ -132,6 +168,49 @@ const RecruiterDashboard: React.FC = () => {
   useEffect(() => {
     resetForm();
   }, [resetForm]);
+
+  // Load Province Options
+  useEffect(() => {
+    let mounted = true;
+    getVietnamProvinceOptions()
+      .then((options) => {
+        if (mounted) setProvinceOptions(options);
+      })
+      .catch(() => {
+        if (mounted) setProvinceOptions([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Load Ward Options when city changes
+  useEffect(() => {
+    let mounted = true;
+    const selectedProvince = provinceOptions.find((option) => option.value === formValue.city);
+
+    if (!selectedProvince) {
+      setWardOptions([]);
+      // Reset ward when city is cleared
+      setFormValue((current) => ({ ...current, ward: "" }));
+      return () => {
+        mounted = false;
+      };
+    }
+
+    setWardOptions([]);
+    getVietnamWardOptions(formValue.city)
+      .then((options) => {
+        if (mounted) setWardOptions(options);
+      })
+      .catch(() => {
+        if (mounted) setWardOptions([]);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [formValue.city, provinceOptions]);
 
   // Load danh sách công việc
   const loadJobs = useCallback(async () => {
@@ -160,7 +239,7 @@ const RecruiterDashboard: React.FC = () => {
   // Load danh sách ứng viên (Dựa trên mảng jobs đã có)
   const loadApplications = useCallback(async () => {
     if (!token) return;
-    
+
     if (jobs.length === 0) {
       setApplications([]);
       setLoadingApps(false);
@@ -170,16 +249,16 @@ const RecruiterDashboard: React.FC = () => {
     setLoadingApps(true);
     try {
       // Gọi API lấy danh sách ứng viên cho từng công việc
-      const promises = jobs.map(job => 
-        recruiterApi.listJobApplications(token, job.id).catch(() => []) 
+      const promises = jobs.map(job =>
+        recruiterApi.listJobApplications(token, job.id).catch(() => [])
       );
-      
+
       const results = await Promise.all(promises);
       const allApplications = results.flat();
-      
+
       // Sắp xếp mới nhất lên đầu
       allApplications.sort((a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime());
-      
+
       setApplications(allApplications);
     } catch (error: unknown) {
       toast.error("Không thể tải danh sách ứng viên");
@@ -199,7 +278,7 @@ const RecruiterDashboard: React.FC = () => {
     try {
       await recruiterApi.updateApplicationStatus(token, jobId, appId, newStatus);
       toast.success("Đã cập nhật trạng thái hồ sơ");
-      await loadApplications(); 
+      await loadApplications();
     } catch (error: unknown) {
       toast.error("Lỗi khi cập nhật trạng thái");
     } finally {
@@ -211,17 +290,85 @@ const RecruiterDashboard: React.FC = () => {
     setFormValue((current) => ({ ...current, [field]: value }));
   };
 
+  const updateNumericFormValue = (field: "salaryMin" | "salaryMax", value: string) => {
+    updateFormValue(field, normalizeNumericText(value));
+  };
+
+  const clampSalaryValue = (value: string, fallback: number) => {
+    const numericValue = Number(value || fallback);
+    if (!Number.isFinite(numericValue)) return fallback;
+    return Math.min(Math.max(numericValue, SALARY_RANGE_MIN), SALARY_RANGE_MAX);
+  };
+
+  const salaryMinValue = clampSalaryValue(formValue.salaryMin, SALARY_RANGE_MIN);
+  const salaryMaxValue = clampSalaryValue(formValue.salaryMax, SALARY_RANGE_MAX);
+  const salaryRangeValue =
+    salaryMinValue <= salaryMaxValue
+      ? [salaryMinValue, salaryMaxValue]
+      : [salaryMaxValue, salaryMinValue];
+
+  const updateSalaryRange = (nextValue: number[]) => {
+    const [nextMin = SALARY_RANGE_MIN, nextMax = SALARY_RANGE_MAX] = nextValue;
+    setFormValue((current) => ({
+      ...current,
+      salaryMin: String(nextMin),
+      salaryMax: String(nextMax),
+    }));
+  };
+
+  const wardDisabled = !formValue.city || wardOptions.length === 0;
+
+  const getExperienceLabel = (value: string) => {
+    const option = defaultJobFilterOptions.experience.find((item) => item.value === value);
+    if (!option) return value;
+    return option.labelKey ? t(option.labelKey, { defaultValue: option.label }) : option.label;
+  };
+
+  const getFormattedSalary = () => {
+    const minSalary = formValue.salaryMin.trim();
+    const maxSalary = formValue.salaryMax.trim();
+    const currency = formValue.currency.trim();
+
+    if (minSalary && maxSalary) {
+      return `${formatNumberText(minSalary)} - ${formatNumberText(maxSalary)} ${currency}`.trim();
+    }
+
+    return `${formatNumberText(minSalary || maxSalary)} ${currency}`.trim();
+  };
+
+  const getFormattedDescription = () =>
+    [
+      `${t("recruiter.form.workMode")}: ${formValue.workMode.trim()}`,
+      `${t("recruiter.form.experience")}: ${getExperienceLabel(formValue.experience)}`,
+      "",
+      formValue.description.trim(),
+    ].join("\n");
+
   const validateForm = () => {
     const requiredFields: Array<keyof JobFormValue> = [
       "title",
       "company",
       "employerName",
       "employerEmail",
-      "location",
-      "type",
+      "salaryMin",
+      "salaryMax",
+      "currency",
+      "workMode",
+      "jobType",
+      "experience",
       "description",
     ];
-    return requiredFields.every((field) => formValue[field].trim().length > 0);
+    // location OR (streetNumber AND streetName AND city AND ward) must be provided
+    const locationProvided = formValue.location.trim().length > 0;
+    const detailedLocationProvided =
+      formValue.streetNumber.trim().length > 0 &&
+      formValue.streetName.trim().length > 0 &&
+      formValue.city.trim().length > 0 &&
+      formValue.ward.trim().length > 0;
+
+    const hasLocation = locationProvided || detailedLocationProvided;
+
+    return requiredFields.every((field) => formValue[field].trim().length > 0) && hasLocation;
   };
 
   const handleCreateJob = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -232,18 +379,35 @@ const RecruiterDashboard: React.FC = () => {
       return;
     }
 
+    if (Number(formValue.salaryMax) < Number(formValue.salaryMin)) {
+      toast.error(t("recruiter.toast.salaryRangeInvalid"));
+      return;
+    }
+
     if (!token) return;
 
     setSubmitting(true);
     try {
+      // Build location string: either use provided location or combine detailed address
+      let finalLocation = formValue.location.trim();
+      if (!finalLocation) {
+        const detailParts = [
+          formValue.streetNumber.trim(),
+          formValue.streetName.trim(),
+          wardOptions.find((w) => w.value === formValue.ward)?.label,
+          provinceOptions.find((p) => p.value === formValue.city)?.label,
+        ].filter(Boolean);
+        finalLocation = detailParts.join(", ");
+      }
+
       await recruiterApi.createJob(token, {
         title: formValue.title.trim(),
         company: formValue.company.trim(),
         employerName: formValue.employerName.trim(),
-        location: formValue.location.trim(),
-        type: formValue.type.trim(),
-        salary: formValue.salary.trim() || undefined,
-        description: formValue.description.trim(),
+        location: finalLocation,
+        type: formValue.jobType.trim(),
+        salary: getFormattedSalary(),
+        description: getFormattedDescription(),
       });
       toast.success(t("recruiter.toast.createSuccess"));
       resetForm();
@@ -288,9 +452,9 @@ const RecruiterDashboard: React.FC = () => {
 
   if (isLoading) {
     return (
-        <div className="flex min-h-screen items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     );
   }
 
@@ -303,371 +467,500 @@ const RecruiterDashboard: React.FC = () => {
   }
 
   return (
-      <main className="min-h-screen bg-slate-50">
-        <section className="border-b bg-white">
-          <div className="container mx-auto px-4 py-8">
-            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-              <div>
-                <Badge className="mb-3 bg-primary text-primary-foreground">{t("recruiter.badge")}</Badge>
-                <h1 className="text-3xl font-bold text-slate-950">{t("recruiter.title")}</h1>
-                <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{t("recruiter.description")}</p>
-              </div>
-              <Button type="button" variant="outline" className="w-auto" onClick={loadJobs} disabled={loadingJobs}>
-                {loadingJobs ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                {t("common.refresh")}
-              </Button>
+    <main className="min-h-screen bg-slate-50">
+      <section className="border-b bg-white">
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <Badge className="mb-3 bg-primary text-primary-foreground">{t("recruiter.badge")}</Badge>
+              <h1 className="text-3xl font-bold text-slate-950">{t("recruiter.title")}</h1>
+              <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{t("recruiter.description")}</p>
             </div>
+            <Button type="button" variant="outline" className="w-auto" onClick={loadJobs} disabled={loadingJobs}>
+              {loadingJobs ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              {t("common.refresh")}
+            </Button>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section className="container mx-auto space-y-6 px-4 py-8">
-          {/* Thống kê */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t("recruiter.stats.total")}</CardTitle>
-                <Briefcase className="h-5 w-5 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{jobs.length}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t("recruiter.stats.visible")}</CardTitle>
-                <Eye className="h-5 w-5 text-emerald-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{visibleJobs.length}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t("recruiter.stats.hidden")}</CardTitle>
-                <EyeOff className="h-5 w-5 text-amber-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{hiddenJobs.length}</div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Form tạo việc làm mới */}
+      <section className="container mx-auto space-y-6 px-4 py-8">
+        {/* Thống kê */}
+        <div className="grid gap-4 md:grid-cols-3">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <PlusCircle className="h-5 w-5 text-primary" />
-                {t("recruiter.form.title")}
-              </CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{t("recruiter.stats.total")}</CardTitle>
+              <Briefcase className="h-5 w-5 text-primary" />
             </CardHeader>
             <CardContent>
-              <form className="grid gap-5 md:grid-cols-2 xl:grid-cols-4" onSubmit={handleCreateJob}>
-                <div className="space-y-2 xl:col-span-2">
-                  <Label htmlFor="recruiter-job-title">{t("recruiter.form.jobTitle")}</Label>
-                  <Input
-                      id="recruiter-job-title"
-                      value={formValue.title}
-                      onChange={(event) => updateFormValue("title", event.target.value)}
-                      placeholder={t("recruiter.form.jobTitlePlaceholder")}
-                      className="h-11 bg-white"
-                  />
-                </div>
+              <div className="text-3xl font-bold">{jobs.length}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{t("recruiter.stats.visible")}</CardTitle>
+              <Eye className="h-5 w-5 text-emerald-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{visibleJobs.length}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{t("recruiter.stats.hidden")}</CardTitle>
+              <EyeOff className="h-5 w-5 text-amber-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{hiddenJobs.length}</div>
+            </CardContent>
+          </Card>
+        </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="recruiter-job-company">{t("recruiter.form.company")}</Label>
-                  <Input
-                      id="recruiter-job-company"
-                      value={formValue.company}
-                      onChange={(event) => updateFormValue("company", event.target.value)}
-                      placeholder={t("recruiter.form.companyPlaceholder")}
-                      className="h-11 bg-white"
-                  />
-                </div>
+        {/* Form tạo việc làm mới */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <PlusCircle className="h-5 w-5 text-primary" />
+              {t("recruiter.form.title")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form className="grid gap-5 md:grid-cols-2 xl:grid-cols-4" onSubmit={handleCreateJob}>
+              <div className="space-y-2">
+                <Label htmlFor="recruiter-job-title">{t("recruiter.form.jobTitle")}</Label>
+                <Input
+                  id="recruiter-job-title"
+                  value={formValue.title}
+                  onChange={(event) => updateFormValue("title", event.target.value)}
+                  placeholder={t("recruiter.form.jobTitlePlaceholder")}
+                  className="h-11 bg-white"
+                />
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="recruiter-job-type">{t("recruiter.form.type")}</Label>
-                  <Select value={formValue.type} onValueChange={(value) => updateFormValue("type", value)}>
-                    <SelectTrigger id="recruiter-job-type" className="h-11 bg-white">
-                      <SelectValue placeholder={t("recruiter.form.typePlaceholder")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {jobTypes.map((type) => (
-                          <SelectItem key={type} value={type}>
-                            {t(`recruiter.types.${type}`, { defaultValue: type })}
-                          </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="recruiter-job-type">{t("recruiter.form.type")}</Label>
+                <Input
+                  id="recruiter-job-type"
+                  value={formValue.jobType}
+                  onChange={(event) => updateFormValue("jobType", event.target.value)}
+                  placeholder={t("recruiter.form.typePlaceholder")}
+                  className="h-11 bg-white"
+                />
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="recruiter-employer-name">{t("recruiter.form.employerName")}</Label>
-                  <Input
-                      id="recruiter-employer-name"
-                      value={formValue.employerName}
-                      onChange={(event) => updateFormValue("employerName", event.target.value)}
-                      className="h-11 bg-white"
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="recruiter-job-experience">{t("recruiter.form.experience")}</Label>
+                <Select value={formValue.experience} onValueChange={(value) => updateFormValue("experience", value)}>
+                  <SelectTrigger id="recruiter-job-experience" className="h-11 bg-white">
+                    <SelectValue placeholder={t("recruiter.form.experiencePlaceholder")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {defaultJobFilterOptions.experience.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.labelKey ? t(option.labelKey, { defaultValue: option.label }) : option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="recruiter-employer-email">{t("recruiter.form.employerEmail")}</Label>
-                  <Input
-                      id="recruiter-employer-email"
-                      value={formValue.employerEmail}
-                      readOnly
-                      className="h-11 bg-muted"
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="recruiter-job-work-mode">{t("recruiter.form.workMode")}</Label>
+                <Input
+                  id="recruiter-job-work-mode"
+                  value={formValue.workMode}
+                  onChange={(event) => updateFormValue("workMode", event.target.value)}
+                  placeholder={t("recruiter.form.workModePlaceholder")}
+                  className="h-11 bg-white"
+                />
+              </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="recruiter-employer-name">{t("recruiter.form.employerName")}</Label>
+                <Input
+                  id="recruiter-employer-name"
+                  value={formValue.employerName}
+                  onChange={(event) => updateFormValue("employerName", event.target.value)}
+                  className="h-11 bg-white"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="recruiter-employer-email">{t("recruiter.form.employerEmail")}</Label>
+                <Input
+                  id="recruiter-employer-email"
+                  value={formValue.employerEmail}
+                  readOnly
+                  className="h-11 bg-muted"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="recruiter-job-company">{t("recruiter.form.company")}</Label>
+                <Input
+                  id="recruiter-job-company"
+                  value={formValue.company}
+                  onChange={(event) => updateFormValue("company", event.target.value)}
+                  placeholder={t("recruiter.form.companyPlaceholder")}
+                  className="h-11 bg-white"
+                />
+              </div>
+
+              {/* Location Section - Simple or Detailed */}
+              <div className="md:col-span-2 xl:col-span-4 space-y-4 border rounded-lg p-4 bg-muted/20">
+                <div className="font-medium text-sm">{t("recruiter.form.detailedLocation")}</div>
+
+                {/* Simple location input */}
                 <div className="space-y-2">
                   <Label htmlFor="recruiter-job-location">{t("recruiter.form.location")}</Label>
                   <Input
-                      id="recruiter-job-location"
-                      value={formValue.location}
-                      onChange={(event) => updateFormValue("location", event.target.value)}
-                      placeholder={t("recruiter.form.locationPlaceholder")}
-                      className="h-11 bg-white"
+                    id="recruiter-job-location"
+                    value={formValue.location}
+                    onChange={(event) => updateFormValue("location", event.target.value)}
+                    placeholder={t("recruiter.form.locationPlaceholder")}
+                    className="h-11 bg-white"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="recruiter-job-salary">{t("recruiter.form.salary")}</Label>
-                  <Input
-                      id="recruiter-job-salary"
-                      value={formValue.salary}
-                      onChange={(event) => updateFormValue("salary", event.target.value)}
-                      placeholder={t("recruiter.form.salaryPlaceholder")}
-                      className="h-11 bg-white"
-                  />
-                </div>
-
-                <div className="space-y-2 md:col-span-2 xl:col-span-4">
-                  <Label htmlFor="recruiter-job-description">{t("recruiter.form.jobDescription")}</Label>
-                  <Textarea
-                      id="recruiter-job-description"
-                      value={formValue.description}
-                      onChange={(event) => updateFormValue("description", event.target.value)}
-                      placeholder={t("recruiter.form.jobDescriptionPlaceholder")}
-                      className="min-h-32 bg-white"
-                  />
-                </div>
-
-                <div className="md:col-span-2 xl:col-span-4">
-                  <Button type="submit" variant="cta" className="w-auto" disabled={submitting}>
-                    {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
-                    {t("recruiter.form.submit")}
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <Building2 className="h-5 w-5 text-primary" />
-                {t("recruiter.jobs.title")}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loadingJobs ? (
-                  <div className="flex items-center justify-center py-14">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <div className="relative py-2">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t" />
                   </div>
-              ) : jobs.length === 0 ? (
-                  <p className="py-10 text-center text-sm text-muted-foreground">{t("recruiter.jobs.empty")}</p>
-              ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t("recruiter.form.jobTitle")}</TableHead>
-                        <TableHead>{t("recruiter.form.company")}</TableHead>
-                        <TableHead>{t("recruiter.form.type")}</TableHead>
-                        <TableHead>{t("recruiter.jobs.status")}</TableHead>
-                        <TableHead>{t("recruiter.jobs.createdAt")}</TableHead>
-                        <TableHead className="text-center">{t("common.actions")}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {jobs.map((job) => {
-                        const status = normalizeStatus(job.status);
-                        const hidden = isHiddenJob(job);
-
-                        return (
-                            <TableRow key={job.id}>
-                              <TableCell className="min-w-56 font-medium">{job.title || "-"}</TableCell>
-                              <TableCell>{job.company || "-"}</TableCell>
-                              <TableCell>{job.type || "-"}</TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className={getStatusBadgeClassName(job.status)}>
-                                  {t(`recruiter.status.${status}`, { defaultValue: status })}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>{formatDate(job.created_at, dateLocale)}</TableCell>
-                              <TableCell>
-                                <div className="flex flex-wrap justify-center gap-2">
-                                  {hidden ? (
-                                      <Button
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          className="w-auto"
-                                          disabled={actionId === job.id}
-                                          onClick={() => updateJobHidden(job, false)}
-                                      >
-                                        <Eye className="h-4 w-4" />
-                                        {t("recruiter.jobs.show")}
-                                      </Button>
-                                  ) : (
-                                      <Button
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          className="w-auto"
-                                          disabled={actionId === job.id}
-                                          onClick={() => updateJobHidden(job, true)}
-                                      >
-                                        <EyeOff className="h-4 w-4" />
-                                        {t("recruiter.jobs.hide")}
-                                      </Button>
-                                  )}
-                                  <Button
-                                      type="button"
-                                      variant="destructive"
-                                      size="sm"
-                                      className="w-auto"
-                                      disabled={actionId === job.id}
-                                      onClick={() => setJobPendingDelete(job)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                    {t("recruiter.jobs.delete")}
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <Users className="h-5 w-5 text-primary" />
-                Hồ sơ ứng tuyển
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loadingApps ? (
-                <div className="flex items-center justify-center py-14">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-muted/20 px-2 text-muted-foreground">{t("recruiter.form.detailedLocationDivider")}</span>
+                  </div>
                 </div>
-              ) : applications.length === 0 ? (
-                <p className="py-10 text-center text-sm text-muted-foreground">Chưa có ứng viên nào nộp hồ sơ.</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Ứng viên</TableHead>
-                      <TableHead>Vị trí ứng tuyển</TableHead>
-                      <TableHead>CV</TableHead>
-                      <TableHead>Trạng thái</TableHead>
-                      <TableHead>Ngày nộp</TableHead>
-                      <TableHead className="text-center">Thao tác</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {applications.map((app) => (
-                      <TableRow key={app.id}>
+
+                {/* Detailed location inputs */}
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="recruiter-job-street-number">{t("recruiter.form.streetNumber")}</Label>
+                    <Input
+                      id="recruiter-job-street-number"
+                      value={formValue.streetNumber}
+                      onChange={(event) => updateFormValue("streetNumber", event.target.value)}
+                      placeholder={t("recruiter.form.streetNumberPlaceholder")}
+                      className="h-11 bg-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="recruiter-job-street-name">{t("recruiter.form.streetName")}</Label>
+                    <Input
+                      id="recruiter-job-street-name"
+                      value={formValue.streetName}
+                      onChange={(event) => updateFormValue("streetName", event.target.value)}
+                      placeholder={t("recruiter.form.streetNamePlaceholder")}
+                      className="h-11 bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="recruiter-job-city">{t("recruiter.form.city")}</Label>
+                    <Select value={formValue.city} onValueChange={(value) => updateFormValue("city", value)}>
+                      <SelectTrigger id="recruiter-job-city" className="h-11 bg-white">
+                        <SelectValue placeholder={t("recruiter.form.cityPlaceholder")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {provinceOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="recruiter-job-ward">{t("recruiter.form.ward")}</Label>
+                    <Select value={formValue.ward} onValueChange={(value) => updateFormValue("ward", value)} disabled={wardDisabled}>
+                      <SelectTrigger id="recruiter-job-ward" className="h-11 bg-white" disabled={wardDisabled}>
+                        <SelectValue placeholder={wardDisabled ? t("recruiter.form.wardPlaceholderDisabled") : t("recruiter.form.wardPlaceholder")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {wardOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Salary Section with Slider */}
+              <div className="md:col-span-2 space-y-4">
+                <div className="flex items-center justify-between gap-4">
+                  <Label>{t("recruiter.form.salary")}</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={formatNumberText(formValue.salaryMin)}
+                      onChange={(event) => updateNumericFormValue("salaryMin", event.target.value)}
+                      inputMode="numeric"
+                      pattern="[0-9.]*"
+                      className="h-8 w-24 bg-white text-right text-sm"
+                      aria-label={t("recruiter.form.salaryMin")}
+                    />
+                    <span className="text-xs text-muted-foreground">-</span>
+                    <Input
+                      value={formatNumberText(formValue.salaryMax)}
+                      onChange={(event) => updateNumericFormValue("salaryMax", event.target.value)}
+                      inputMode="numeric"
+                      pattern="[0-9.]*"
+                      className="h-8 w-24 bg-white text-right text-sm"
+                      aria-label={t("recruiter.form.salaryMax")}
+                    />
+                  </div>
+                </div>
+                <Slider
+                  min={SALARY_RANGE_MIN}
+                  max={SALARY_RANGE_MAX}
+                  step={SALARY_STEP}
+                  value={salaryRangeValue}
+                  onValueChange={updateSalaryRange}
+                  minStepsBetweenThumbs={1}
+                  className="h-8"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="recruiter-job-currency">{t("recruiter.form.currency")}</Label>
+                <Input
+                  id="recruiter-job-currency"
+                  value={formValue.currency}
+                  onChange={(event) => updateFormValue("currency", event.target.value)}
+                  placeholder={t("recruiter.form.currencyPlaceholder")}
+                  className="h-11 bg-white"
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2 xl:col-span-4">
+                <Label htmlFor="recruiter-job-description">{t("recruiter.form.jobDescription")}</Label>
+                <Textarea
+                  id="recruiter-job-description"
+                  value={formValue.description}
+                  onChange={(event) => updateFormValue("description", event.target.value)}
+                  placeholder={t("recruiter.form.jobDescriptionPlaceholder")}
+                  className="min-h-32 bg-white"
+                />
+              </div>
+
+              <div className="md:col-span-2 xl:col-span-4">
+                <Button type="submit" variant="cta" className="w-auto" disabled={submitting}>
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
+                  {t("recruiter.form.submit")}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <Building2 className="h-5 w-5 text-primary" />
+              {t("recruiter.jobs.title")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingJobs ? (
+              <div className="flex items-center justify-center py-14">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : jobs.length === 0 ? (
+              <p className="py-10 text-center text-sm text-muted-foreground">{t("recruiter.jobs.empty")}</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("recruiter.form.jobTitle")}</TableHead>
+                    <TableHead>{t("recruiter.form.company")}</TableHead>
+                    <TableHead>{t("recruiter.form.type")}</TableHead>
+                    <TableHead>{t("recruiter.jobs.status")}</TableHead>
+                    <TableHead>{t("recruiter.jobs.createdAt")}</TableHead>
+                    <TableHead className="text-center">{t("common.actions")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {jobs.map((job) => {
+                    const status = normalizeStatus(job.status);
+                    const hidden = isHiddenJob(job);
+
+                    return (
+                      <TableRow key={job.id}>
+                        <TableCell className="min-w-56 font-medium">{job.title || "-"}</TableCell>
+                        <TableCell>{job.company || "-"}</TableCell>
+                        <TableCell>{job.type || "-"}</TableCell>
                         <TableCell>
-                          <div className="font-medium">{app.applicantName || "Ứng viên"}</div>
-                          <div className="text-xs text-muted-foreground">{app.applicantEmail}</div>
-                        </TableCell>
-                        <TableCell className="max-w-[200px] truncate" title={app.jobTitle}>
-                          {app.jobTitle}
-                        </TableCell>
-                        <TableCell>
-                          <a 
-                            href={app.appliedCvUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                          >
-                            <FileText className="h-4 w-4" />
-                            Xem CV
-                          </a>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={getStatusBadgeClassName(app.status)}>
-                            {app.status === "ACCEPTED" ? "Đã duyệt" : app.status === "REJECTED" ? "Từ chối" : "Chờ duyệt"}
+                          <Badge variant="outline" className={getStatusBadgeClassName(job.status)}>
+                            {t(`recruiter.status.${status}`, { defaultValue: status })}
                           </Badge>
                         </TableCell>
-                        <TableCell>{formatDate(app.appliedAt, dateLocale)}</TableCell>
+                        <TableCell>{formatDate(job.created_at, dateLocale)}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap justify-center gap-2">
-                            {app.status === "PENDING" && (
-                              <>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="w-auto border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                                  disabled={actionId === app.id}
-                                  onClick={() => handleUpdateAppStatus(app.jobId, app.id, "ACCEPTED")}
-                                  title="Duyệt CV"
-                                >
-                                  <CheckCircle className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="w-auto border-red-200 text-red-700 hover:bg-red-50"
-                                  disabled={actionId === app.id}
-                                  onClick={() => handleUpdateAppStatus(app.jobId, app.id, "REJECTED")}
-                                  title="Từ chối"
-                                >
-                                  <XCircle className="h-4 w-4" />
-                                </Button>
-                              </>
+                            {hidden ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="w-auto"
+                                disabled={actionId === job.id}
+                                onClick={() => updateJobHidden(job, false)}
+                              >
+                                <Eye className="h-4 w-4" />
+                                {t("recruiter.jobs.show")}
+                              </Button>
+                            ) : (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="w-auto"
+                                disabled={actionId === job.id}
+                                onClick={() => updateJobHidden(job, true)}
+                              >
+                                <EyeOff className="h-4 w-4" />
+                                {t("recruiter.jobs.hide")}
+                              </Button>
                             )}
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              className="w-auto"
+                              disabled={actionId === job.id}
+                              onClick={() => setJobPendingDelete(job)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              {t("recruiter.jobs.delete")}
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </section>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
 
-        <AlertDialog open={Boolean(jobPendingDelete)} onOpenChange={(open) => !open && setJobPendingDelete(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{t("recruiter.deleteDialog.title")}</AlertDialogTitle>
-              <AlertDialogDescription>
-                {t("recruiter.deleteDialog.description", { title: jobPendingDelete?.title || "-" })}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={actionId === jobPendingDelete?.id}>{t("common.cancel")}</AlertDialogCancel>
-              <AlertDialogAction
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  disabled={actionId === jobPendingDelete?.id}
-                  onClick={handleDeleteJob}
-              >
-                {actionId === jobPendingDelete?.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                {t("recruiter.deleteDialog.confirm")}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </main>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <Users className="h-5 w-5 text-primary" />
+              Hồ sơ ứng tuyển
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingApps ? (
+              <div className="flex items-center justify-center py-14">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : applications.length === 0 ? (
+              <p className="py-10 text-center text-sm text-muted-foreground">Chưa có ứng viên nào nộp hồ sơ.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Ứng viên</TableHead>
+                    <TableHead>Vị trí ứng tuyển</TableHead>
+                    <TableHead>CV</TableHead>
+                    <TableHead>Trạng thái</TableHead>
+                    <TableHead>Ngày nộp</TableHead>
+                    <TableHead className="text-center">Thao tác</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {applications.map((app) => (
+                    <TableRow key={app.id}>
+                      <TableCell>
+                        <div className="font-medium">{app.applicantName || "Ứng viên"}</div>
+                        <div className="text-xs text-muted-foreground">{app.applicantEmail}</div>
+                      </TableCell>
+                      <TableCell className="max-w-[200px] truncate" title={app.jobTitle}>
+                        {app.jobTitle}
+                      </TableCell>
+                      <TableCell>
+                        <a
+                          href={app.appliedCvUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                        >
+                          <FileText className="h-4 w-4" />
+                          Xem CV
+                        </a>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={getStatusBadgeClassName(app.status)}>
+                          {app.status === "ACCEPTED" ? "Đã duyệt" : app.status === "REJECTED" ? "Từ chối" : "Chờ duyệt"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{formatDate(app.appliedAt, dateLocale)}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap justify-center gap-2">
+                          {app.status === "PENDING" && (
+                            <>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="w-auto border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                                disabled={actionId === app.id}
+                                onClick={() => handleUpdateAppStatus(app.jobId, app.id, "ACCEPTED")}
+                                title="Duyệt CV"
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="w-auto border-red-200 text-red-700 hover:bg-red-50"
+                                disabled={actionId === app.id}
+                                onClick={() => handleUpdateAppStatus(app.jobId, app.id, "REJECTED")}
+                                title="Từ chối"
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      <AlertDialog open={Boolean(jobPendingDelete)} onOpenChange={(open) => !open && setJobPendingDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("recruiter.deleteDialog.title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("recruiter.deleteDialog.description", { title: jobPendingDelete?.title || "-" })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionId === jobPendingDelete?.id}>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={actionId === jobPendingDelete?.id}
+              onClick={handleDeleteJob}
+            >
+              {actionId === jobPendingDelete?.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              {t("recruiter.deleteDialog.confirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </main>
   );
 };
 
