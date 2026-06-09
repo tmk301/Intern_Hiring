@@ -294,9 +294,25 @@ export function JobSearchFilters({
               <div className="space-y-4 md:col-span-2">
                 <div className="flex items-center justify-between gap-4">
                   <Label htmlFor="job-salary-range-filter">{t("jobs.filters.salary")}</Label>
-                  <span className="text-sm text-muted-foreground">
-                    {formatCurrencyAmount(salaryRangeValue[0])} - {formatCurrencyAmount(salaryRangeValue[1])}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={formatNumberText(filterValue.salaryMin)}
+                      onChange={(event) => updateSalaryInputValue("salaryMin", event.target.value)}
+                      inputMode="numeric"
+                      pattern="[0-9.]*"
+                      className="h-8 w-24 bg-white text-right text-sm"
+                      aria-label={t("jobs.filters.salaryMin")}
+                    />
+                    <span className="text-xs text-muted-foreground">-</span>
+                    <Input
+                      value={formatNumberText(filterValue.salaryMax)}
+                      onChange={(event) => updateSalaryInputValue("salaryMax", event.target.value)}
+                      inputMode="numeric"
+                      pattern="[0-9.]*"
+                      className="h-8 w-24 bg-white text-right text-sm"
+                      aria-label={t("jobs.filters.salaryMax")}
+                    />
+                  </div>
                 </div>
                 <Slider
                   id="job-salary-range-filter"
@@ -308,26 +324,6 @@ export function JobSearchFilters({
                   minStepsBetweenThumbs={1}
                   className="h-12"
                 />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Input
-                    value={formatNumberText(filterValue.salaryMin)}
-                    onChange={(event) => updateSalaryInputValue("salaryMin", event.target.value)}
-                    inputMode="numeric"
-                    pattern="[0-9.]*"
-                    placeholder={formatCurrencyAmount(SALARY_RANGE_MIN)}
-                    className="h-12 bg-white"
-                    aria-label={t("jobs.filters.salaryMin")}
-                  />
-                  <Input
-                    value={formatNumberText(filterValue.salaryMax)}
-                    onChange={(event) => updateSalaryInputValue("salaryMax", event.target.value)}
-                    inputMode="numeric"
-                    pattern="[0-9.]*"
-                    placeholder={formatCurrencyAmount(SALARY_RANGE_MAX)}
-                    className="h-12 bg-white"
-                    aria-label={t("jobs.filters.salaryMax")}
-                  />
-                </div>
               </div>
 
               <div className="space-y-2">
