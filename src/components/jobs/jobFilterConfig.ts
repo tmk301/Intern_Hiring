@@ -14,6 +14,7 @@ export type JobFilterOptions = {
   wards: JobFilterOption[];
   companies: JobFilterOption[];
   currencies: JobFilterOption[];
+  experience: JobFilterOption[];
 };
 
 export type JobFilterValue = {
@@ -25,9 +26,10 @@ export type JobFilterValue = {
   ward: string;
   location: string;
   company: string;
-  minOpenings: string;
-  minSalary: string;
+  salaryMin: string;
+  salaryMax: string;
   currency: string;
+  experience: string;
 };
 
 export const emptyJobFilterValue: JobFilterValue = {
@@ -39,32 +41,38 @@ export const emptyJobFilterValue: JobFilterValue = {
   ward: "",
   location: "",
   company: "",
-  minOpenings: "",
-  minSalary: "",
+  salaryMin: "",
+  salaryMax: "",
   currency: "",
+  experience: "",
 };
 
 export const defaultJobFilterOptions: JobFilterOptions = {
   cities: [],
-  workModes: [
-    { value: "onsite", label: "On-site", labelKey: "jobs.filters.options.workModes.onsite" },
-    { value: "hybrid", label: "Hybrid", labelKey: "jobs.filters.options.workModes.hybrid" },
-    { value: "remote", label: "Remote", labelKey: "jobs.filters.options.workModes.remote" },
-  ],
-  jobTypes: [
-    { value: "internship", label: "Internship", labelKey: "jobs.filters.options.jobTypes.internship" },
-    { value: "part-time", label: "Part-time", labelKey: "jobs.filters.options.jobTypes.partTime" },
-    { value: "full-time", label: "Full-time", labelKey: "jobs.filters.options.jobTypes.fullTime" },
-  ],
+  workModes: [],
+  jobTypes: [],
   districts: [],
   wards: [],
-  companies: [
-    { value: "asl", label: "ASL" },
-    { value: "binemo", label: "Binemo" },
-    { value: "cp-group", label: "CP Group" },
-  ],
-  currencies: [
-    { value: "vnd", label: "VND" },
-    { value: "usd", label: "USD" },
+  companies: [],
+  currencies: [],
+  experience: [
+    {
+      value: "no-experience",
+      label: "Chưa có kinh nghiệm",
+      labelKey: "jobs.filters.options.experience.noExperience",
+    },
+    {
+      value: "under-1-year",
+      label: "Dưới 1 năm",
+      labelKey: "jobs.filters.options.experience.underOneYear",
+    },
+    { value: "1-year", label: "1 năm", labelKey: "jobs.filters.options.experience.oneYear" },
+    { value: "2-years", label: "2 năm", labelKey: "jobs.filters.options.experience.twoYears" },
+    { value: "3-years", label: "3 năm", labelKey: "jobs.filters.options.experience.threeYears" },
+    {
+      value: "over-3-years",
+      label: "Trên 3 năm",
+      labelKey: "jobs.filters.options.experience.overThreeYears",
+    },
   ],
 };
