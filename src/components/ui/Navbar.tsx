@@ -16,7 +16,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { isAdminRole, isModeratorRole, isRecruiterRole } from "@/lib/roles";
+import { isAdminRole, isCandidateRole, isModeratorRole, isRecruiterRole } from "@/lib/roles";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 
@@ -29,6 +29,7 @@ const Navbar = () => {
   const showProfileLink = location.pathname !== "/profile";
   const showAdminLink = isAdminRole(user?.role) && location.pathname !== "/admin";
   const showRecruiterLink = isRecruiterRole(user?.role) && location.pathname !== "/recruiter";
+  const showApplicationsLink = isCandidateRole(user?.role) && location.pathname !== "/applications";
 
   const handleLogout = () => {
     logout();
@@ -134,6 +135,11 @@ const Navbar = () => {
                       <Link to="/moderator">Moderator</Link>
                     </DropdownMenuItem>
                   )}
+                  {showApplicationsLink && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/applications">Ứng tuyển</Link>
+                    </DropdownMenuItem>
+                  )}
                   {showProfileLink && (
                     <DropdownMenuItem asChild>
                       <Link to="/profile">{t("nav.profile")}</Link>
@@ -214,6 +220,12 @@ const Navbar = () => {
                           <Link to="/moderator" className="mb-2 flex items-center gap-2 rounded-md p-2 hover:bg-muted transition">
                             <UserIcon className="h-4 w-4" />
                             <span className="text-sm font-medium">Moderator</span>
+                          </Link>
+                        )}
+                        {showApplicationsLink && (
+                          <Link to="/applications" className="mb-2 flex items-center gap-2 rounded-md p-2 hover:bg-muted transition">
+                            <UserIcon className="h-4 w-4" />
+                            <span className="text-sm font-medium">Ứng tuyển</span>
                           </Link>
                         )}
                         {showProfileLink && (

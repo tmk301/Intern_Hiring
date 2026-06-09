@@ -171,7 +171,11 @@ export type RecruiterJobPost = {
 export type CandidateApplication = {
   id: string | number;
   jobId: string | number;
-  jobTitle: string; 
+  jobTitle: string;
+  company?: string | null;
+  location?: string | null;
+  salary?: string | null;
+  jobType?: string | null;
   applicantId: string | number;
   applicantName: string;
   applicantEmail: string;
@@ -536,5 +540,11 @@ export const candidateApi = {
       method: "POST",
       headers: authHeaders(token),
       body: JSON.stringify({ cvId }), // Chỉ gửi cvId lên như đã thiết kế bảo mật
+    }),
+
+  listApplications: (token: string, status?: CandidateApplication["status"]) =>
+    apiRequest<CandidateApplication[]>("/api/candidates/applications", {
+      headers: authHeaders(token),
+      params: { status },
     }),
 };
