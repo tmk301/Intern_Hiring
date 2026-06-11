@@ -26,7 +26,8 @@
     "required": "Bắt buộc",
     "optional": "Không bắt buộc",
     "yes": "Có",
-    "no": "Không"
+    "no": "Không",
+    "back": "Quay lại"
   },
   "toast": {
     "error": "Lỗi",
@@ -202,6 +203,7 @@
       "emptyTitle": "Không tìm thấy việc làm",
       "emptyDescription": "Hãy thử điều chỉnh bộ lọc hoặc quay lại sau.",
       "untitled": "Việc làm chưa có tiêu đề",
+      "applicationDeadline": "Hạn nộp hồ sơ",
       "notProvided": "Chưa cung cấp"
     },
     "filters": {
@@ -236,7 +238,7 @@
       "salaryMin": "Mức lương tối thiểu",
       "salaryMax": "Mức lương tối đa",
       "currency": "Đơn vị tiền tệ",
-      "currencyPlaceholder": "Nhập tiền tệ, ví dụ: VND, USD",
+      "currencyPlaceholder": "Chọn đơn vị tiền tệ",
       "experience": "Kinh nghiệm",
       "reset": "Đặt lại bộ lọc",
       "options": {
@@ -248,13 +250,29 @@
         },
         "workModes": {
           "onsite": "Làm việc tại văn phòng",
-          "hybrid": "Hybrid",
-          "remote": "Remote"
+          "hybrid": "Làm việc kết hợp",
+          "remote": "Làm việc từ xa"
         },
         "jobTypes": {
           "internship": "Thực tập",
-          "partTime": "Part-time",
-          "fullTime": "Full-time"
+          "partTime": "Bán thời gian",
+          "fullTime": "Toàn thời gian",
+          "freelance": "Tự do"
+        },
+        "currencies": {
+          "vnd": "VND",
+          "usd": "USD"
+        },
+        "salaryRanges": {
+          "under5": "Dưới 5 triệu",
+          "from5To10": "Từ 5 đến 10 triệu",
+          "from10To15": "Từ 10 đến 15 triệu",
+          "from15To20": "Từ 15 đến 20 triệu",
+          "from20To30": "Từ 20 đến 30 triệu",
+          "from30": "Từ 30 triệu trở lên",
+          "usdUnder": "Dưới {{amount}}",
+          "usdBetween": "{{min}} - {{max}}",
+          "usdFrom": "Từ {{amount}} trở lên"
         },
         "experience": {
           "noExperience": "Chưa có kinh nghiệm",
@@ -277,9 +295,14 @@
     "title": "Trang nhà tuyển dụng",
     "description": "Đăng việc làm mới và quản lý trạng thái hiển thị cho các bài đăng của bạn.",
     "stats": {
+      "jobStatsTitle": "Thống kê bài đăng",
+      "applicantStatsTitle": "Thống kê ứng viên",
       "total": "Tổng bài đăng",
       "visible": "Đang hiển thị",
-      "hidden": "Đã ẩn"
+      "hidden": "Đã ẩn",
+      "totalApplicants": "Tổng ứng viên",
+      "acceptedApplicants": "Đã duyệt",
+      "rejectedApplicants": "Đã từ chối"
     },
     "form": {
       "title": "Đăng việc làm mới",
@@ -292,19 +315,20 @@
       "location": "Địa điểm",
       "locationPlaceholder": "Ví dụ: Quận 1, TP. Hồ Chí Minh",
       "salary": "Mức lương",
-      "salaryPlaceholder": "Ví dụ: 5.000.000 VND",
+      "salaryPlaceholder": "Chọn mức lương",
       "salaryMin": "Mức lương tối thiểu",
-      "salaryMinPlaceholder": "Ví dụ: 3.000.000",
+      "salaryMinPlaceholder": "Chọn mức lương",
       "salaryMax": "Mức lương tối đa",
-      "salaryMaxPlaceholder": "Ví dụ: 5.000.000",
+      "salaryMaxPlaceholder": "Chọn mức lương",
       "currency": "Tiền tệ",
-      "currencyPlaceholder": "Ví dụ: VND",
+      "currencyPlaceholder": "Chọn tiền tệ",
+      "applicationDeadline": "Hạn nộp hồ sơ",
       "workMode": "Hình thức làm việc",
-      "workModePlaceholder": "Ví dụ: Remote, Hybrid, tại văn phòng",
+      "workModePlaceholder": "Chọn hình thức làm việc",
       "experience": "Kinh nghiệm",
       "experiencePlaceholder": "Chọn kinh nghiệm",
       "type": "Loại công việc",
-      "typePlaceholder": "Ví dụ: Thực tập, Part-time",
+      "typePlaceholder": "Chọn loại công việc",
       "jobDescription": "Mô tả",
       "jobDescriptionPlaceholder": "Mô tả trách nhiệm, yêu cầu, quyền lợi và ghi chú ứng tuyển.",
       "detailedLocation": "Địa điểm làm việc",
@@ -318,29 +342,49 @@
       "ward": "Phường/Xã/Đặc khu",
       "wardPlaceholder": "Chọn Phường/Xã/Đặc khu",
       "wardPlaceholderDisabled": "Chọn Tỉnh trước",
-      "submit": "Đăng việc"
+      "submit": "Đăng việc",
+      "branchPlaceholder": "Ch?n chi nh?nh ?? ??ng k?",
+      "companyLockedHint": "T?n c?ng ty, t?n nh? tuy?n d?ng v? ??a ch? l?m vi?c ???c l?y t? h? s? c?ng ty ?? duy?t.",
+      "companyProfileRequired": "B?n c?n c? h? s? c?ng ty ?? ???c duy?t tr??c khi ??ng vi?c."
     },
     "types": {
-      "Internship": "Thực tập",
+      "Internship": "Internship",
       "Part-time": "Part-time",
-      "Full-time": "Full-time"
+      "Full-time": "Full-time",
+      "Freelance": "Freelance"
     },
     "jobs": {
       "title": "Bài đăng của tôi",
       "empty": "Bạn chưa đăng việc làm nào.",
       "status": "Trạng thái",
+      "applicationDeadline": "Hạn nộp hồ sơ",
       "createdAt": "Ngày đăng",
       "hide": "Ẩn",
       "show": "Hiện",
       "delete": "Xóa"
     },
+    "applications": {
+      "approve": "Duyệt",
+      "reject": "Từ chối",
+      "title": "Hồ sơ ứng tuyển",
+      "empty": "Chưa có ứng viên nào nộp hồ sơ.",
+      "applicant": "Ứng viên",
+      "jobTitle": "Vị trí ứng tuyển",
+      "appliedAt": "Ngày nộp",
+      "viewCv": "Xem CV",
+      "statuses": {
+        "PENDING": "Chờ",
+        "APPROVED": "Duyệt",
+        "REJECTED": "Từ chối"
+      }
+    },
     "status": {
       "ACTIVE": "Đang hiển thị",
       "VISIBLE": "Đang hiển thị",
       "PUBLISHED": "Đang hiển thị",
-      "PENDING": "Chờ duyệt",
-      "APPROVED": "Đã duyệt",
-      "REJECTED": "Bị từ chối",
+      "PENDING": "Chờ",
+      "APPROVED": "Duyệt",
+      "REJECTED": "Từ chối",
       "HIDDEN": "Đã ẩn",
       "TRASHED": "Đã xóa",
       "DELETED": "Đã xóa"
@@ -360,7 +404,8 @@
       "showSuccess": "Đã hiển thị bài đăng.",
       "statusError": "Không thể cập nhật trạng thái bài đăng.",
       "deleteSuccess": "Đã xóa vĩnh viễn bài đăng.",
-      "deleteError": "Không thể xóa bài đăng."
+      "deleteError": "Không thể xóa bài đăng.",
+      "companyProfileLoadError": "Kh?ng th? t?i h? s? c?ng ty c?a b?n."
     }
   },
   "profile": {
@@ -412,12 +457,32 @@
     "matchAvatarColorShort": "Theo avatar",
     "avatarColorMatched": "Đã chọn màu theo avatar.",
     "avatarColorMissing": "Bạn cần tải avatar trước.",
-    "avatarColorMatchError": "Không thể lấy màu từ avatar."
+    "avatarColorMatchError": "Không thể lấy màu từ avatar.",
+    "companyProfileTitle": "Hồ sơ công ty",
+    "companyProfileEdit": "Chỉnh sửa hồ sơ công ty",
+    "companyProfileEmpty": "Chưa có hồ sơ công ty. Bấm để cập nhật.",
+    "companyProfileLoadError": "Không thể tải hồ sơ công ty",
+    "companyTaxCode": "Mã số thuế",
+    "companyPhone": "Điện thoại",
+    "companyAddress": "Địa chỉ"
   },
   "avatarCrop": {
     "title": "Cắt ảnh đại diện",
     "zoom": "Phóng to",
     "submit": "Cắt & Cập nhật"
+  },
+  "moderator": {
+    "badge": "MODERATOR",
+    "title": "Duyệt tin tuyển dụng",
+    "description": "Duyệt hoặc từ chối các tin tuyển dụng do nhà tuyển dụng đăng lên.",
+    "stats": {
+      "pendingTitle": "Tin chờ duyệt",
+      "pendingDescription": "Các tin tuyển dụng đang ở trạng thái chờ duyệt"
+    },
+    "jobs": {
+      "title": "Tin tuyển dụng chờ duyệt",
+      "empty": "Hiện không có tin tuyển dụng nào đang chờ duyệt."
+    }
   },
   "admin": {
     "loadError": "Không thể tải dữ liệu quản trị.",
@@ -465,13 +530,16 @@
       "active": "Hoạt động",
       "restrict": "Hạn chế",
       "unrestrict": "Bỏ hạn chế",
-      "setRole": "Chọn vai trò"
+      "setRole": "Chọn vai trò",
+      "allRoles": "T?t c? vai tr?",
+      "allStatuses": "T?t c? tr?ng th?i",
+      "reviewCompanyRequest": "Duy?t x?c th?c c?ng ty"
     },
     "jobs": {
       "title": "Quản lý tin tuyển dụng",
       "activeTab": "Đang hiển thị",
-      "pendingTab": "Chưa duyệt",
-      "approvedTab": "Đã duyệt",
+      "pendingTab": "Chờ",
+      "approvedTab": "Duyệt",
       "trashTab": "Thùng rác",
       "titleColumn": "Tiêu đề",
       "postedDate": "Ngày đăng",
@@ -497,8 +565,8 @@
         "hiddenOnly": "Đã ẩn"
       },
       "statuses": {
-        "PENDING": "Chưa duyệt",
-        "APPROVED": "Đã duyệt",
+        "PENDING": "Chờ",
+        "APPROVED": "Duyệt",
         "REJECTED": "Từ chối"
       }
     },
@@ -513,8 +581,8 @@
       "revoke": "Thu hồi",
       "restore": "Khôi phục",
       "statuses": {
-        "PENDING": "Đang chờ",
-        "APPROVED": "Đã duyệt",
+        "PENDING": "Chờ",
+        "APPROVED": "Duyệt",
         "REJECTED": "Từ chối",
         "REVOKED": "Thu hồi"
       }
@@ -575,7 +643,8 @@
       "regexHint": "Để trống nếu không cần kiểm tra định dạng. Regex sẽ được dùng để validate dữ liệu người dùng nhập.",
       "invalidRegex": "Regex không hợp lệ.",
       "noRegex": "Không áp dụng",
-      "newFieldsHint": "Các trường mới sẽ xuất hiện trong form yêu cầu xác thực ở trang chủ và được lưu vào phần dữ liệu bổ sung của yêu cầu."
+      "newFieldsHint": "Các trường mới sẽ xuất hiện trong form yêu cầu xác thực ở trang chủ và được lưu vào phần dữ liệu bổ sung của yêu cầu.",
+      "deleteField": "Xóa trường"
     },
     "auditLogs": {
       "loadError": "Không thể tải audit log.",
@@ -622,5 +691,89 @@
   "notFound": {
     "message": "Oops! Không tìm thấy trang",
     "returnHome": "Về trang chủ"
+  },
+  "recruiterVerification": {
+    "badge": "Xác thực nhà tuyển dụng",
+    "updateBadge": "Cập nhật hồ sơ công ty",
+    "title": "Cập nhật hồ sơ công ty",
+    "description": "Hoàn tất hồ sơ công ty và gửi cho admin duyệt trước khi trở thành nhà tuyển dụng.",
+    "updateTitle": "Chỉnh sửa hồ sơ công ty",
+    "updateDescription": "Gửi thông tin cập nhật cho admin duyệt. Hồ sơ công ty trên hệ thống chỉ thay đổi sau khi được duyệt.",
+    "sections": {
+      "branding": "Nhận diện thương hiệu",
+      "legal": "Thông tin công ty",
+      "addresses": "Địa chỉ công ty",
+      "gallery": "Hình ảnh công ty"
+    },
+    "fields": {
+      "logo": "Ảnh đại diện/logo",
+      "cover": "Ảnh bìa",
+      "companyFullName": "Tên công ty đầy đủ",
+      "companyDisplayName": "Tên công ty hiển thị",
+      "taxCode": "Mã số thuế",
+      "billingAddress": "Địa chỉ xuất hoá đơn",
+      "companySize": "Quy mô công ty",
+      "companyPhone": "Số điện thoại công ty",
+      "companyWebsite": "Website công ty",
+      "companyIntro": "Giới thiệu về công ty",
+      "headOffice": "Trụ sở chính",
+      "province": "Tỉnh/Thành phố",
+      "district": "Quận/Huyện",
+      "addressDetail": "Địa chỉ chi tiết",
+      "defaultAddress": "Địa chỉ mặc định"
+    },
+    "placeholders": {
+      "companySize": "Chọn quy mô công ty",
+      "province": "Chọn tỉnh/thành phố",
+      "district": "Chọn quận/huyện"
+    },
+    "companySizes": {
+      "micro": "Siêu nhỏ (tối đa 10 lao động)",
+      "small": "Nhỏ (tối đa 50 lao động)",
+      "medium": "Vừa (tối đa 100 lao động)",
+      "large": "Lớn (từ 101 lao động)"
+    },
+    "upload": {
+      "logoHint": "PNG/JPG/JPEG, tối đa 5MB",
+      "coverHint": "PNG/JPG/JPEG, tối đa 10MB",
+      "galleryHint": "Thêm ảnh"
+    },
+    "actions": {
+      "addAddress": "Thêm địa chỉ",
+      "submit": "Lưu thông tin",
+      "submitUpdate": "Gửi yêu cầu cập nhật"
+    },
+    "addressTitle": "Địa chỉ {{number}}",
+    "errors": {
+      "required": "Trường này là bắt buộc",
+      "imageType": "Chỉ chấp nhận file PNG, JPG hoặc JPEG",
+      "imageSize": "File không được vượt quá {{size}}MB",
+      "galleryLimit": "Bạn chỉ được tải tối đa 5 ảnh công ty",
+      "max255": "Tối đa 255 ký tự",
+      "max5000": "Tối đa 5000 ký tự",
+      "taxCode": "Mã số thuế chỉ được gồm số và dấu -",
+      "phone": "Số điện thoại chỉ được gồm số, dấu + và khoảng trắng",
+      "website": "Website phải bắt đầu bằng http:// hoặc https://"
+    },
+    "toast": {
+      "success": "Cập nhật hồ sơ công ty thành công",
+      "updateSuccess": "Đã gửi yêu cầu cập nhật hồ sơ công ty",
+      "loadCompanyError": "Không thể tải hồ sơ công ty",
+      "error": "Không thể gửi hồ sơ công ty"
+    },
+    "formData": {
+      "logoUrl": "Ảnh đại diện/logo",
+      "coverUrl": "Ảnh bìa",
+      "companyFullName": "Tên công ty đầy đủ",
+      "companyDisplayName": "Tên công ty hiển thị",
+      "taxCode": "Mã số thuế",
+      "billingAddress": "Địa chỉ xuất hoá đơn",
+      "companySize": "Quy mô công ty",
+      "companyPhone": "Số điện thoại công ty",
+      "companyWebsite": "Website công ty",
+      "companyIntro": "Giới thiệu về công ty",
+      "addresses": "Địa chỉ công ty",
+      "galleryUrls": "Hình ảnh công ty"
+    }
   }
 }

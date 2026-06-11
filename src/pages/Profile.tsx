@@ -1,9 +1,11 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { userApi, CvItem } from "@/lib/api";
-import { isAdminRole, isModeratorRole } from "@/lib/roles";
+import { userApi, CvItem, recruiterApi, CompanyProfile, isApiError } from "@/lib/api";
+import { isCandidateRole, isRecruiterRole } from "@/lib/roles";
+import { getRoleBadgeClassName, normalizeRoleName } from "@/lib/dashboardStyles";
+import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +31,7 @@ import {
   Trash2,
   Plus,
   UploadCloud,
+  Building2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -81,6 +84,35 @@ const parseProfileDate = (value: string) => {
   }
 
   return `${yearValue}-${monthValue}-${dayValue}`;
+};
+
+type StoredCompanyAddress = {
+  headOffice?: string;
+  province?: string;
+  district?: string;
+  detail?: string;
+  isDefault?: boolean;
+};
+
+const parseCompanyAddresses = (value?: string | null): StoredCompanyAddress[] => {
+  if (!value) return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const getCompanyDefaultAddress = (value?: string | null) => {
+  const addresses = parseCompanyAddresses(value);
+  const address = addresses.find((item) => item.isDefault) || addresses[0];
+  if (!address) return "";
+
+  return [address.detail, address.district, address.province]
+    .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+    .join(", ");
 };
 
 const rgbToHex = (red: number, green: number, blue: number) =>
@@ -164,7 +196,44 @@ const Profile = () => {
   });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isSavingTheme, setIsSavingTheme] = useState(false);
-  const profileThemeColor = user.themeColor || "#2563eb";
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
+  const [isLoadingCompanyProfile, setIsLoadingCompanyProfile] = useState(false);
+  const profileThemeColor = user?.themeColor || "#2563eb";
+  const shouldShowCompanyProfile = isRecruiterRole(user?.role);
+
+  useEffect(() => {
+    if (!token || !shouldShowCompanyProfile) {
+      setCompanyProfile(null);
+      return;
+    }
+
+    let mounted = true;
+    setIsLoadingCompanyProfile(true);
+
+    recruiterApi.getCompanyProfile(token)
+      .then((company) => {
+        if (mounted) setCompanyProfile(company);
+      })
+      .catch((error: unknown) => {
+        if (isApiError(error) && (error.status === 400 || error.status === 404)) {
+          if (mounted) setCompanyProfile(null);
+          return;
+        }
+
+        toast({
+          title: t("toast.error"),
+          description: getErrorMessage(error, t("profile.companyProfileLoadError")),
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        if (mounted) setIsLoadingCompanyProfile(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [shouldShowCompanyProfile, t, toast, token]);
 
   if (!user || !token) {
     navigate("/login");
@@ -188,7 +257,9 @@ const Profile = () => {
 
   const MAX_CVS = 3;
   const cvList = user.cvList || [];
-  const showCvSection = !isAdminRole(user.role) && !isModeratorRole(user.role);
+  const showCvSection = isCandidateRole(user.role);
+  const showCompanyProfileSection = shouldShowCompanyProfile;
+  const companyDefaultAddress = getCompanyDefaultAddress(companyProfile?.addresses);
 
   const uploadResumeFile = async (file: File) => {
     if (!file) return;
@@ -573,11 +644,13 @@ const Profile = () => {
                     </h3>
                     <p className="text-sm text-muted-foreground text-center">{user.email}</p>
                     <div
-                      className="mt-2 inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium text-white"
-                      style={{ backgroundColor: profileThemeColor }}
+                      className={cn(
+                        "mt-2 inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold",
+                        getRoleBadgeClassName(user.role),
+                      )}
                     >
                       <Shield className="h-3 w-3" />
-                      {user.role}
+                      {t(`role.${normalizeRoleName(user.role)}`, { defaultValue: user.role })}
                     </div>
                   </div>
                 </Card>
@@ -807,6 +880,81 @@ const Profile = () => {
                               </Button>
                             </div>
                           ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : showCompanyProfileSection ? (
+                <div>
+                  <Card
+                    className="h-full cursor-pointer overflow-hidden transition hover:border-primary/40 hover:shadow-md"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigate("/recruiter-verification")}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        navigate("/recruiter-verification");
+                      }
+                    }}
+                  >
+                    <CardHeader className="py-4">
+                      <CardTitle className="text-sm font-semibold">
+                        {t("profile.companyProfileTitle")}
+                      </CardTitle>
+                    </CardHeader>
+                    <Separator />
+                    <CardContent className="p-3">
+                      {isLoadingCompanyProfile ? (
+                        <div className="flex min-h-[110px] items-center justify-center text-muted-foreground">
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        </div>
+                      ) : companyProfile ? (
+                        <div className="space-y-2">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-slate-50">
+                              {companyProfile.logoUrl ? (
+                                <img
+                                  src={companyProfile.logoUrl}
+                                  alt=""
+                                  className="h-full w-full object-contain"
+                                />
+                              ) : (
+                                <Building2 className="h-5 w-5 text-muted-foreground" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-slate-950">
+                                {companyProfile.companyDisplayName || companyProfile.companyFullName}
+                              </p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {companyProfile.companyFullName}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5 rounded-md bg-slate-50 p-2.5 text-xs">
+                            <div className="truncate">
+                              <span className="font-semibold text-slate-600">{t("profile.companyTaxCode")}: </span>
+                              <span className="text-slate-700">{companyProfile.taxCode}</span>
+                            </div>
+                            <div className="truncate">
+                              <span className="font-semibold text-slate-600">{t("profile.companyPhone")}: </span>
+                              <span className="text-slate-700">{companyProfile.companyPhone}</span>
+                            </div>
+                            {companyDefaultAddress && (
+                              <div className="truncate">
+                                <span className="font-semibold text-slate-600">{t("profile.companyAddress")}: </span>
+                                <span className="text-slate-700">{companyDefaultAddress}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex min-h-[110px] flex-col items-center justify-center rounded-md border-2 border-dashed border-muted/50 bg-muted/10 p-3 text-center text-muted-foreground transition-colors hover:bg-muted/20">
+                          <Building2 className="mb-2 h-7 w-7 opacity-50" />
+                          <p className="text-sm">{t("profile.companyProfileEmpty")}</p>
                         </div>
                       )}
                     </CardContent>

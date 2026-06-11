@@ -22,6 +22,8 @@ import {
 } from "@/lib/siteConfig";
 import {
   emptyJobFilterValue,
+  defaultJobFilterOptions,
+  USD_TO_VND_RATE,
   type JobFilterOption,
   type JobFilterOptions,
   type JobFilterValue,
@@ -43,6 +45,23 @@ const normalizeText = (value?: string | number | null) =>
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
 
+const getLocalDateInputValue = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const isApplicationDeadlineExpired = (value?: string | null) =>
+  Boolean(value && value.slice(0, 10) < getLocalDateInputValue());
+
+const formatDateOnly = (value?: string | null, locale = "en-US") => {
+  if (!value) return "-";
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+  if (!year || !month || !day) return value;
+  return new Date(year, month - 1, day).toLocaleDateString(locale);
+};
+
 const getSearchText = (job: PublicJobPost) =>
   [
     job.title,
@@ -52,6 +71,7 @@ const getSearchText = (job: PublicJobPost) =>
     job.location,
     job.type,
     job.salary,
+    job.experience,
     job.description,
   ].join(" ");
 
@@ -67,16 +87,18 @@ const getSalaryNumbers = (value?: string | null) => {
   const normalizedValue = normalizeText(value);
   const hasMillionUnit = /\b(trieu|million|m)\b/.test(normalizedValue);
   const hasThousandUnit = /\b(k|nghin|thousand)\b/.test(normalizedValue);
+  const hasUsdCurrency = /\busd\b/.test(normalizedValue);
 
   return (
     value
       ?.match(/\d+(?:[.,]\d+)*/g)
       ?.map((item) => {
-        const parsedValue = parseNumberToken(item);
+        let parsedValue = parseNumberToken(item);
 
         if (!Number.isFinite(parsedValue)) return null;
-        if (hasMillionUnit && parsedValue < 1_000) return parsedValue * 1_000_000;
-        if (hasThousandUnit && parsedValue < 100_000) return parsedValue * 1_000;
+        if (hasMillionUnit && parsedValue < 1_000) parsedValue *= 1_000_000;
+        if (hasThousandUnit && parsedValue < 100_000) parsedValue *= 1_000;
+        if (hasUsdCurrency) parsedValue *= USD_TO_VND_RATE;
         return parsedValue;
       })
       .filter((item): item is number => item !== null) ?? []
@@ -201,11 +223,10 @@ const filterJobs = (
   jobs.filter((job) => {
     const searchText = normalizeText(getSearchText(job));
     const rawMinSalary = Number(value.salaryMin || 0);
-    const rawMaxSalary = Number(value.salaryMax || 50_000_000);
+    const rawMaxSalary = value.salaryMax ? Number(value.salaryMax) : Number.POSITIVE_INFINITY;
     const minSalary = Math.min(rawMinSalary, rawMaxSalary);
     const maxSalary = Math.max(rawMinSalary, rawMaxSalary);
-    const salaryFilterActive =
-      Boolean(value.salaryMin || value.salaryMax) && !(minSalary === 0 && maxSalary === 50_000_000);
+    const salaryFilterActive = Boolean(value.salaryRange || value.salaryMin || value.salaryMax);
 
     return (
       (!value.keyword || searchText.includes(normalizeText(value.keyword))) &&
@@ -213,11 +234,11 @@ const filterJobs = (
       matchesOption(job.location, value.district, options.districts, translate) &&
       matchesOption(job.location, value.ward, options.wards, translate) &&
       matchesLocationText(job.location, value.location) &&
-      matchesText(`${job.type ?? ""} ${job.description ?? ""}`, value.workMode) &&
-      matchesText(job.type, value.jobType) &&
+      matchesOption(`${job.type ?? ""} ${job.description ?? ""}`, value.workMode, options.workModes, translate) &&
+      matchesOption(job.type, value.jobType, options.jobTypes, translate) &&
       matchesText(job.company, value.company) &&
-      matchesText(job.salary, value.currency) &&
-      matchesExperience(job.description, value.experience) &&
+      matchesOption(job.salary, value.currency, options.currencies, translate) &&
+      matchesExperience(job.experience || job.description, value.experience) &&
       matchesSalaryRange(job.salary, minSalary, maxSalary, salaryFilterActive)
     );
   });
@@ -300,7 +321,7 @@ const Jobs: React.FC = () => {
         ]);
         if (!mounted) return;
         setManagedConfig(config);
-        setJobs(jobsResult || []);
+        setJobs((jobsResult || []).filter((job) => !isApplicationDeadlineExpired(job.applicationDeadline)));
       } catch (error: unknown) {
         if (!mounted) return;
         setErrorMessage(getErrorMessage(error, t("jobs.page.loadError")));
@@ -318,12 +339,25 @@ const Jobs: React.FC = () => {
   }, [t]);
 
   const filterOptions = useMemo<JobFilterOptions>(() => {
-    if (provinceOptions.length === 0) return managedConfig.filters;
+    const fixedOptions = {
+      workModes: managedConfig.filters.workModes.length ? managedConfig.filters.workModes : defaultJobFilterOptions.workModes,
+      jobTypes: managedConfig.filters.jobTypes.length ? managedConfig.filters.jobTypes : defaultJobFilterOptions.jobTypes,
+      currencies: managedConfig.filters.currencies.length ? managedConfig.filters.currencies : defaultJobFilterOptions.currencies,
+    };
+
+    if (provinceOptions.length === 0) {
+      return {
+        ...managedConfig.filters,
+        ...fixedOptions,
+      };
+    }
+
     return {
       ...managedConfig.filters,
       cities: provinceOptions,
       districts: [],
       wards: wardOptions,
+      ...fixedOptions,
     };
   }, [managedConfig.filters, provinceOptions, wardOptions]);
 
@@ -439,12 +473,19 @@ const Jobs: React.FC = () => {
                         {new Date(job.createdAt).toLocaleDateString(dateLocale)}
                       </span>
                     )}
+                    {job.applicationDeadline && (
+                      <span className="inline-flex items-center gap-1">
+                        <CalendarDays className="h-4 w-4" />
+                        {t("jobs.page.applicationDeadline")}: {formatDateOnly(job.applicationDeadline, dateLocale)}
+                      </span>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4 flex-1">
                   <div className="flex flex-wrap gap-2">
                     {job.type && <Badge variant="outline">{job.type}</Badge>}
                     {job.salary && <Badge variant="outline">{job.salary}</Badge>}
+                    {job.experience && <Badge variant="outline">{job.experience}</Badge>}
                   </div>
                   {job.description && (
                     <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">

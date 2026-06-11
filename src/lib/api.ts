@@ -144,6 +144,8 @@ export type AdminJobPost = {
   location?: string;
   type?: string;
   salary?: string;
+  experience?: string;
+  applicationDeadline?: string | null;
   status?: string;
   hidden: boolean;
   description?: string;
@@ -160,6 +162,8 @@ export type RecruiterJobPost = {
   location: string | null;
   type: string | null;
   salary: string | null;
+  experience: string | null;
+  applicationDeadline: string | null;
   description: string | null;
   status: string | null;
   hidden: boolean;
@@ -191,6 +195,8 @@ export type RecruiterJobPayload = {
   location: string;
   type: string;
   salary?: string;
+  experience?: string;
+  applicationDeadline?: string | null;
   description: string;
 };
 
@@ -249,6 +255,15 @@ export const adminApi = {
       headers: authHeaders(token),
     }),
 
+  getUser: (token: string, userId: string | number) =>
+    apiRequest<AdminUser>(`/api/admin/users/${encodeURIComponent(String(userId))}`, {
+      headers: authHeaders(token),
+    }),
+
+  getUserCompanyProfile: (token: string, userId: string | number) =>
+    apiRequest<CompanyProfile>(`/api/admin/users/${encodeURIComponent(String(userId))}/company`, {
+      headers: authHeaders(token),
+    }),
 
   setUserRestriction: (token: string, userId: string | number, restricted: boolean) =>
     apiRequest<AdminUser>(`/api/admin/users/${encodeURIComponent(String(userId))}/restriction`, {
@@ -341,6 +356,27 @@ export type RecruiterApplication = {
   createdAt?: string;
 };
 
+export type CompanyProfile = {
+  id: string | number;
+  recruiterId: string | number;
+  recruiterEmail?: string | null;
+  recruiterApplicationId?: string | number | null;
+  logoUrl: string;
+  coverUrl: string;
+  companyFullName: string;
+  companyDisplayName: string;
+  taxCode: string;
+  billingAddress: string;
+  companySize: string;
+  companyPhone: string;
+  companyWebsite?: string | null;
+  companyIntro?: string | null;
+  addresses: string;
+  galleryUrls?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export const configApi = {
   listCategoryOptions: (key: CategoryKey, includeInactive = false) =>
     apiRequest<CategoryOption[]>(`/api/categories/${key}`, { params: { includeInactive } }),
@@ -390,6 +426,11 @@ export const configApi = {
 };
 
 export const recruiterApi = {
+  getCompanyProfile: (token: string) =>
+    apiRequest<CompanyProfile>("/api/recruiter/company", {
+      headers: authHeaders(token),
+    }),
+
   submitApplication: (token: string, formData: Record<string, string>) =>
     apiRequest<RecruiterApplication>("/api/recruiter/applications", {
       method: "POST",
@@ -401,6 +442,11 @@ export const recruiterApi = {
     apiRequest<RecruiterApplication[]>("/api/recruiter/applications", {
       headers: authHeaders(token),
       params: { status },
+    }),
+
+  getApplication: (token: string, id: string | number) =>
+    apiRequest<RecruiterApplication>(`/api/recruiter/applications/${encodeURIComponent(String(id))}`, {
+      headers: authHeaders(token),
     }),
 
   reviewApplication: (token: string, id: string | number, approved: boolean, reviewNote?: string) =>
@@ -470,6 +516,7 @@ export type ModeratorJobPost = {
   location?: string;
   salary?: string;
   type?: string;
+  experience?: string;
   status?: string;
   hidden: boolean;
   employerName?: string;
@@ -513,6 +560,8 @@ export type PublicJobPost = {
     location: string | null;
     type: string | null;
     salary: string | null;
+    experience: string | null;
+    applicationDeadline: string | null;
     description: string | null;
     status: string;
     hidden: boolean;

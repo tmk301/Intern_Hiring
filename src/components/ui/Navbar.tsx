@@ -30,6 +30,7 @@ const Navbar = () => {
   const showAdminLink = isAdminRole(user?.role) && location.pathname !== "/admin";
   const showRecruiterLink = isRecruiterRole(user?.role) && location.pathname !== "/recruiter";
   const showApplicationsLink = isCandidateRole(user?.role) && location.pathname !== "/applications";
+  const showRecruitmentNavItem = !isAuthenticated || isCandidateRole(user?.role);
 
   const handleLogout = () => {
     logout();
@@ -40,7 +41,7 @@ const Navbar = () => {
     { label: t("nav.about"), targetId: "gioi-thieu" },
     { label: t("nav.featured"), targetId: "viec-lam-noi-bat" },
     { label: t("nav.partners"), targetId: "doi-tac" },
-    { label: t("nav.recruitment"), targetId: "tuyen-dung" },
+    ...(showRecruitmentNavItem ? [{ label: t("nav.recruitment"), targetId: "tuyen-dung" }] : []),
   ];
 
   type NavItem = (typeof navItems)[number];
