@@ -11,11 +11,14 @@ type GoogleMapsEmbedLocationFilterProps = {
   onChange: (value: string) => void;
 };
 
-const DEFAULT_QUERY = "Vietnam";
+const DEFAULT_QUERY = "Ho Chi Minh City, Vietnam";
 
 const buildGoogleMapsEmbedUrl = (query: string) => {
-  const normalizedQuery = query.trim() || DEFAULT_QUERY;
-  return `https://www.google.com/maps?q=${encodeURIComponent(normalizedQuery)}&output=embed`;
+  const currentQuery = query.trim();
+  const normalizedQuery = currentQuery 
+    ? `${currentQuery}, Ho Chi Minh City, Vietnam` 
+    : DEFAULT_QUERY;
+  return `https://maps.google.com/maps?q=${encodeURIComponent(normalizedQuery)}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
 };
 
 export function GoogleMapsEmbedLocationFilter({
@@ -85,7 +88,7 @@ export function GoogleMapsEmbedLocationFilter({
         </Button>
       </div>
 
-      <div className="h-72 overflow-hidden rounded-md border bg-white">
+      <div className="h-[500px] overflow-hidden rounded-md border bg-white">
         <iframe
           title={t("jobs.filters.locationMap.iframeTitle")}
           src={embedUrl}
