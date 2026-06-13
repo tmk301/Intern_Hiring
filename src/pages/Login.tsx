@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabase";
 import { authApi, isApiError } from "@/lib/api";
 import { isAdminRole, isModeratorRole, isRecruiterRole, isRestrictedAccount } from "@/lib/roles";
 import ResetPasswordDialog from "@/components/ResetPasswordDialog";
+import { sanityClient } from "@/lib/sanity"; // <-- IMPORT SANITY
 import {
   Card,
   CardContent,
@@ -41,6 +42,10 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isResetOpen, setIsResetOpen] = useState(false);
   const navigate = useNavigate();
+  
+  // STATE LƯU DỮ LIỆU TỪ SANITY CMS
+  const [pageData, setPageData] = useState<any>(null);
+
   const loginSchema = useMemo(
     () =>
       z.object({
@@ -59,6 +64,20 @@ const Login = () => {
       password: "",
     },
   });
+
+  // KÉO DỮ LIỆU TỪ SANITY KHI LOAD TRANG
+  useEffect(() => {
+    let mounted = true;
+    sanityClient.fetch(`*[_id == "loginPageConfig"][0]`)
+      .then((data) => {
+        if (mounted) setPageData(data);
+      })
+      .catch((error) => console.error("Lỗi tải cấu hình Login từ Sanity:", error));
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const onSubmit = async (values: LoginFormValues) => {
     setIsLoading(true);
@@ -87,7 +106,7 @@ const Login = () => {
         } else if (isRecruiterRole(profile.role)) {
           redirectTo = "/recruiter";
         }
-                else if (isModeratorRole(profile.role)) {
+        else if (isModeratorRole(profile.role)) {
           redirectTo = "/moderator";
         }
       }
@@ -116,23 +135,31 @@ const Login = () => {
           transition={{ duration: 0.45 }}
           className="grid w-full max-w-5xl overflow-hidden rounded-xl border bg-white shadow-strong md:grid-cols-[1fr_0.85fr]"
         >
-          <section className="hidden hero-gradient p-8 text-white md:flex md:flex-col md:justify-between">
+          {/* CỘT TRÁI: BANNER NỘI DUNG (ÁP DỤNG SANITY Ở ĐÂY) */}
+            <section 
+              className={`hidden p-8 text-white md:flex md:flex-col md:justify-between ${!pageData?.loginBannerColor ? 'hero-gradient' : ''}`}
+              style={pageData?.loginBannerColor ? { background: pageData.loginBannerColor } : {}}
+            >            
             <div>
+              {/* Tiêu đề */}
               <h1 className="text-3xl font-bold leading-tight">
-                {t("login.heroTitle")}
+                {pageData?.loginTitle || t("login.heroTitle")}
               </h1>
+              {/* Phụ đề */}
               <p className="mt-4 max-w-sm text-sm leading-6 text-white/85">
-                {t("login.heroDescription")}
+                {pageData?.loginSubtitle || t("login.heroDescription")}
               </p>
             </div>
+            {/* Câu trích dẫn / Chứng nhận bảo mật */}
             <div className="flex items-center gap-3 rounded-lg bg-white/10 p-4">
               <ShieldCheck className="h-6 w-6 text-yellow-300" />
               <p className="text-sm text-white/90">
-                {t("login.heroSecurity")}
+                {pageData?.loginQuote || t("login.heroSecurity")}
               </p>
             </div>
           </section>
 
+          {/* CỘT PHẢI: FORM ĐĂNG NHẬP */}
           <Card className="border-0 shadow-none">
             <CardHeader className="space-y-2 px-6 pb-4 pt-6 sm:px-8">
               <CardTitle className="text-2xl font-bold text-foreground">

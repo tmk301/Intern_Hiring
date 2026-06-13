@@ -39,13 +39,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { SanityAdminPanel } from "@/components/admin/SanityAdminPanel";
 
-type AdminSection = "users" | "jobs" | "employer-requests" | "categories" | "audit-logs";
+type AdminSection = "users" | "jobs" | "employer-requests" | "categories" | "audit-logs" | "content";
 type JobStatusFilter = "ALL" | "PENDING" | "APPROVED" | "REJECTED";
 type JobHiddenFilter = "ALL" | "HIDDEN" | "VISIBLE";
 
 const getErrorMessage = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback);
-
 
 const isTrashedJob = (job: AdminJobPost) => Boolean(job.deletedAt);
 
@@ -494,9 +494,9 @@ const AdminDashboard: React.FC = () => {
       </section>
 
       <section className="container mx-auto space-y-6 px-4 py-8">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
           <Card
-            className={`cursor-pointer transition hover:shadow-md ${activeSection === "users" ? "border-primary" : ""}`}
+            className={`cursor-pointer transition hover:shadow-md ${activeSection === "users" ? "border-primary ring-1 ring-primary" : ""}`}
             onClick={() => openSection("users")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -510,7 +510,7 @@ const AdminDashboard: React.FC = () => {
           </Card>
 
           <Card
-            className={`cursor-pointer transition hover:shadow-md ${activeSection === "jobs" ? "border-primary" : ""}`}
+            className={`cursor-pointer transition hover:shadow-md ${activeSection === "jobs" ? "border-primary ring-1 ring-primary" : ""}`}
             onClick={() => openSection("jobs")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -524,7 +524,7 @@ const AdminDashboard: React.FC = () => {
           </Card>
 
           <Card
-            className={`cursor-pointer transition hover:shadow-md ${activeSection === "employer-requests" ? "border-primary" : ""
+            className={`cursor-pointer transition hover:shadow-md ${activeSection === "employer-requests" ? "border-primary ring-1 ring-primary" : ""
               }`}
             onClick={() => openSection("employer-requests")}
           >
@@ -539,7 +539,7 @@ const AdminDashboard: React.FC = () => {
           </Card>
 
           <Card
-            className={`cursor-pointer transition hover:shadow-md ${activeSection === "categories" ? "border-primary" : ""}`}
+            className={`cursor-pointer transition hover:shadow-md ${activeSection === "categories" ? "border-primary ring-1 ring-primary" : ""}`}
             onClick={() => openSection("categories")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -552,7 +552,7 @@ const AdminDashboard: React.FC = () => {
           </Card>
 
           <Card
-            className={`cursor-pointer transition hover:shadow-md ${activeSection === "audit-logs" ? "border-primary" : ""}`}
+            className={`cursor-pointer transition hover:shadow-md ${activeSection === "audit-logs" ? "border-primary ring-1 ring-primary" : ""}`}
             onClick={() => openSection("audit-logs")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -562,6 +562,20 @@ const AdminDashboard: React.FC = () => {
             <CardContent>
               <div className="text-3xl font-bold">{auditTotal}</div>
               <p className="text-xs text-muted-foreground">{t("admin.stats.auditLogsDescription")}</p>
+            </CardContent>
+          </Card>
+
+          {/* CMS Sanity Section */}
+          <Card
+            className={`cursor-pointer transition hover:shadow-md ${activeSection === "content" ? "border-primary ring-1 ring-primary" : ""}`}
+            onClick={() => openSection("content")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Quản lý Nội dung</CardTitle>
+              <Settings2 className="h-5 w-5 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">Chỉnh sửa UI, Banner, Bài viết...</p>
             </CardContent>
           </Card>
         </div>
@@ -1009,6 +1023,18 @@ const AdminDashboard: React.FC = () => {
                 </CardContent>
               </Card>
             )}
+
+            {/* Content Management System Section */}
+            {activeSection === "content" && (
+              <Card className="overflow-hidden border-border/50 shadow-sm">
+                <CardHeader className="bg-slate-50/50 pb-4">
+                  <CardTitle>Hệ thống Quản lý Nội dung (Sanity Studio)</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0"> 
+                  <SanityAdminPanel />
+                </CardContent>
+              </Card>
+            )}
           </>
         )}
       </section>
@@ -1028,7 +1054,7 @@ const AdminDashboard: React.FC = () => {
               <div><strong>{t("admin.userDialog.gender")}:</strong> {selectedUser.gender || "-"}</div>
               <div><strong>{t("admin.userDialog.dob")}:</strong> {selectedUser.dob || "-"}</div>
               <div><strong>{t("admin.userDialog.createdAt")}:</strong> {formatAdminDate(selectedUser.createdAt)}</div>
-              <div><strong>{t("admin.userDialog.cv")}:</strong> {selectedUser.cvUrl ? <a className="text-primary underline" href={selectedUser.cvUrl} target="_blank" rel="noreferrer">{t("admin.userDialog.viewCv")}</a> : "-"}</div>
+              {/* <div><strong>{t("admin.userDialog.cv")}:</strong> {selectedUser.cvUrl ? <a className="text-primary underline" href={selectedUser.cvUrl} target="_blank" rel="noreferrer">{t("admin.userDialog.viewCv")}</a> : "-"}</div> */}
             </div>
           )}
           <DialogFooter>

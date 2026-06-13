@@ -4,11 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { ArrowRight, Loader2, Briefcase, Users, Award } from "lucide-react";
+import { ArrowRight, Loader2, icons, CheckCircle } from "lucide-react";
 import mscBackground from "@/assets/msc.jpg";
 import { useAuth } from "@/context/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { sanityClient, urlFor } from "@/lib/sanity"; 
 import {
     Dialog,
     DialogContent,
@@ -61,6 +62,10 @@ const Home: React.FC = () => {
     const [employerRequest, setEmployerRequest] = useState<Record<string, string>>({});
     const [recruiterFields, setRecruiterFields] = useState<RecruiterFormField[]>([]);
     const [loadingFields, setLoadingFields] = useState(false);
+    
+    // CMS data state
+    const [pageData, setPageData] = useState<any>(null);
+
     const partnerList = managedConfig.partners.length > 0 ? managedConfig.partners : corporatePartners;
     // split partners into multiple horizontal rows to increase vertical height
     const rowsCount = 4;
@@ -86,6 +91,13 @@ const Home: React.FC = () => {
         };
 
         window.addEventListener("managed-site-config-updated", handleConfigUpdate);
+
+        // Fetch CMS data
+        sanityClient.fetch(`*[_id == "homePageConfig"][0]`)
+            .then((data) => {
+                if (mounted) setPageData(data);
+            })
+            .catch(console.error);
 
         return () => {
             mounted = false;
@@ -165,11 +177,13 @@ const Home: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-background">
-            {/* Hero: Job search */}
+            {/* Hero Section */}
             <section id="trang-chu" className="relative scroll-mt-24 overflow-hidden py-20">
                 <div
                     className="absolute inset-0 bg-cover bg-center bg-no-repeat hero-bg-zoom"
-                    style={{ backgroundImage: `url(${mscBackground})` }}
+                    style={{ 
+                        backgroundImage: `url(${pageData?.heroBgImage ? urlFor(pageData.heroBgImage).url() : mscBackground})`                    
+                    }}
                     aria-hidden="true"
                 />
                 <div className="absolute inset-0 bg-white/75" aria-hidden="true" />
@@ -178,65 +192,48 @@ const Home: React.FC = () => {
                 <div className="relative z-10 container mx-auto px-4 text-center flex flex-col items-center justify-center min-h-[420px] md:min-h-[520px]">
                     <div className="mb-6">
                         <h1 className="text-5xl md:text-7xl font-extrabold mb-2 text-primary">
-                            InternHiring
+                            {pageData?.heroTitle || "InternHiring"}
                         </h1>
                         <p className="text-2xl md:text-3xl font-medium text-black">
-                            {t("home.heroSubtitle")}
+                            {pageData?.heroSubtitle || t("home.heroSubtitle")}                        
                         </p>
                     </div>
 
                     <p className="text-lg text-black mb-8 max-w-3xl mx-auto">
-                        {t("home.heroDescription")}
+                        {pageData?.heroDescription || t("home.heroDescription")}
                     </p>
                 </div>
             </section>
 
-            {/* Featured Jobs */}
             {/* About / Introduction */}
             <section id="gioi-thieu" className="scroll-mt-24 py-12 bg-white">
                 <div className="container mx-auto px-4">
                     <div className="max-w-4xl mx-auto text-center mb-6">
-                        <h2 className="text-3xl md:text-4xl font-bold mb-2">{t("home.aboutTitle")}</h2>
+                        <h2 className="text-3xl md:text-4xl font-bold mb-2">
+                            {pageData?.aboutTitle || t("home.aboutTitle")}
+                        </h2>
                         <p className="text-lg text-muted-foreground mb-4">{t("home.aboutIntro")}</p>
                         <p className="text-sm text-muted-foreground">{t("home.aboutIntroLong")}</p>
                     </div>
-
                     <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="rounded-xl p-[1px] bg-gradient-to-br from-primary-light to-primary">
-                            <div className="bg-card rounded-lg p-6 relative border border-primary/20">
-                                <div className="absolute -top-6 left-6 inline-flex items-center justify-center h-12 w-12 rounded-full bg-white text-primary shadow-md ring-1 ring-primary/10 z-10">
-                                    <Briefcase className="h-6 w-6" />
+                        {pageData?.aboutFeatures?.map((feature: any, index: number) => {
+                            const IconName = feature.icon as keyof typeof icons;
+                            const IconComponent = icons[IconName] || CheckCircle;
+                            
+                            return (
+                                <div key={index} className="rounded-xl p-[1px] bg-gradient-to-br from-primary-light to-primary">
+                                    <div className="bg-card rounded-lg p-6 relative border border-primary/20">
+                                        <div className="absolute -top-6 left-6 inline-flex items-center justify-center h-12 w-12 rounded-full bg-white text-primary shadow-md ring-1 ring-primary/10 z-10">
+                                            <IconComponent className="h-6 w-6" />
+                                        </div>
+                                        <div className="pt-8">
+                                            <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
+                                            <p className="text-sm text-muted-foreground">{feature.description}</p>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="pt-8">
-                                    <h3 className="text-lg font-semibold mb-2">{t("home.aboutCardProjectTitle")}</h3>
-                                    <p className="text-sm text-muted-foreground">{t("home.aboutCardProjectBody")}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="rounded-xl p-[1px] bg-gradient-to-br from-primary-light to-primary">
-                            <div className="bg-card rounded-lg p-6 relative border border-primary/20">
-                                <div className="absolute -top-6 left-6 inline-flex items-center justify-center h-12 w-12 rounded-full bg-white text-primary shadow-md ring-1 ring-primary/10 z-10">
-                                    <Users className="h-6 w-6" />
-                                </div>
-                                <div className="pt-8">
-                                    <h3 className="text-lg font-semibold mb-2">{t("home.aboutMissionTitle")}</h3>
-                                    <p className="text-sm text-muted-foreground">{t("home.aboutMission")}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="rounded-xl p-[1px] bg-gradient-to-br from-primary-light to-primary">
-                            <div className="bg-card rounded-lg p-6 relative border border-primary/20">
-                                <div className="absolute -top-6 left-6 inline-flex items-center justify-center h-12 w-12 rounded-full bg-white text-primary shadow-md ring-1 ring-primary/10 z-10">
-                                    <Award className="h-6 w-6" />
-                                </div>
-                                <div className="pt-8">
-                                    <h3 className="text-lg font-semibold mb-2">{t("home.aboutValuesTitle")}</h3>
-                                    <p className="text-sm text-muted-foreground">{t("home.aboutValues")}</p>
-                                </div>
-                            </div>
-                        </div>
+                            )
+                        })}
                     </div>
                 </div>
             </section>
@@ -256,7 +253,7 @@ const Home: React.FC = () => {
                 </div>
             </section>
 
-            {/* Partners (keep) */}
+            {/* Partners */}
             <section id="doi-tac" className="scroll-mt-24 py-14 bg-white">
                 <div className="container mx-auto px-4">
                     <div className="text-center mb-8">

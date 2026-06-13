@@ -227,6 +227,7 @@ export type AuditLog = {
   createdAt: string;
 };
 
+//Phân trang chung cho các API trả về danh sách có phân trang
 export type PageResponse<T> = {
   content: T[];
   totalElements: number;
