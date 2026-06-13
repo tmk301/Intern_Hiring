@@ -1,9 +1,12 @@
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:3000";
+  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:8080";
 
 type RequestOptions = RequestInit & {
   params?: Record<string, string | number | boolean | undefined | null>;
+  timeoutMs?: number;
 };
+
+const DEFAULT_REQUEST_TIMEOUT_MS = 15000;
 
 function buildUrl(path: string, params?: RequestOptions["params"]) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
@@ -48,15 +51,32 @@ async function readErrorMessage(response: Response) {
 
 export async function apiRequest<T>(
   path: string,
-  { params, headers, ...options }: RequestOptions = {},
+  { params, headers, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS, signal, ...options }: RequestOptions = {},
 ): Promise<T> {
-  const response = await fetch(buildUrl(path, params), {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...headers,
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  signal?.addEventListener("abort", () => controller.abort(), { once: true });
+
+  let response: Response;
+  try {
+    response = await fetch(buildUrl(path, params), {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...headers,
+      },
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("API request timed out. Please check the backend connection.");
+    }
+
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const message = await readErrorMessage(response);
@@ -100,6 +120,7 @@ export type ApiUser = {
   dob?: string;
   cvList?: CvItem[],
   themeColor?: string;
+  emailNotificationsEnabled?: boolean;
 };
 
 export type UpdateProfilePayload = {
@@ -111,6 +132,7 @@ export type UpdateProfilePayload = {
   dob?: string | null;
   themeColor?: string;
   cvList?: CvItem[];
+  emailNotificationsEnabled?: boolean;
 };
 
 // Auth API
@@ -128,6 +150,42 @@ export const userApi = {
       method: "PUT",
       headers: authHeaders(token),
       body: JSON.stringify(data),
+    }),
+};
+
+export type ApiNotification = {
+  id: string | number;
+  title?: string;
+  message?: string;
+  content?: string;
+  description?: string;
+  isRead?: boolean;
+  read?: boolean;
+  readAt?: string | null;
+  type?: string;
+  jobApplicationId?: string | number | null;
+  jobId?: string | number | null;
+  createdAt?: string;
+  targetUrl?: string;
+  link?: string;
+  path?: string;
+};
+
+type NotificationListResponse = ApiNotification[] | {
+  content?: ApiNotification[];
+  notifications?: ApiNotification[];
+};
+
+export const notificationApi = {
+  list: (token: string) =>
+    apiRequest<NotificationListResponse>("/api/notifications", {
+      headers: authHeaders(token),
+    }),
+
+  markAsRead: (token: string, notificationId: string | number) =>
+    apiRequest<void>(`/api/notifications/${encodeURIComponent(String(notificationId))}/read`, {
+      method: "POST",
+      headers: authHeaders(token),
     }),
 };
 

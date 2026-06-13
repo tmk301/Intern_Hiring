@@ -12,6 +12,7 @@ import {
   Eye,
   FileCheck2,
   Loader2,
+  Palette,
   RefreshCw,
   RotateCcw,
   Settings2,
@@ -147,6 +148,9 @@ const auditActions: AuditAction[] = [
 ];
 
 const auditTargetTypes: AuditTargetType[] = ["USER", "JOB", "CATEGORY_OPTION", "RECRUITER_APPLICATION", "RECRUITER_FORM_FIELD"];
+
+const adminSections: AdminSection[] = ["users", "jobs", "employer-requests", "categories", "audit-logs"];
+const SANITY_STUDIO_URL = import.meta.env.VITE_SANITY_STUDIO_URL || "http://localhost:3333";
 
 const AdminDashboard: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -303,14 +307,19 @@ const AdminDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    if (searchParams.get("section") === "audit-logs") {
-      setActiveSection("audit-logs");
+    const requestedSection = searchParams.get("section") as AdminSection | null;
+    if (requestedSection && adminSections.includes(requestedSection)) {
+      setActiveSection(requestedSection);
     }
   }, [searchParams]);
 
   const openSection = (section: AdminSection) => {
     setActiveSection(section);
-    setSearchParams(section === "audit-logs" ? { section } : {});
+    setSearchParams(section === "users" ? {} : { section });
+  };
+
+  const openLoginBrandingStudio = () => {
+    window.open(SANITY_STUDIO_URL, "_blank", "noopener,noreferrer");
   };
 
   const loadAuditLogs = useCallback(async () => {
@@ -613,7 +622,7 @@ const AdminDashboard: React.FC = () => {
       </section>
 
       <section className="container mx-auto space-y-6 px-4 py-8">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
           <Card
             className={`cursor-pointer transition hover:shadow-md ${activeSection === "users" ? "border-primary" : ""}`}
             onClick={() => openSection("users")}
@@ -666,6 +675,19 @@ const AdminDashboard: React.FC = () => {
             <CardContent>
               <div className="text-3xl font-bold">{auditTotal}</div>
               <p className="text-xs text-muted-foreground">{t("admin.stats.auditLogsDescription")}</p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="cursor-pointer transition hover:border-primary hover:shadow-md"
+            onClick={openLoginBrandingStudio}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{t("admin.stats.loginBrandingTitle")}</CardTitle>
+              <Palette className="h-5 w-5 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">{t("admin.stats.loginBrandingDescription")}</p>
             </CardContent>
           </Card>
         </div>
@@ -952,7 +974,6 @@ const AdminDashboard: React.FC = () => {
             {activeSection === "categories" && token && (
               <CategoryManagementPanel token={token} />
             )}
-
             {activeSection === "audit-logs" && (
               <Card>
                 <CardHeader>
