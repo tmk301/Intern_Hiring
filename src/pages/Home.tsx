@@ -4,9 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { ArrowRight, Loader2, icons, CheckCircle } from "lucide-react";
-import mscBackground from "@/assets/msc.jpg";
-import { useAuth } from "@/context/AuthContext";
+import { ArrowRight, Loader2, icons, CheckCircle, Briefcase, Users, Award } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { sanityClient, urlFor } from "@/lib/sanity"; 
@@ -18,13 +16,15 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import mscBackground from "@/assets/msc.jpg";
+import { useAuth } from "@/context/AuthContext";
+import { isCandidateRole } from "@/lib/roles";
 import { toast } from "sonner";
 import {
     defaultManagedSiteConfig,
     loadManagedSiteConfig,
     type ManagedSiteConfig,
 } from "@/lib/siteConfig";
-import { configApi, recruiterApi, type RecruiterFormField } from "@/lib/api";
 
 const corporatePartners = [
     { id: 1, name: "ASL", logo: "/carousel/ASL.webp" },
@@ -54,7 +54,7 @@ const corporatePartners = [
 const Home: React.FC = () => {
     const navigate = useNavigate();
     const { t } = useTranslation();
-    const { token, isAuthenticated } = useAuth();
+    const { user, isAuthenticated } = useAuth();
     const [managedConfig, setManagedConfig] = useState<ManagedSiteConfig>(defaultManagedSiteConfig);
     const [searchKeyword, setSearchKeyword] = useState("");
     const [isEmployerDialogOpen, setIsEmployerDialogOpen] = useState(false);
@@ -67,6 +67,7 @@ const Home: React.FC = () => {
     const [pageData, setPageData] = useState<any>(null);
 
     const partnerList = managedConfig.partners.length > 0 ? managedConfig.partners : corporatePartners;
+    const canRequestRecruiterVerification = !isAuthenticated || isCandidateRole(user?.role);
     // split partners into multiple horizontal rows to increase vertical height
     const rowsCount = 4;
     const itemsPerRow = Math.max(1, Math.ceil(partnerList.length / rowsCount));
@@ -105,68 +106,18 @@ const Home: React.FC = () => {
         };
     }, []);
 
-    const openEmployerRequestDialog = async () => {
+    const openEmployerRequestPage = () => {
         if (!isAuthenticated) {
             toast.error(t("home.employerRequest.loginRequired"));
             navigate("/login");
             return;
         }
 
-        setLoadingFields(true);
-        setIsEmployerDialogOpen(true);
-        try {
-            const fields = await configApi.listRecruiterFormFields(false);
-            setRecruiterFields(fields);
-            setEmployerRequest({});
-        } catch (error: unknown) {
-            toast.error(error instanceof Error ? error.message : t("home.employerRequest.loadFormError"));
-        } finally {
-            setLoadingFields(false);
-        }
-    };
-
-    const submitEmployerRequest = async () => {
-        if (!token) return;
-
-        const requiredMissing = recruiterFields.some((field) => field.required && !employerRequest[field.name]?.trim());
-
-        if (requiredMissing) {
-            toast.error(t("home.employerRequest.requiredMissing"));
+        if (!isCandidateRole(user?.role)) {
             return;
         }
 
-        const invalidField = recruiterFields.find((field) => {
-            const value = employerRequest[field.name]?.trim();
-            if (!value || !field.validationRegex) return false;
-
-            try {
-                return !new RegExp(`^(?:${field.validationRegex})$`).test(value);
-            } catch {
-                return false;
-            }
-        });
-
-        if (invalidField) {
-            toast.error(t("home.employerRequest.invalidFormat", { field: invalidField.label }));
-            return;
-        }
-
-        setIsSubmittingEmployerRequest(true);
-        try {
-            const formData: Record<string, string> = {};
-            for (const field of recruiterFields) {
-                formData[field.name] = employerRequest[field.name]?.trim() || "";
-            }
-
-            await recruiterApi.submitApplication(token, formData);
-            toast.success(t("home.employerRequest.success"));
-            setEmployerRequest({});
-            setIsEmployerDialogOpen(false);
-        } catch (error: unknown) {
-            toast.error(error instanceof Error ? error.message : t("home.employerRequest.submitError"));
-        } finally {
-            setIsSubmittingEmployerRequest(false);
-        }
+        navigate("/recruiter-verification");
     };
 
     const submitHeroSearch = (event: React.FormEvent<HTMLFormElement>) => {
@@ -295,16 +246,18 @@ const Home: React.FC = () => {
             </section>
 
             {/* CTA */}
-            <section id="tuyen-dung" className="scroll-mt-24 py-16 hero-gradient">
-                <div className="container mx-auto px-4 text-center text-white">
-                    <h2 className="text-3xl font-bold mb-4">
-                        {t("home.recruiterCtaTitle")}
-                    </h2>
-                    <div className="flex justify-center mt-6">
-                        <Button variant="secondary" onClick={openEmployerRequestDialog}>{t("home.recruiterCtaButton")}</Button>
+            {canRequestRecruiterVerification && (
+                <section id="tuyen-dung" className="scroll-mt-24 py-16 hero-gradient">
+                    <div className="container mx-auto px-4 text-center text-white">
+                        <h2 className="text-3xl font-bold mb-4">
+                            {t("home.recruiterCtaTitle")}
+                        </h2>
+                        <div className="flex justify-center mt-6">
+                            <Button variant="secondary" onClick={openEmployerRequestPage}>{t("home.recruiterCtaButton")}</Button>
+                        </div>
                     </div>
-                </div>
-            </section>
+                </section>
+            )}
 
             <footer className="border-t bg-white py-6">
                 <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
@@ -312,50 +265,6 @@ const Home: React.FC = () => {
                 </div>
             </footer>
 
-            <Dialog open={isEmployerDialogOpen} onOpenChange={setIsEmployerDialogOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>{t("home.employerRequest.title")}</DialogTitle>
-                        <DialogDescription>
-                            {t("home.employerRequest.description")}
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        {loadingFields ? (
-                            <div className="flex items-center justify-center py-8">
-                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                            </div>
-                        ) : (
-                            recruiterFields.map((field) => (
-                                <div key={field.id}>
-                                    <Label>
-                                        {field.label}
-                                        {field.required && <span className="ml-1 text-destructive">*</span>}
-                                    </Label>
-                                    <Input
-                                        type="text"
-                                        value={employerRequest[field.name] || ""}
-                                        onChange={(event) =>
-                                            setEmployerRequest({ ...employerRequest, [field.name]: event.target.value })
-                                        }
-                                        placeholder={field.placeholder}
-                                        className="mt-2"
-                                    />
-                                </div>
-                            ))
-                        )}
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsEmployerDialogOpen(false)} disabled={isSubmittingEmployerRequest}>
-                            {t("home.employerRequest.cancel")}
-                        </Button>
-                        <Button onClick={submitEmployerRequest} disabled={isSubmittingEmployerRequest}>
-                            {isSubmittingEmployerRequest && <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
-                            {t("home.employerRequest.submit")}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 };

@@ -26,7 +26,8 @@
     "required": "Required",
     "optional": "Optional",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "back": "Back"
   },
   "toast": {
     "error": "Error",
@@ -69,6 +70,15 @@
     "recruitment": "Recruitment",
     "recruiterDashboard": "Recruiter dashboard",
     "auditLog": "Audit log"
+  },
+  "notifications": {
+    "buttonLabel": "Notifications",
+    "title": "Notifications",
+    "empty": "No new notifications.",
+    "missingCvTitle": "Upload your CV",
+    "missingCvDescription": "Add a CV to your profile so you can apply faster.",
+    "incompleteProfileTitle": "Complete your profile",
+    "incompleteProfileDescription": "Add your phone number, gender, and date of birth."
   },
   "auth": {
     "restrictedMessage": "Your account is restricted. Please contact an administrator.",
@@ -202,6 +212,7 @@
       "emptyTitle": "No jobs found",
       "emptyDescription": "Try adjusting your filters or check back later.",
       "untitled": "Untitled job",
+      "applicationDeadline": "Application deadline",
       "notProvided": "Not provided"
     },
     "filters": {
@@ -236,7 +247,7 @@
       "salaryMin": "Minimum salary",
       "salaryMax": "Maximum salary",
       "currency": "Currency",
-      "currencyPlaceholder": "Enter currency, e.g. VND, USD",
+      "currencyPlaceholder": "Select currency",
       "experience": "Experience",
       "reset": "Reset filters",
       "options": {
@@ -248,7 +259,23 @@
         "jobTypes": {
           "internship": "Internship",
           "partTime": "Part-time",
-          "fullTime": "Full-time"
+          "fullTime": "Full-time",
+          "freelance": "Freelance"
+        },
+        "currencies": {
+          "vnd": "VND",
+          "usd": "USD"
+        },
+        "salaryRanges": {
+          "under5": "Under 5 million",
+          "from5To10": "From 5 to 10 million",
+          "from10To15": "From 10 to 15 million",
+          "from15To20": "From 15 to 20 million",
+          "from20To30": "From 20 to 30 million",
+          "from30": "From 30 million",
+          "usdUnder": "Under {{amount}}",
+          "usdBetween": "{{min}} - {{max}}",
+          "usdFrom": "From {{amount}}"
         },
         "experience": {
           "noExperience": "No experience",
@@ -266,9 +293,14 @@
     "title": "Recruiter dashboard",
     "description": "Post new jobs and manage visibility for your own job posts.",
     "stats": {
+      "jobStatsTitle": "Job post statistics",
+      "applicantStatsTitle": "Applicant statistics",
       "total": "Total posts",
       "visible": "Visible posts",
-      "hidden": "Hidden posts"
+      "hidden": "Hidden posts",
+      "totalApplicants": "Total applicants",
+      "acceptedApplicants": "Accepted",
+      "rejectedApplicants": "Rejected"
     },
     "form": {
       "title": "Post a new job",
@@ -280,20 +312,24 @@
       "employerEmail": "Recruiter email",
       "location": "Location",
       "locationPlaceholder": "Example: District 1, Ho Chi Minh City",
+      "branchPlaceholder": "Select a registered company branch",
+      "companyLockedHint": "Company name, recruiter name, and work address are taken from the approved company profile.",
+      "companyProfileRequired": "You need an approved company profile before posting jobs.",
       "salary": "Salary",
-      "salaryPlaceholder": "Example: 5,000,000 VND",
+      "salaryPlaceholder": "Select salary range",
       "salaryMin": "Minimum salary",
-      "salaryMinPlaceholder": "Example: 3,000,000",
+      "salaryMinPlaceholder": "Select salary range",
       "salaryMax": "Maximum salary",
-      "salaryMaxPlaceholder": "Example: 5,000,000",
+      "salaryMaxPlaceholder": "Select salary range",
       "currency": "Currency",
-      "currencyPlaceholder": "Example: VND",
+      "currencyPlaceholder": "Select currency",
+      "applicationDeadline": "Application deadline",
       "workMode": "Work mode",
-      "workModePlaceholder": "Example: Remote, Hybrid, On-site",
+      "workModePlaceholder": "Select work mode",
       "experience": "Experience",
       "experiencePlaceholder": "Select experience",
       "type": "Job type",
-      "typePlaceholder": "Example: Internship, Part-time",
+      "typePlaceholder": "Select job type",
       "jobDescription": "Description",
       "jobDescriptionPlaceholder": "Describe responsibilities, requirements, benefits, and application notes.",
       "detailedLocation": "Work location",
@@ -312,22 +348,39 @@
     "types": {
       "Internship": "Internship",
       "Part-time": "Part-time",
-      "Full-time": "Full-time"
+      "Full-time": "Full-time",
+      "Freelance": "Freelance"
     },
     "jobs": {
       "title": "My job posts",
       "empty": "You have not posted any jobs yet.",
       "status": "Status",
+      "applicationDeadline": "Application deadline",
       "createdAt": "Posted date",
       "hide": "Hide",
       "show": "Show",
       "delete": "Delete"
     },
+    "applications": {
+      "approve": "Approve",
+      "reject": "Reject",
+      "title": "Applications",
+      "empty": "No candidates have applied yet.",
+      "applicant": "Candidate",
+      "jobTitle": "Applied position",
+      "appliedAt": "Applied date",
+      "viewCv": "View CV",
+      "statuses": {
+        "PENDING": "Pending",
+        "APPROVED": "Approved",
+        "REJECTED": "Rejected"
+      }
+    },
     "status": {
       "ACTIVE": "Visible",
       "VISIBLE": "Visible",
       "PUBLISHED": "Visible",
-      "PENDING": "Pending review",
+      "PENDING": "Pending",
       "APPROVED": "Approved",
       "REJECTED": "Rejected",
       "HIDDEN": "Hidden",
@@ -341,6 +394,7 @@
     },
     "toast": {
       "loadError": "Could not load your job posts.",
+      "companyProfileLoadError": "Could not load your company profile.",
       "required": "Please complete all required job fields.",
       "salaryRangeInvalid": "Maximum salary must be greater than or equal to minimum salary.",
       "createSuccess": "Job post created.",
@@ -401,12 +455,36 @@
     "matchAvatarColorShort": "Match avatar",
     "avatarColorMatched": "Matched theme color to avatar.",
     "avatarColorMissing": "Upload an avatar first.",
-    "avatarColorMatchError": "Unable to read color from avatar."
+    "avatarColorMatchError": "Unable to read color from avatar.",
+    "companyProfileTitle": "Company profile",
+    "companyProfileEdit": "Edit company profile",
+    "companyProfileEmpty": "No company profile yet. Click to update.",
+    "companyProfileLoadError": "Could not load company profile",
+    "companyTaxCode": "Tax code",
+    "companyPhone": "Phone",
+    "companyAddress": "Address",
+    "emailNotifications": "Email notifications",
+    "emailNotificationsDescription": "Receive important account and application updates by email.",
+    "emailNotificationsSaved": "Email notification preference saved.",
+    "emailNotificationsSaveError": "Could not save email notification preference."
   },
   "avatarCrop": {
     "title": "Crop avatar",
     "zoom": "Zoom",
     "submit": "Crop & Update"
+  },
+  "moderator": {
+    "badge": "MODERATOR",
+    "title": "Job post review",
+    "description": "Review, approve, or reject job posts submitted by recruiters.",
+    "stats": {
+      "pendingTitle": "Pending job posts",
+      "pendingDescription": "Job posts currently in PENDING status"
+    },
+    "jobs": {
+      "title": "Pending job posts",
+      "empty": "There are no job posts waiting for review."
+    }
   },
   "admin": {
     "loadError": "Could not load admin data.",
@@ -445,6 +523,8 @@
       "requestsDescription": "Requests pending review",
       "categoriesTitle": "Manage categories",
       "categoriesDescription": "Categories & verification form",
+      "loginBrandingTitle": "Login panel",
+      "loginBrandingDescription": "Image, colors, and copy",
       "auditLogsTitle": "Audit log",
       "auditLogsDescription": "Track admin activity"
     },
@@ -456,7 +536,10 @@
       "restrict": "Restrict",
       "unrestrict": "Remove restriction",
       "setRole": "Set role",
-      "revokeRecruiter": "Revoke recruiter"
+      "revokeRecruiter": "Revoke recruiter",
+      "allRoles": "All roles",
+      "allStatuses": "All statuses",
+      "reviewCompanyRequest": "Review company verification"
     },
     "jobs": {
       "title": "Manage job posts",
@@ -566,7 +649,27 @@
       "regexHint": "Leave blank when no format validation is needed. The regex will validate user-submitted values.",
       "invalidRegex": "Invalid regex.",
       "noRegex": "Not applied",
-      "newFieldsHint": "New fields will appear in the verification request form on the home page and will be saved in the request's additional data."
+      "newFieldsHint": "New fields will appear in the verification request form on the home page and will be saved in the request's additional data.",
+      "deleteField": "Delete field"
+    },
+    "loginBranding": {
+      "title": "Manage login panel",
+      "description": "Customize the left panel on the login screen.",
+      "heroTitle": "Panel title",
+      "heroDescription": "Panel description",
+      "securityText": "Bottom note",
+      "backgroundColor": "Background color",
+      "textColor": "Text color",
+      "imageUrl": "Image URL",
+      "imageUrlPlaceholder": "Example: /carousel/YESCO.webp or https://...",
+      "imageUpload": "Upload image",
+      "clearImage": "Remove image",
+      "imageInvalid": "Please choose a valid image file.",
+      "imageTooLarge": "Image must be 2MB or smaller.",
+      "save": "Save changes",
+      "reset": "Reset defaults",
+      "saveSuccess": "Login panel updated.",
+      "saveError": "Could not update the login panel."
     },
     "auditLogs": {
       "loadError": "Unable to load audit logs.",
@@ -613,5 +716,89 @@
   "notFound": {
     "message": "Oops! Page not found",
     "returnHome": "Return to Home"
+  },
+  "recruiterVerification": {
+    "badge": "Recruiter verification",
+    "updateBadge": "Company profile update",
+    "title": "Company profile update",
+    "description": "Complete your company profile and send it to admin for review before becoming a recruiter.",
+    "updateTitle": "Edit company profile",
+    "updateDescription": "Send updated company information to admin for review. The public company profile changes only after approval.",
+    "sections": {
+      "branding": "Brand identity",
+      "legal": "Company information",
+      "addresses": "Company addresses",
+      "gallery": "Company photos"
+    },
+    "fields": {
+      "logo": "Avatar / logo",
+      "cover": "Cover image",
+      "companyFullName": "Full legal company name",
+      "companyDisplayName": "Display company name",
+      "taxCode": "Tax code",
+      "billingAddress": "Billing address",
+      "companySize": "Company size",
+      "companyPhone": "Company phone number",
+      "companyWebsite": "Company website",
+      "companyIntro": "About company",
+      "headOffice": "Head office",
+      "province": "Province / City",
+      "district": "District",
+      "addressDetail": "Detailed address",
+      "defaultAddress": "Default address"
+    },
+    "placeholders": {
+      "companySize": "Select company size",
+      "province": "Select province / city",
+      "district": "Select district"
+    },
+    "companySizes": {
+      "micro": "Micro business (10 employees or fewer)",
+      "small": "Small business (50 employees or fewer)",
+      "medium": "Medium business (100 employees or fewer)",
+      "large": "Large business (101 employees or more)"
+    },
+    "upload": {
+      "logoHint": "PNG/JPG/JPEG, maximum 5MB",
+      "coverHint": "PNG/JPG/JPEG, maximum 10MB",
+      "galleryHint": "Add image"
+    },
+    "actions": {
+      "addAddress": "Add address",
+      "submit": "Save information",
+      "submitUpdate": "Send update request"
+    },
+    "addressTitle": "Address {{number}}",
+    "errors": {
+      "required": "This field is required",
+      "imageType": "Only PNG, JPG, or JPEG files are accepted",
+      "imageSize": "File must not exceed {{size}}MB",
+      "galleryLimit": "You can upload at most 5 company photos",
+      "max255": "Maximum 255 characters",
+      "max5000": "Maximum 5000 characters",
+      "taxCode": "Tax code can only contain numbers and hyphens",
+      "phone": "Phone number can only contain numbers, +, and spaces",
+      "website": "Website must start with http:// or https://"
+    },
+    "toast": {
+      "success": "Company profile submitted successfully",
+      "updateSuccess": "Company profile update request sent",
+      "loadCompanyError": "Could not load company profile",
+      "error": "Could not submit company profile"
+    },
+    "formData": {
+      "logoUrl": "Avatar / logo",
+      "coverUrl": "Cover image",
+      "companyFullName": "Full legal company name",
+      "companyDisplayName": "Display company name",
+      "taxCode": "Tax code",
+      "billingAddress": "Billing address",
+      "companySize": "Company size",
+      "companyPhone": "Company phone number",
+      "companyWebsite": "Company website",
+      "companyIntro": "About company",
+      "addresses": "Company addresses",
+      "galleryUrls": "Company photos"
+    }
   }
 }

@@ -1,4 +1,6 @@
 import { defaultJobFilterOptions, type JobFilterOptions, type JobFilterOption } from "@/components/jobs/jobFilterConfig";
+import { apiRequest } from "@/lib/api";
+import { loadSanityLoginHero } from "@/lib/sanityLoginHero";
 
 export type ManagedPartner = {
   id: string;
@@ -15,10 +17,20 @@ export type EmployerVerificationField = {
   required?: boolean;
 };
 
+export type LoginHeroConfig = {
+  title: string;
+  description: string;
+  securityText: string;
+  backgroundColor: string;
+  textColor: string;
+  imageUrl: string;
+};
+
 export type ManagedSiteConfig = {
   filters: JobFilterOptions;
   partners: ManagedPartner[];
   employerVerificationFields: EmployerVerificationField[];
+  loginHero: LoginHeroConfig;
 };
 
 export type FilterCategoryKey = keyof JobFilterOptions;
@@ -86,13 +98,31 @@ export const defaultEmployerVerificationFields: EmployerVerificationField[] = [
   },
 ];
 
+export const defaultLoginHeroConfig: LoginHeroConfig = {
+  title: "Welcome back to InternHiring",
+  description: "Continue connecting with internship programs, partner companies, and career development opportunities.",
+  securityText: "Accounts are verified through Supabase Auth and synced with candidate profiles.",
+  backgroundColor: "#2563eb",
+  textColor: "#ffffff",
+  imageUrl: "",
+};
+
 export const defaultManagedSiteConfig: ManagedSiteConfig = {
   filters: defaultJobFilterOptions,
   partners: defaultCorporatePartners,
   employerVerificationFields: defaultEmployerVerificationFields,
+  loginHero: defaultLoginHeroConfig,
 };
 
-const STORAGE_KEY = "intern_hiring_managed_site_config";
+const SITE_CONFIG_ENDPOINT = "/api/site-config";
+const ADMIN_SITE_CONFIG_ENDPOINT = "/api/admin/site-config";
+const LOCAL_STORAGE_KEY = "intern_hiring_managed_site_config_local";
+
+const canUseLocalConfigFallback = () => {
+  if (typeof window === "undefined") return false;
+
+  return import.meta.env.DEV || ["localhost", "127.0.0.1"].includes(window.location.hostname);
+};
 
 const mergeFilterOptions = (incoming?: Partial<JobFilterOptions>): JobFilterOptions => {
   const merged = { ...defaultJobFilterOptions };
@@ -113,29 +143,71 @@ export const normalizeManagedSiteConfig = (config?: Partial<ManagedSiteConfig> |
   employerVerificationFields: Array.isArray(config?.employerVerificationFields)
     ? config.employerVerificationFields
     : defaultManagedSiteConfig.employerVerificationFields,
+  loginHero: {
+    ...defaultLoginHeroConfig,
+    ...(config?.loginHero || {}),
+  },
 });
 
-const readLocalConfig = () => {
+const readLocalConfigFallback = () => {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? normalizeManagedSiteConfig(JSON.parse(raw)) : defaultManagedSiteConfig;
+    const rawConfig = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+    return rawConfig ? normalizeManagedSiteConfig(JSON.parse(rawConfig)) : defaultManagedSiteConfig;
   } catch {
     return defaultManagedSiteConfig;
   }
 };
 
-export const loadManagedSiteConfig = async (): Promise<ManagedSiteConfig> => {
-  if (typeof window === "undefined") return defaultManagedSiteConfig;
-  return readLocalConfig();
-};
-
-export const saveManagedSiteConfig = async (config: ManagedSiteConfig) => {
+const saveLocalConfigFallback = (config: ManagedSiteConfig) => {
   const normalized = normalizeManagedSiteConfig(config);
-
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+  window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(normalized));
   window.dispatchEvent(new CustomEvent("managed-site-config-updated", { detail: normalized }));
 
   return normalized;
+};
+
+export const loadManagedSiteConfig = async (): Promise<ManagedSiteConfig> => {
+  try {
+    const config = await apiRequest<Partial<ManagedSiteConfig> | ManagedSiteConfig>(SITE_CONFIG_ENDPOINT);
+    return normalizeManagedSiteConfig(config);
+  } catch {
+    return canUseLocalConfigFallback() ? readLocalConfigFallback() : defaultManagedSiteConfig;
+  }
+};
+
+export const loadLoginHeroConfig = async (): Promise<LoginHeroConfig> => {
+  const config = await loadManagedSiteConfig();
+  const sanityLoginHero = await loadSanityLoginHero(config.loginHero);
+  return sanityLoginHero || config.loginHero;
+};
+
+export const saveManagedSiteConfig = async (config: ManagedSiteConfig, token: string) => {
+  const normalized = normalizeManagedSiteConfig(config);
+  let savedConfig: Partial<ManagedSiteConfig> | ManagedSiteConfig;
+
+  try {
+    savedConfig = await apiRequest<Partial<ManagedSiteConfig> | ManagedSiteConfig>(ADMIN_SITE_CONFIG_ENDPOINT, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(normalized),
+    });
+  } catch (error) {
+    if (canUseLocalConfigFallback()) {
+      return saveLocalConfigFallback(normalized);
+    }
+
+    throw error;
+  }
+
+  const nextConfig = normalizeManagedSiteConfig(savedConfig);
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("managed-site-config-updated", { detail: nextConfig }));
+  }
+
+  return nextConfig;
 };
 
 export const createOptionValue = (label: string) =>

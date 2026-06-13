@@ -1,14 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Navigate, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   Briefcase,
   ClipboardList,
   CheckCircle2,
   Eye,
   FileCheck2,
   Loader2,
+  Palette,
   RefreshCw,
   RotateCcw,
   Settings2,
@@ -25,6 +29,7 @@ import { isAdminRole, USER_ROLES, type UserRole } from "@/lib/roles";
 import { CategoryManagementPanel } from "@/components/admin/CategoryManagementPanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ActionIconButton } from "@/components/ui/action-icon-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -39,11 +44,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { SanityAdminPanel } from "@/components/admin/SanityAdminPanel";
+import { getReviewStatusBadgeClassName, getRoleBadgeClassName, normalizeRoleName } from "@/lib/dashboardStyles";
 
-type AdminSection = "users" | "jobs" | "employer-requests" | "categories" | "audit-logs" | "content";
+type AdminSection = "users" | "jobs" | "categories" | "audit-logs";
 type JobStatusFilter = "ALL" | "PENDING" | "APPROVED" | "REJECTED";
 type JobHiddenFilter = "ALL" | "HIDDEN" | "VISIBLE";
+type UserSortKey = "email" | "fullName" | "role" | "status";
+type SortDirection = "asc" | "desc";
+type UserRoleFilter = "ALL" | UserRole;
+type UserStatusFilter = "ALL" | "ACTIVE" | "RESTRICTED";
 
 const getErrorMessage = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback);
 
@@ -58,12 +67,26 @@ const formatDate = (value?: string | null, locale = "en-US") => {
   return date.toLocaleString(locale);
 };
 
+const getPrimaryCvUrl = (user: AdminUser) => {
+  const primaryCv = user.cvList?.find((cv) => cv.isDefault) ?? user.cvList?.[0];
+  return primaryCv?.url;
+};
+
+const parseJsonValue = (value?: string) => {
+  if (!value) return null;
+
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return null;
+  }
+};
+
 const roleOptions = Object.values(USER_ROLES);
 const assignableRoleOptions = roleOptions.filter((role) => role !== USER_ROLES.ADMIN);
 
-const normalizeRole = (role?: string | null) => role?.trim().toUpperCase();
 const getUserRolePriority = (role?: string | null) => {
-  switch (normalizeRole(role)) {
+  switch (normalizeRoleName(role)) {
     case USER_ROLES.ADMIN:
       return 0;
     case USER_ROLES.MODERATOR:
@@ -78,40 +101,31 @@ const getUserRolePriority = (role?: string | null) => {
 };
 const normalizeRequestStatus = (status?: string | null) => status?.trim().toUpperCase();
 
-const getRoleBadgeClassName = (role?: string | null) => {
-  switch (normalizeRole(role)) {
-    case USER_ROLES.ADMIN:
-      return "border-red-200 bg-red-50 text-red-700";
-    case USER_ROLES.MODERATOR:
-      return "border-violet-200 bg-violet-50 text-violet-700";
-    case USER_ROLES.RECRUITER:
-      return "border-blue-200 bg-blue-50 text-blue-700";
-    case USER_ROLES.CANDIDATE:
-      return "border-emerald-200 bg-emerald-50 text-emerald-700";
-    default:
-      return "border-slate-200 bg-slate-50 text-slate-700";
-  }
+const isRestrictedUser = (user: AdminUser) =>
+  Boolean(
+    user.restricted ||
+    user.isRestricted ||
+    user.status?.toUpperCase() === "RESTRICTED" ||
+    user.status?.toUpperCase() === "BLOCKED",
+  );
+
+const compareNullable = (first: string | number | null, second: string | number | null, direction: SortDirection) => {
+  if (first === null && second === null) return 0;
+  if (first === null) return 1;
+  if (second === null) return -1;
+
+  const compare =
+    typeof first === "number" && typeof second === "number"
+      ? first - second
+      : String(first).localeCompare(String(second), undefined, { sensitivity: "base", numeric: true });
+
+  return direction === "asc" ? compare : -compare;
 };
 
 const getAccountStatusBadgeClassName = (restricted: boolean) =>
   restricted
     ? "whitespace-nowrap border-red-200 bg-red-50 text-red-700"
     : "whitespace-nowrap border-emerald-200 bg-emerald-50 text-emerald-700";
-
-const getRequestStatusBadgeClassName = (status?: string | null) => {
-  switch (normalizeRequestStatus(status)) {
-    case "APPROVED":
-      return "whitespace-nowrap border-emerald-200 bg-emerald-50 text-emerald-700";
-    case "REJECTED":
-      return "whitespace-nowrap border-red-200 bg-red-50 text-red-700";
-    case "REVOKED":
-      return "whitespace-nowrap border-amber-200 bg-amber-50 text-amber-700";
-    case "PENDING":
-      return "whitespace-nowrap border-sky-200 bg-sky-50 text-sky-700";
-    default:
-      return "whitespace-nowrap border-slate-200 bg-slate-50 text-slate-700";
-  }
-};
 
 const auditActions: AuditAction[] = [
   "USER_ROLE_UPDATED",
@@ -134,8 +148,12 @@ const auditActions: AuditAction[] = [
 
 const auditTargetTypes: AuditTargetType[] = ["USER", "JOB", "CATEGORY_OPTION", "RECRUITER_APPLICATION", "RECRUITER_FORM_FIELD"];
 
+const adminSections: AdminSection[] = ["users", "jobs", "employer-requests", "categories", "audit-logs"];
+const SANITY_STUDIO_URL = import.meta.env.VITE_SANITY_STUDIO_URL || "http://localhost:3333";
+
 const AdminDashboard: React.FC = () => {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, token, isAuthenticated, isLoading } = useAuth();
   const [activeSection, setActiveSection] = useState<AdminSection>("users");
@@ -157,6 +175,12 @@ const AdminDashboard: React.FC = () => {
   const [jobStatusFilter, setJobStatusFilter] = useState<JobStatusFilter>("ALL");
   const [jobHiddenFilter, setJobHiddenFilter] = useState<JobHiddenFilter>("ALL");
   const [jobDateFilter, setJobDateFilter] = useState("");
+  const [userSort, setUserSort] = useState<{ key: UserSortKey; direction: SortDirection }>({
+    key: "email",
+    direction: "asc",
+  });
+  const [userRoleFilter, setUserRoleFilter] = useState<UserRoleFilter>("ALL");
+  const [userStatusFilter, setUserStatusFilter] = useState<UserStatusFilter>("ALL");
 
   const activeJobs = useMemo(() => jobs.filter((job) => !isTrashedJob(job)), [jobs]);
   const trashedJobs = useMemo(() => jobs.filter(isTrashedJob), [jobs]);
@@ -187,36 +211,114 @@ const AdminDashboard: React.FC = () => {
     () => requests.filter((request) => request.status === "PENDING"),
     [requests],
   );
+  const pendingRequestByApplicantId = useMemo(
+    () => new Map(pendingRequests.map((request) => [String(request.applicantId), request])),
+    [pendingRequests],
+  );
   const sortedUsers = useMemo(
-    () => [...users].sort((first, second) => {
-      const firstRestricted = Boolean(
-        first.restricted || first.isRestricted || first.status?.toUpperCase() === "RESTRICTED" || first.status?.toUpperCase() === "BLOCKED",
-      );
-      const secondRestricted = Boolean(
-        second.restricted || second.isRestricted || second.status?.toUpperCase() === "RESTRICTED" || second.status?.toUpperCase() === "BLOCKED",
-      );
-
-      if (firstRestricted !== secondRestricted) return firstRestricted ? 1 : -1;
-
-      const roleCompare = getUserRolePriority(first.role) - getUserRolePriority(second.role);
-      if (roleCompare !== 0) return roleCompare;
-
-      return first.email.localeCompare(second.email);
-    }),
-    [users],
+    () =>
+      users
+        .filter((account) => userRoleFilter === "ALL" || normalizeRoleName(account.role) === userRoleFilter)
+        .filter((account) => {
+          if (userStatusFilter === "ALL") return true;
+          const restricted = isRestrictedUser(account);
+          return userStatusFilter === "RESTRICTED" ? restricted : !restricted;
+        })
+        .sort((first, second) => {
+          switch (userSort.key) {
+            case "email":
+              return compareNullable(first.email, second.email, userSort.direction);
+            case "fullName":
+              return compareNullable(
+                `${first.lastName ?? ""} ${first.firstName ?? ""}`.trim(),
+                `${second.lastName ?? ""} ${second.firstName ?? ""}`.trim(),
+                userSort.direction,
+              );
+            case "role":
+              return compareNullable(getUserRolePriority(first.role), getUserRolePriority(second.role), userSort.direction);
+            case "status":
+              return compareNullable(isRestrictedUser(first) ? 1 : 0, isRestrictedUser(second) ? 1 : 0, userSort.direction);
+            default:
+              return 0;
+          }
+        }),
+    [userRoleFilter, userSort.direction, userSort.key, userStatusFilter, users],
   );
   const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
   const formatAdminDate = useCallback((value?: string | null) => formatDate(value, dateLocale), [dateLocale]);
+  const selectedUserCvUrl = useMemo(
+    () => (selectedUser ? getPrimaryCvUrl(selectedUser) : undefined),
+    [selectedUser],
+  );
+
+  const renderRecruiterApplicationValue = (key: string, value?: string) => {
+    if (!value) return <span className="text-muted-foreground">-</span>;
+
+    if (key === "addresses") {
+      const parsed = parseJsonValue(value);
+      if (Array.isArray(parsed)) {
+        return (
+          <div className="space-y-1">
+            {parsed.map((address, index) => {
+              if (typeof address !== "object" || address === null) return null;
+              const record = address as Record<string, unknown>;
+              return (
+                <div key={index} className="rounded-md bg-muted/60 p-2">
+                  <div>{String(record.headOffice ?? "-")}</div>
+                  <div className="text-muted-foreground">
+                    {[record.detail, record.district, record.province].filter(Boolean).join(", ")}
+                  </div>
+                  {record.isDefault ? <div className="text-emerald-700">{t("recruiterVerification.fields.defaultAddress")}</div> : null}
+                </div>
+              );
+            })}
+          </div>
+        );
+      }
+    }
+
+    if (key === "galleryUrls") {
+      const parsed = parseJsonValue(value);
+      if (Array.isArray(parsed)) {
+        return (
+          <div className="flex flex-wrap gap-2">
+            {parsed.map((url, index) =>
+              typeof url === "string" && url.startsWith("http") ? (
+                <a key={url} href={url} target="_blank" rel="noreferrer" className="text-primary underline">
+                  {t("common.view")} {index + 1}
+                </a>
+              ) : null,
+            )}
+          </div>
+        );
+      }
+    }
+
+    if (value.startsWith("http://") || value.startsWith("https://")) {
+      return (
+        <a href={value} target="_blank" rel="noreferrer" className="text-primary underline">
+          {t("common.view")}
+        </a>
+      );
+    }
+
+    return <span className="whitespace-pre-wrap">{value}</span>;
+  };
 
   useEffect(() => {
-    if (searchParams.get("section") === "audit-logs") {
-      setActiveSection("audit-logs");
+    const requestedSection = searchParams.get("section") as AdminSection | null;
+    if (requestedSection && adminSections.includes(requestedSection)) {
+      setActiveSection(requestedSection);
     }
   }, [searchParams]);
 
   const openSection = (section: AdminSection) => {
     setActiveSection(section);
-    setSearchParams(section === "audit-logs" ? { section } : {});
+    setSearchParams(section === "users" ? {} : { section });
+  };
+
+  const openLoginBrandingStudio = () => {
+    window.open(SANITY_STUDIO_URL, "_blank", "noopener,noreferrer");
   };
 
   const loadAuditLogs = useCallback(async () => {
@@ -284,7 +386,7 @@ const AdminDashboard: React.FC = () => {
 
   const handleRoleChange = async (targetUser: AdminUser, role: UserRole) => {
     if (!token) return;
-    if (normalizeRole(targetUser.role) === role) return;
+    if (normalizeRoleName(targetUser.role) === role) return;
     if (role === USER_ROLES.ADMIN && !isAdminRole(targetUser.role)) {
       toast.error(t("admin.roleAdminLocked"));
       return;
@@ -457,6 +559,29 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const updateUserSort = (key: UserSortKey) => {
+    setUserSort((current) => ({
+      key,
+      direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+
+  const renderUserSortableHeader = (key: UserSortKey, label: string) => {
+    const active = userSort.key === key;
+    const SortIcon = !active ? ArrowUpDown : userSort.direction === "asc" ? ArrowUp : ArrowDown;
+
+    return (
+      <button
+        type="button"
+        className="inline-flex items-center gap-2 rounded-sm text-left font-medium transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        onClick={() => updateUserSort(key)}
+      >
+        <span>{label}</span>
+        <SortIcon className={`h-3.5 w-3.5 ${active ? "text-primary" : "text-muted-foreground"}`} />
+      </button>
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -479,7 +604,9 @@ const AdminDashboard: React.FC = () => {
         <div className="container mx-auto px-4 py-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <Badge className="mb-3 bg-primary text-primary-foreground">ADMIN</Badge>
+              <Badge variant="outline" className={`mb-3 px-5 py-2 text-sm ${getRoleBadgeClassName(USER_ROLES.ADMIN)}`}>
+                {t("role.ADMIN")}
+              </Badge>
               <h1 className="text-3xl font-bold text-slate-950">{t("admin.title")}</h1>
               <p className="mt-2 text-sm text-muted-foreground">
                 {t("admin.description")}
@@ -524,22 +651,7 @@ const AdminDashboard: React.FC = () => {
           </Card>
 
           <Card
-            className={`cursor-pointer transition hover:shadow-md ${activeSection === "employer-requests" ? "border-primary ring-1 ring-primary" : ""
-              }`}
-            onClick={() => openSection("employer-requests")}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("admin.stats.requestsTitle")}</CardTitle>
-              <FileCheck2 className="h-5 w-5 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{pendingRequests.length}</div>
-              <p className="text-xs text-muted-foreground">{t("admin.stats.requestsDescription")}</p>
-            </CardContent>
-          </Card>
-
-          <Card
-            className={`cursor-pointer transition hover:shadow-md ${activeSection === "categories" ? "border-primary ring-1 ring-primary" : ""}`}
+            className={`cursor-pointer transition hover:shadow-md ${activeSection === "categories" ? "border-primary" : ""}`}
             onClick={() => openSection("categories")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -565,17 +677,16 @@ const AdminDashboard: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* CMS Sanity Section */}
           <Card
-            className={`cursor-pointer transition hover:shadow-md ${activeSection === "content" ? "border-primary ring-1 ring-primary" : ""}`}
-            onClick={() => openSection("content")}
+            className="cursor-pointer transition hover:border-primary hover:shadow-md"
+            onClick={openLoginBrandingStudio}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Quản lý Nội dung</CardTitle>
-              <Settings2 className="h-5 w-5 text-primary" />
+              <CardTitle className="text-sm font-medium">{t("admin.stats.loginBrandingTitle")}</CardTitle>
+              <Palette className="h-5 w-5 text-primary" />
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">Chỉnh sửa UI, Banner, Bài viết...</p>
+              <p className="text-sm text-muted-foreground">{t("admin.stats.loginBrandingDescription")}</p>
             </CardContent>
           </Card>
         </div>
@@ -597,20 +708,48 @@ const AdminDashboard: React.FC = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Email</TableHead>
-                        <TableHead>{t("admin.users.fullName")}</TableHead>
-                        <TableHead>{t("common.role")}</TableHead>
-                        <TableHead>{t("common.status")}</TableHead>
+                        <TableHead>{renderUserSortableHeader("email", "Email")}</TableHead>
+                        <TableHead>{renderUserSortableHeader("fullName", t("admin.users.fullName"))}</TableHead>
+                        <TableHead>
+                          <div className="flex flex-col gap-2">
+                            {renderUserSortableHeader("role", t("common.role"))}
+                            <Select value={userRoleFilter} onValueChange={(value) => setUserRoleFilter(value as UserRoleFilter)}>
+                              <SelectTrigger className="h-8 w-36 bg-white text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="ALL">{t("admin.users.allRoles")}</SelectItem>
+                                {roleOptions.map((role) => (
+                                  <SelectItem key={role} value={role}>
+                                    {t(`role.${role}`)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </TableHead>
+                        <TableHead>
+                          <div className="flex flex-col gap-2">
+                            {renderUserSortableHeader("status", t("common.status"))}
+                            <Select value={userStatusFilter} onValueChange={(value) => setUserStatusFilter(value as UserStatusFilter)}>
+                              <SelectTrigger className="h-8 w-40 bg-white text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="ALL">{t("admin.users.allStatuses")}</SelectItem>
+                                <SelectItem value="ACTIVE">{t("admin.users.active")}</SelectItem>
+                                <SelectItem value="RESTRICTED">{t("admin.users.restricted")}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </TableHead>
                         <TableHead className="text-center">{t("common.actions")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {sortedUsers.map((account) => {
-                        const restricted =
-                          account.restricted ||
-                          account.isRestricted ||
-                          account.status?.toUpperCase() === "RESTRICTED" ||
-                          account.status?.toUpperCase() === "BLOCKED";
+                        const restricted = isRestrictedUser(account);
+                        const pendingRequest = pendingRequestByApplicantId.get(String(account.id));
 
                         return (
                           <TableRow key={account.id}>
@@ -620,7 +759,7 @@ const AdminDashboard: React.FC = () => {
                             </TableCell>
                             <TableCell>
                               <Select
-                                  value={normalizeRole(account.role)}
+                                  value={normalizeRoleName(account.role)}
                                   disabled={actionId === account.id || isAdminRole(account.role)}
                                   onValueChange={(role) => handleRoleChange(account, role as UserRole)}
                               >
@@ -645,19 +784,30 @@ const AdminDashboard: React.FC = () => {
                             </TableCell>
                             <TableCell>
                               <div className="flex flex-wrap justify-center gap-2">
-                                <Button variant="outline" size="sm" onClick={() => setSelectedUser(account)}>
-                                  <Eye className="h-4 w-4" />
-                                  {t("common.view")}
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
+                                <div className="relative">
+                                  <ActionIconButton
+                                    icon={Eye}
+                                    label={pendingRequest ? t("admin.users.reviewCompanyRequest") : t("common.view")}
+                                    variantStyle="view"
+                                    onClick={() =>
+                                      navigate(
+                                        pendingRequest
+                                          ? `/admin/company-reviews/${encodeURIComponent(String(pendingRequest.id))}`
+                                          : `/admin/users/${encodeURIComponent(String(account.id))}`,
+                                      )
+                                    }
+                                  />
+                                  {pendingRequest && (
+                                    <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-red-500" />
+                                  )}
+                                </div>
+                                <ActionIconButton
+                                  icon={ShieldAlert}
+                                  label={restricted ? t("admin.users.unrestrict") : t("admin.users.restrict")}
+                                  variantStyle={restricted ? "restore" : "warning"}
                                   disabled={actionId === account.id || isAdminRole(account.role)}
                                   onClick={() => handleRestriction(account, !restricted)}
-                                >
-                                  <ShieldAlert className="h-4 w-4" />
-                                  {restricted ? t("admin.users.unrestrict") : t("admin.users.restrict")}
-                                </Button>
+                                />
 
                               </div>
                             </TableCell>
@@ -734,25 +884,16 @@ const AdminDashboard: React.FC = () => {
                               <TableCell>{job.employerEmail || job.employerName || "-"}</TableCell>
                               <TableCell>{formatAdminDate(job.createdAt)}</TableCell>
                               <TableCell>
-                                <Badge variant="outline" className={getRequestStatusBadgeClassName(job.status)}>
+                                <Badge variant="outline" className={getReviewStatusBadgeClassName(job.status)}>
                                   {t(`admin.jobs.statuses.${normalizeJobStatus(job.status)}`)}
                                 </Badge>
                               </TableCell>
                               <TableCell>{job.hidden ? t("common.yes") : t("common.no")}</TableCell>
                               <TableCell>
                                 <div className="flex flex-wrap justify-center gap-2">
-                                  <Button variant="outline" size="sm" onClick={() => setSelectedJob(job)}>
-                                    <Eye className="h-4 w-4" />
-                                    {t("common.details")}
-                                  </Button>
-                                  <Button variant="outline" size="sm" disabled={actionId === job.id} onClick={() => handleReviewJob(job, true)}>
-                                    <CheckCircle2 className="h-4 w-4" />
-                                    {t("admin.jobs.approve")}
-                                  </Button>
-                                  <Button variant="destructive" size="sm" disabled={actionId === job.id} onClick={() => handleReviewJob(job, false)}>
-                                    <XCircle className="h-4 w-4" />
-                                    {t("admin.jobs.reject")}
-                                  </Button>
+                                  <ActionIconButton icon={Eye} label={t("common.details")} variantStyle="view" onClick={() => setSelectedJob(job)} />
+                                  <ActionIconButton icon={CheckCircle2} label={t("admin.jobs.approve")} variantStyle="approve" disabled={actionId === job.id} onClick={() => handleReviewJob(job, true)} />
+                                  <ActionIconButton icon={XCircle} label={t("admin.jobs.reject")} variantStyle="reject" disabled={actionId === job.id} onClick={() => handleReviewJob(job, false)} />
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -781,21 +922,15 @@ const AdminDashboard: React.FC = () => {
                               <TableCell>{job.employerEmail || job.employerName || "-"}</TableCell>
                               <TableCell>{formatAdminDate(job.createdAt)}</TableCell>
                               <TableCell>
-                                <Badge variant="outline" className={getRequestStatusBadgeClassName(job.status)}>
+                                <Badge variant="outline" className={getReviewStatusBadgeClassName(job.status)}>
                                   {t(`admin.jobs.statuses.${normalizeJobStatus(job.status)}`)}
                                 </Badge>
                               </TableCell>
                               <TableCell>{job.hidden ? t("common.yes") : t("common.no")}</TableCell>
                               <TableCell>
                                 <div className="flex flex-wrap justify-center gap-2">
-                                  <Button variant="outline" size="sm" onClick={() => setSelectedJob(job)}>
-                                    <Eye className="h-4 w-4" />
-                                    {t("common.details")}
-                                  </Button>
-                                  <Button variant="destructive" size="sm" disabled={actionId === job.id} onClick={() => handleTrashJob(job)}>
-                                    <Trash2 className="h-4 w-4" />
-                                    {t("admin.jobs.moveToTrash")}
-                                  </Button>
+                                  <ActionIconButton icon={Eye} label={t("common.details")} variantStyle="view" onClick={() => setSelectedJob(job)} />
+                                  <ActionIconButton icon={Trash2} label={t("admin.jobs.moveToTrash")} variantStyle="delete" disabled={actionId === job.id} onClick={() => handleTrashJob(job)} />
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -821,14 +956,8 @@ const AdminDashboard: React.FC = () => {
                               <TableCell>{formatAdminDate(job.deletedAt)}</TableCell>
                               <TableCell>
                                 <div className="flex justify-center gap-2">
-                                  <Button variant="outline" size="sm" onClick={() => handleRestoreJob(job)}>
-                                    <RotateCcw className="h-4 w-4" />
-                                    {t("admin.jobs.restore")}
-                                  </Button>
-                                  <Button variant="destructive" size="sm" disabled={actionId === job.id} onClick={() => handleDeleteJobPermanently(job)}>
-                                    <Trash2 className="h-4 w-4" />
-                                    {t("admin.jobs.deletePermanent")}
-                                  </Button>
+                                  <ActionIconButton icon={RotateCcw} label={t("admin.jobs.restore")} variantStyle="restore" disabled={actionId === job.id} onClick={() => handleRestoreJob(job)} />
+                                  <ActionIconButton icon={Trash2} label={t("admin.jobs.deletePermanent")} variantStyle="delete" disabled={actionId === job.id} onClick={() => handleDeleteJobPermanently(job)} />
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -841,116 +970,9 @@ const AdminDashboard: React.FC = () => {
               </Card>
             )}
 
-            {activeSection === "employer-requests" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t("admin.requests.title")}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {requests.length === 0 ? (
-                    <p className="py-8 text-center text-muted-foreground">{t("admin.requests.empty")}</p>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>{t("admin.requests.applicantEmail")}</TableHead>
-                          <TableHead>{t("admin.requests.registrationInfo")}</TableHead>
-                          <TableHead>{t("common.status")}</TableHead>
-                          <TableHead className="text-center">{t("common.actions")}</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {requests.map((application) => {
-                          const status = normalizeRequestStatus(application.status);
-                          const pending = status === "PENDING";
-                          const revoked = status === "REVOKED";
-                          const reviewed = status === "APPROVED" || status === "REJECTED";
-
-                          return (
-                            <TableRow key={application.id}>
-                              <TableCell className="font-medium">{application.applicantEmail}</TableCell>
-                              <TableCell>
-                                {application.formData && Object.keys(application.formData).length > 0 ? (
-                                  <div className="space-y-1 text-xs">
-                                    {Object.entries(application.formData).map(([key, value]) => (
-                                      <div key={key}>
-                                        <span className="font-medium">{key}:</span> {value || "-"}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className="text-muted-foreground">-</span>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className={getRequestStatusBadgeClassName(application.status)}>
-                                  {t(`admin.requests.statuses.${status}`, { defaultValue: application.status })}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex justify-center gap-2">
-                                  {pending && (
-                                    <>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={actionId === application.id}
-                                        onClick={() => handleReviewRequest(application, true)}
-                                      >
-                                        <CheckCircle2 className="h-4 w-4" />
-                                        {t("admin.requests.approve")}
-                                      </Button>
-                                      <Button
-                                        variant="destructive"
-                                        size="sm"
-                                        disabled={actionId === application.id}
-                                        onClick={() => setRejectingRequest(application)}
-                                      >
-                                        <XCircle className="h-4 w-4" />
-                                        {t("admin.requests.reject")}
-                                      </Button>
-                                    </>
-                                  )}
-                                  {reviewed && (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800"
-                                      disabled={actionId === application.id}
-                                      onClick={() => handleRevokeRecruiterApplication(application)}
-                                    >
-                                      <UserCog className="h-4 w-4" />
-                                      {t("admin.requests.revoke")}
-                                    </Button>
-                                  )}
-                                  {revoked && (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
-                                      disabled={actionId === application.id}
-                                      onClick={() => handleRestoreRecruiterApplication(application)}
-                                    >
-                                      <RotateCcw className="h-4 w-4" />
-                                      {t("admin.requests.restore")}
-                                    </Button>
-                                  )}
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
             {activeSection === "categories" && token && (
               <CategoryManagementPanel token={token} />
             )}
-
             {activeSection === "audit-logs" && (
               <Card>
                 <CardHeader>
@@ -1048,13 +1070,13 @@ const AdminDashboard: React.FC = () => {
           {selectedUser && (
             <div className="grid gap-3 text-sm md:grid-cols-2">
               <div><strong>Email:</strong> {selectedUser.email}</div>
-              <div><strong>{t("common.role")}:</strong> {t(`role.${normalizeRole(selectedUser.role)}`, { defaultValue: selectedUser.role })}</div>
+              <div><strong>{t("common.role")}:</strong> {t(`role.${normalizeRoleName(selectedUser.role)}`, { defaultValue: selectedUser.role })}</div>
               <div><strong>{t("admin.users.fullName")}:</strong> {selectedUser.lastName} {selectedUser.firstName}</div>
               <div><strong>{t("admin.userDialog.phone")}:</strong> {selectedUser.phoneNumber || "-"}</div>
               <div><strong>{t("admin.userDialog.gender")}:</strong> {selectedUser.gender || "-"}</div>
               <div><strong>{t("admin.userDialog.dob")}:</strong> {selectedUser.dob || "-"}</div>
               <div><strong>{t("admin.userDialog.createdAt")}:</strong> {formatAdminDate(selectedUser.createdAt)}</div>
-              {/* <div><strong>{t("admin.userDialog.cv")}:</strong> {selectedUser.cvUrl ? <a className="text-primary underline" href={selectedUser.cvUrl} target="_blank" rel="noreferrer">{t("admin.userDialog.viewCv")}</a> : "-"}</div> */}
+              <div><strong>{t("admin.userDialog.cv")}:</strong> {selectedUserCvUrl ? <a className="text-primary underline" href={selectedUserCvUrl} target="_blank" rel="noreferrer">{t("admin.userDialog.viewCv")}</a> : "-"}</div>
             </div>
           )}
           <DialogFooter>
@@ -1078,6 +1100,7 @@ const AdminDashboard: React.FC = () => {
                 <div><strong>{t("admin.jobDialog.location")}:</strong> {selectedJob.location || "-"}</div>
                 <div><strong>{t("common.type")}:</strong> {selectedJob.type || "-"}</div>
                 <div><strong>{t("common.salary")}:</strong> {selectedJob.salary || "-"}</div>
+                <div><strong>{t("recruiter.form.experience")}:</strong> {selectedJob.experience || "-"}</div>
               </div>
               <div>
                 <strong>{t("common.description")}:</strong>

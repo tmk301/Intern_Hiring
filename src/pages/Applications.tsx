@@ -1,28 +1,16 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Link, Navigate } from "react-router-dom";
 import { BriefcaseBusiness, CalendarDays, CheckCircle2, Clock3, ExternalLink, FileText, MapPin } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { candidateApi, type CandidateApplication } from "@/lib/api";
+import { getReviewStatusBadgeClassName, getReviewStatusTranslationKey } from "@/lib/dashboardStyles";
 import { isCandidateRole } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-
-const statusLabels: Record<CandidateApplication["status"], string> = {
-  PENDING: "Đang chờ",
-  REVIEWED: "Đã xem",
-  ACCEPTED: "Đã được duyệt",
-  REJECTED: "Chưa phù hợp",
-};
-
-const statusClassNames: Record<CandidateApplication["status"], string> = {
-  PENDING: "border-amber-300 bg-amber-50 text-amber-800",
-  REVIEWED: "border-sky-300 bg-sky-50 text-sky-800",
-  ACCEPTED: "border-emerald-300 bg-emerald-50 text-emerald-800",
-  REJECTED: "border-rose-300 bg-rose-50 text-rose-800",
-};
 
 const formatDate = (value: string) =>
   new Intl.DateTimeFormat("vi-VN", {
@@ -31,14 +19,17 @@ const formatDate = (value: string) =>
     year: "numeric",
   }).format(new Date(value));
 
-const ApplicationCard = ({ application }: { application: CandidateApplication }) => (
+const ApplicationCard = ({ application }: { application: CandidateApplication }) => {
+  const { t } = useTranslation();
+
+  return (
   <article className="group relative overflow-hidden border-l-4 border-slate-900 bg-white p-5 shadow-[8px_8px_0_0_rgba(15,23,42,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[12px_12px_0_0_rgba(15,23,42,0.12)]">
     <div className="absolute right-0 top-0 h-16 w-16 bg-emerald-400/10 [clip-path:polygon(100%_0,0_0,100%_100%)]" />
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className={statusClassNames[application.status]}>
-            {statusLabels[application.status]}
+          <Badge variant="outline" className={getReviewStatusBadgeClassName(application.status)}>
+            {t(`recruiter.applications.statuses.${getReviewStatusTranslationKey(application.status)}`)}
           </Badge>
           {application.jobType && (
             <Badge variant="secondary" className="rounded-none">
@@ -87,7 +78,8 @@ const ApplicationCard = ({ application }: { application: CandidateApplication })
       </div>
     </div>
   </article>
-);
+  );
+};
 
 const EmptyState = ({ accepted }: { accepted?: boolean }) => (
   <div className="border border-dashed border-slate-300 bg-white p-10 text-center">

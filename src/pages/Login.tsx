@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { authApi, isApiError } from "@/lib/api";
 import { isAdminRole, isModeratorRole, isRecruiterRole, isRestrictedAccount } from "@/lib/roles";
+import { defaultManagedSiteConfig, loadLoginHeroConfig, type LoginHeroConfig } from "@/lib/siteConfig";
+import { useAuth } from "@/context/AuthContext";
 import ResetPasswordDialog from "@/components/ResetPasswordDialog";
 import { sanityClient } from "@/lib/sanity"; // <-- IMPORT SANITY
 import {
@@ -38,9 +40,11 @@ type LoginFormValues = {
 
 const Login = () => {
   const { t } = useTranslation();
+  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isResetOpen, setIsResetOpen] = useState(false);
+  const [loginHero, setLoginHero] = useState<LoginHeroConfig>(defaultManagedSiteConfig.loginHero);
   const navigate = useNavigate();
   
   // STATE LƯU DỮ LIỆU TỪ SANITY CMS
@@ -75,7 +79,47 @@ const Login = () => {
       .catch((error) => console.error("Lỗi tải cấu hình Login từ Sanity:", error));
 
     return () => {
+      mounted = false;}
+  }, []);
+
+  useEffect(() => {
+    if (isAuthLoading || !isAuthenticated) return;
+
+    if (isAdminRole(user?.role)) {
+      navigate("/admin", { replace: true });
+      return;
+    }
+
+    if (isRecruiterRole(user?.role)) {
+      navigate("/recruiter", { replace: true });
+      return;
+    }
+
+    if (isModeratorRole(user?.role)) {
+      navigate("/moderator", { replace: true });
+      return;
+    }
+
+    navigate("/", { replace: true });
+  }, [isAuthLoading, isAuthenticated, navigate, user?.role]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    loadLoginHeroConfig().then((hero) => {
+      if (mounted) setLoginHero(hero);
+    });
+
+    const handleConfigUpdate = (event: Event) => {
+      const config = (event as CustomEvent).detail;
+      if (config?.loginHero) setLoginHero(config.loginHero);
+    };
+
+    window.addEventListener("managed-site-config-updated", handleConfigUpdate);
+
+    return () => {
       mounted = false;
+      window.removeEventListener("managed-site-config-updated", handleConfigUpdate);
     };
   }, []);
 
@@ -126,6 +170,18 @@ const Login = () => {
     }
   };
 
+  if (isAuthLoading) {
+    return (
+      <main className="flex h-[calc(100dvh-4rem)] items-center justify-center bg-gradient-subtle">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </main>
+    );
+  }
+
+  if (isAuthenticated) {
+    return null;
+  }
+
   return (
     <main className="h-[calc(100dvh-4rem)] overflow-hidden bg-gradient-subtle">
       <div className="container mx-auto flex h-full items-center justify-center px-4 py-4">
@@ -135,26 +191,30 @@ const Login = () => {
           transition={{ duration: 0.45 }}
           className="grid w-full max-w-5xl overflow-hidden rounded-xl border bg-white shadow-strong md:grid-cols-[1fr_0.85fr]"
         >
-          {/* CỘT TRÁI: BANNER NỘI DUNG (ÁP DỤNG SANITY Ở ĐÂY) */}
-            <section 
-              className={`hidden p-8 text-white md:flex md:flex-col md:justify-between ${!pageData?.loginBannerColor ? 'hero-gradient' : ''}`}
-              style={pageData?.loginBannerColor ? { background: pageData.loginBannerColor } : {}}
-            >            
+          <section
+            className="hidden bg-cover bg-center p-8 md:flex md:flex-col md:justify-between"
+            style={{
+              backgroundColor: loginHero.backgroundColor,
+              backgroundImage: loginHero.imageUrl
+                ? `linear-gradient(180deg, ${loginHero.backgroundColor}dd, ${loginHero.backgroundColor}f2), url(${loginHero.imageUrl})`
+                : undefined,
+              color: loginHero.textColor,
+            }}
+          >
             <div>
               {/* Tiêu đề */}
               <h1 className="text-3xl font-bold leading-tight">
-                {pageData?.loginTitle || t("login.heroTitle")}
+                {loginHero.title || t("login.heroTitle")}
               </h1>
-              {/* Phụ đề */}
-              <p className="mt-4 max-w-sm text-sm leading-6 text-white/85">
-                {pageData?.loginSubtitle || t("login.heroDescription")}
+              <p className="mt-4 max-w-sm text-sm leading-6 opacity-90">
+                {loginHero.description || t("login.heroDescription")}
               </p>
             </div>
             {/* Câu trích dẫn / Chứng nhận bảo mật */}
             <div className="flex items-center gap-3 rounded-lg bg-white/10 p-4">
               <ShieldCheck className="h-6 w-6 text-yellow-300" />
-              <p className="text-sm text-white/90">
-                {pageData?.loginQuote || t("login.heroSecurity")}
+              <p className="text-sm opacity-90">
+                {loginHero.securityText || t("login.heroSecurity")}
               </p>
             </div>
           </section>
