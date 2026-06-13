@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { AvatarCropDialog } from "@/components/AvatarCropDialog";
 import {
   ArrowLeft,
@@ -164,6 +165,8 @@ const Profile = () => {
   });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isSavingTheme, setIsSavingTheme] = useState(false);
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(user?.emailNotificationsEnabled ?? true);
+  const [isSavingEmailNotifications, setIsSavingEmailNotifications] = useState(false);
   const profileThemeColor = user.themeColor || "#2563eb";
 
   if (!user || !token) {
@@ -459,6 +462,30 @@ const Profile = () => {
     saveThemeColor(e.target.value);
   };
 
+  const handleEmailNotificationsChange = async (checked: boolean) => {
+    const previousValue = emailNotificationsEnabled;
+    setEmailNotificationsEnabled(checked);
+    setIsSavingEmailNotifications(true);
+
+    try {
+      await userApi.updateProfile(token, { emailNotificationsEnabled: checked });
+      await refreshUser();
+      toast({
+        title: t("toast.success"),
+        description: t("profile.emailNotificationsSaved", { defaultValue: "Da luu tuy chon thong bao qua email." }),
+      });
+    } catch (err: unknown) {
+      setEmailNotificationsEnabled(previousValue);
+      toast({
+        title: t("toast.error"),
+        description: getErrorMessage(err, t("profile.emailNotificationsSaveError", { defaultValue: "Khong the luu tuy chon thong bao qua email." })),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingEmailNotifications(false);
+    }
+  };
+
   const handleMatchAvatarColor = async () => {
     if (!user.avatarUrl) {
       toast({ title: t("toast.error"), description: t("profile.avatarColorMissing"), variant: "destructive" });
@@ -723,6 +750,25 @@ const Profile = () => {
                         </Label>
                         <Input value={user.email} disabled className="bg-muted/50" />
                       </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 rounded-lg border bg-muted/20 px-4 py-3">
+                      <div className="min-w-0">
+                        <Label htmlFor="email-notifications" className="flex items-center gap-2 font-medium">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          {t("profile.emailNotifications", { defaultValue: "Thong bao qua email" })}
+                        </Label>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {t("profile.emailNotificationsDescription", { defaultValue: "Nhan cap nhat quan trong ve tai khoan va ho so qua email." })}
+                        </p>
+                      </div>
+                      <Switch
+                        id="email-notifications"
+                        checked={emailNotificationsEnabled}
+                        disabled={isSavingEmailNotifications}
+                        onCheckedChange={handleEmailNotificationsChange}
+                        className="h-7 w-12 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-slate-300 [&>span]:h-6 [&>span]:w-6 [&>span]:data-[state=checked]:translate-x-5"
+                      />
                     </div>
                   </CardContent>
                 </Card>

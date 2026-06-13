@@ -70,6 +70,15 @@
     "recruiterDashboard": "Tuyển dụng",
     "auditLog": "Nhật ký audit"
   },
+  "notifications": {
+    "buttonLabel": "Thong bao",
+    "title": "Thong bao",
+    "empty": "Khong co thong bao moi.",
+    "missingCvTitle": "Tai CV cua ban len",
+    "missingCvDescription": "Them CV vao ho so de ung tuyen nhanh hon.",
+    "incompleteProfileTitle": "Hoan thien ho so",
+    "incompleteProfileDescription": "Bo sung so dien thoai, gioi tinh va ngay sinh."
+  },
   "auth": {
     "restrictedMessage": "Tài khoản của bạn đang bị hạn chế. Vui lòng liên hệ quản trị viên.",
     "restrictedLoginError": "Tài khoản của bạn đang bị hạn chế và không thể đăng nhập vào hệ thống.",
@@ -455,6 +464,8 @@
       "requestsDescription": "Yêu cầu đang chờ duyệt",
       "categoriesTitle": "Quản lý danh mục",
       "categoriesDescription": "Danh mục & Form xác thực",
+      "loginBrandingTitle": "Ô login",
+      "loginBrandingDescription": "Hình ảnh, màu và nội dung",
       "auditLogsTitle": "Audit log",
       "auditLogsDescription": "Theo dõi thao tác admin"
     },
@@ -576,6 +587,25 @@
       "invalidRegex": "Regex không hợp lệ.",
       "noRegex": "Không áp dụng",
       "newFieldsHint": "Các trường mới sẽ xuất hiện trong form yêu cầu xác thực ở trang chủ và được lưu vào phần dữ liệu bổ sung của yêu cầu."
+    },
+    "loginBranding": {
+      "title": "Quản lý ô bên trái trang login",
+      "description": "Tùy chỉnh hình ảnh, màu và nội dung của ô bên trái màn hình đăng nhập.",
+      "heroTitle": "Tiêu đề",
+      "heroDescription": "Mô tả",
+      "securityText": "Dòng ghi chú bên dưới",
+      "backgroundColor": "Màu nền",
+      "textColor": "Màu chữ",
+      "imageUrl": "URL hình ảnh",
+      "imageUrlPlaceholder": "Ví dụ: /carousel/YESCO.webp hoặc https://...",
+      "imageUpload": "Tải ảnh từ máy",
+      "clearImage": "Xóa ảnh",
+      "imageInvalid": "Vui lòng chọn file ảnh hợp lệ.",
+      "imageTooLarge": "Ảnh không được lớn hơn 2MB.",
+      "save": "Lưu thay đổi",
+      "reset": "Đặt lại mặc định",
+      "saveSuccess": "Đã cập nhật ô login.",
+      "saveError": "Không thể cập nhật ô login."
     },
     "auditLogs": {
       "loadError": "Không thể tải audit log.",

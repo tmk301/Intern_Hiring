@@ -1,0 +1,45 @@
+import type { LoginHeroConfig } from "@/lib/siteConfig";
+
+type SanityLoginHeroResponse = {
+  result?: Partial<LoginHeroConfig> | null;
+};
+
+const SANITY_PROJECT_ID = import.meta.env.VITE_SANITY_PROJECT_ID;
+const SANITY_DATASET = import.meta.env.VITE_SANITY_DATASET || "production";
+const SANITY_API_VERSION = import.meta.env.VITE_SANITY_API_VERSION || "2025-01-01";
+
+const loginHeroQuery = `*[_type == "loginHero"][0]{
+  title,
+  description,
+  securityText,
+  backgroundColor,
+  textColor,
+  "imageUrl": image.asset->url
+}`;
+
+const hasSanityConfig = () => Boolean(SANITY_PROJECT_ID && SANITY_DATASET);
+
+export const loadSanityLoginHero = async (fallback: LoginHeroConfig): Promise<LoginHeroConfig | null> => {
+  if (!hasSanityConfig()) return null;
+
+  const url = new URL(
+    `https://${SANITY_PROJECT_ID}.api.sanity.io/v${SANITY_API_VERSION}/data/query/${SANITY_DATASET}`,
+  );
+  url.searchParams.set("query", loginHeroQuery);
+
+  try {
+    const response = await fetch(url.toString());
+    if (!response.ok) return null;
+
+    const data = (await response.json()) as SanityLoginHeroResponse;
+    if (!data.result) return null;
+
+    return {
+      ...fallback,
+      ...data.result,
+      imageUrl: data.result.imageUrl || "",
+    };
+  } catch {
+    return null;
+  }
+};

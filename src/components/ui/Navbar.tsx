@@ -19,9 +19,10 @@ import {
 import { isAdminRole, isModeratorRole, isRecruiterRole } from "@/lib/roles";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { NotificationButton } from "./NotificationButton";
 
 const Navbar = () => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, token, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation();
@@ -101,50 +102,53 @@ const Navbar = () => {
           {/* DESKTOP AUTH */}
           <div className="hidden items-center gap-3 xl:flex">
             {isAuthenticated ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-2 rounded-full transition hover:opacity-80 cursor-pointer focus:outline-none focus-visible:outline-none">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={user?.avatarUrl} />
-                      <AvatarFallback>
-                        {user?.firstName?.charAt(0) || (
-                          <UserIcon className="h-4 w-4" />
-                        )}
-                      </AvatarFallback>
-                    </Avatar>
+              <>
+                <NotificationButton user={user} token={token} />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex items-center gap-2 rounded-full transition hover:opacity-80 cursor-pointer focus:outline-none focus-visible:outline-none">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={user?.avatarUrl} />
+                        <AvatarFallback>
+                          {user?.firstName?.charAt(0) || (
+                            <UserIcon className="h-4 w-4" />
+                          )}
+                        </AvatarFallback>
+                      </Avatar>
 
-                    <span className="text-sm">
-                      {user?.firstName}
-                    </span>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {showAdminLink && (
-                    <DropdownMenuItem asChild>
-                      <Link to="/admin">{t("nav.admin")}</Link>
+                      <span className="text-sm">
+                        {user?.firstName}
+                      </span>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {showAdminLink && (
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin">{t("nav.admin")}</Link>
+                      </DropdownMenuItem>
+                    )}
+                    {showRecruiterLink && (
+                      <DropdownMenuItem asChild>
+                        <Link to="/recruiter">{t("nav.recruiterDashboard")}</Link>
+                      </DropdownMenuItem>
+                    )}
+                    {showModeratorLink && (
+                      <DropdownMenuItem asChild>
+                        <Link to="/moderator">Moderator</Link>
+                      </DropdownMenuItem>
+                    )}
+                    {showProfileLink && (
+                      <DropdownMenuItem asChild>
+                        <Link to="/profile">{t("nav.profile")}</Link>
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={handleLogout}>
+                      <LogOut className="h-4 w-4 mr-2" />
+                      {t("nav.logout")}
                     </DropdownMenuItem>
-                  )}
-                  {showRecruiterLink && (
-                    <DropdownMenuItem asChild>
-                      <Link to="/recruiter">{t("nav.recruiterDashboard")}</Link>
-                    </DropdownMenuItem>
-                  )}
-                  {showModeratorLink && (
-                    <DropdownMenuItem asChild>
-                      <Link to="/moderator">Moderator</Link>
-                    </DropdownMenuItem>
-                  )}
-                  {showProfileLink && (
-                    <DropdownMenuItem asChild>
-                      <Link to="/profile">{t("nav.profile")}</Link>
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut className="h-4 w-4 mr-2" />
-                    {t("nav.logout")}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
             ) : (
               <>
                 <Button
@@ -198,6 +202,9 @@ const Navbar = () => {
                   <div className="border-t pt-4">
                     {isAuthenticated ? (
                       <>
+                        <div className="mb-2">
+                          <NotificationButton user={user} token={token} mobile />
+                        </div>
                         {showAdminLink && (
                           <Link to="/admin" className="mb-2 flex items-center gap-2 rounded-md p-2 hover:bg-muted transition">
                             <UserIcon className="h-4 w-4" />

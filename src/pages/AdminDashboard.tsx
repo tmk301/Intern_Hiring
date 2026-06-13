@@ -134,6 +134,8 @@ const auditActions: AuditAction[] = [
 
 const auditTargetTypes: AuditTargetType[] = ["USER", "JOB", "CATEGORY_OPTION", "RECRUITER_APPLICATION", "RECRUITER_FORM_FIELD"];
 
+const adminSections: AdminSection[] = ["users", "jobs", "employer-requests", "categories", "audit-logs"];
+
 const AdminDashboard: React.FC = () => {
   const { t, i18n } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -209,14 +211,15 @@ const AdminDashboard: React.FC = () => {
   const formatAdminDate = useCallback((value?: string | null) => formatDate(value, dateLocale), [dateLocale]);
 
   useEffect(() => {
-    if (searchParams.get("section") === "audit-logs") {
-      setActiveSection("audit-logs");
+    const requestedSection = searchParams.get("section") as AdminSection | null;
+    if (requestedSection && adminSections.includes(requestedSection)) {
+      setActiveSection(requestedSection);
     }
   }, [searchParams]);
 
   const openSection = (section: AdminSection) => {
     setActiveSection(section);
-    setSearchParams(section === "audit-logs" ? { section } : {});
+    setSearchParams(section === "users" ? {} : { section });
   };
 
   const loadAuditLogs = useCallback(async () => {
@@ -936,7 +939,6 @@ const AdminDashboard: React.FC = () => {
             {activeSection === "categories" && token && (
               <CategoryManagementPanel token={token} />
             )}
-
             {activeSection === "audit-logs" && (
               <Card>
                 <CardHeader>

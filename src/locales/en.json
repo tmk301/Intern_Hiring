@@ -70,6 +70,15 @@
     "recruiterDashboard": "Recruiter dashboard",
     "auditLog": "Audit log"
   },
+  "notifications": {
+    "buttonLabel": "Notifications",
+    "title": "Notifications",
+    "empty": "No new notifications.",
+    "missingCvTitle": "Upload your CV",
+    "missingCvDescription": "Add a CV to your profile so you can apply faster.",
+    "incompleteProfileTitle": "Complete your profile",
+    "incompleteProfileDescription": "Add your phone number, gender, and date of birth."
+  },
   "auth": {
     "restrictedMessage": "Your account is restricted. Please contact an administrator.",
     "restrictedLoginError": "Your account is restricted and cannot log in to the system.",
@@ -401,7 +410,11 @@
     "matchAvatarColorShort": "Match avatar",
     "avatarColorMatched": "Matched theme color to avatar.",
     "avatarColorMissing": "Upload an avatar first.",
-    "avatarColorMatchError": "Unable to read color from avatar."
+    "avatarColorMatchError": "Unable to read color from avatar.",
+    "emailNotifications": "Email notifications",
+    "emailNotificationsDescription": "Receive important account and application updates by email.",
+    "emailNotificationsSaved": "Email notification preference saved.",
+    "emailNotificationsSaveError": "Could not save email notification preference."
   },
   "avatarCrop": {
     "title": "Crop avatar",
@@ -445,6 +458,8 @@
       "requestsDescription": "Requests pending review",
       "categoriesTitle": "Manage categories",
       "categoriesDescription": "Categories & verification form",
+      "loginBrandingTitle": "Login panel",
+      "loginBrandingDescription": "Image, colors, and copy",
       "auditLogsTitle": "Audit log",
       "auditLogsDescription": "Track admin activity"
     },
@@ -567,6 +582,25 @@
       "invalidRegex": "Invalid regex.",
       "noRegex": "Not applied",
       "newFieldsHint": "New fields will appear in the verification request form on the home page and will be saved in the request's additional data."
+    },
+    "loginBranding": {
+      "title": "Manage login panel",
+      "description": "Customize the left panel on the login screen.",
+      "heroTitle": "Panel title",
+      "heroDescription": "Panel description",
+      "securityText": "Bottom note",
+      "backgroundColor": "Background color",
+      "textColor": "Text color",
+      "imageUrl": "Image URL",
+      "imageUrlPlaceholder": "Example: /carousel/YESCO.webp or https://...",
+      "imageUpload": "Upload image",
+      "clearImage": "Remove image",
+      "imageInvalid": "Please choose a valid image file.",
+      "imageTooLarge": "Image must be 2MB or smaller.",
+      "save": "Save changes",
+      "reset": "Reset defaults",
+      "saveSuccess": "Login panel updated.",
+      "saveError": "Could not update the login panel."
     },
     "auditLogs": {
       "loadError": "Unable to load audit logs.",
