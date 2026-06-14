@@ -1,6 +1,6 @@
 import { defaultJobFilterOptions, type JobFilterOptions, type JobFilterOption } from "@/components/jobs/jobFilterConfig";
 import { apiRequest } from "@/lib/api";
-import { loadSanityLoginHero } from "@/lib/sanityLoginHero";
+import { loadSanityLoginHero, loadSanityRegisterHero } from "@/lib/sanityLoginHero";
 
 export type ManagedPartner = {
   id: string;
@@ -26,11 +26,35 @@ export type LoginHeroConfig = {
   imageUrl: string;
 };
 
+export type RegisterHeroConfig = {
+  badge: string;
+  title: string;
+  description: string;
+  noteTitle: string;
+  noteText: string;
+  backgroundColor: string;
+  textColor: string;
+  imageUrl: string;
+};
+
+export type EmailTemplateConfig = {
+  brandName: string;
+  headerImageUrl: string;
+  backgroundColor: string;
+  cardColor: string;
+  textColor: string;
+  accentColor: string;
+  fontSize: number;
+  footerText: string;
+};
+
 export type ManagedSiteConfig = {
   filters: JobFilterOptions;
   partners: ManagedPartner[];
   employerVerificationFields: EmployerVerificationField[];
   loginHero: LoginHeroConfig;
+  registerHero: RegisterHeroConfig;
+  emailTemplate: EmailTemplateConfig;
 };
 
 export type FilterCategoryKey = keyof JobFilterOptions;
@@ -107,11 +131,35 @@ export const defaultLoginHeroConfig: LoginHeroConfig = {
   imageUrl: "",
 };
 
+export const defaultRegisterHeroConfig: RegisterHeroConfig = {
+  badge: "New candidate",
+  title: "Create a profile to start your internship journey",
+  description: "Register a candidate account to follow programs, update your profile, and connect with suitable companies.",
+  noteTitle: "New accounts are candidate accounts by default.",
+  noteText: "Are you a recruiter? After creating an account, request verification to receive permissions.",
+  backgroundColor: "#f1f5f9",
+  textColor: "#0f172a",
+  imageUrl: "",
+};
+
+export const defaultEmailTemplateConfig: EmailTemplateConfig = {
+  brandName: "InternHiring",
+  headerImageUrl: "",
+  backgroundColor: "#f8fafc",
+  cardColor: "#ffffff",
+  textColor: "#334155",
+  accentColor: "#2563eb",
+  fontSize: 15,
+  footerText: "Email nay duoc gui tu he thong thong bao InternHiring.",
+};
+
 export const defaultManagedSiteConfig: ManagedSiteConfig = {
   filters: defaultJobFilterOptions,
   partners: defaultCorporatePartners,
   employerVerificationFields: defaultEmployerVerificationFields,
   loginHero: defaultLoginHeroConfig,
+  registerHero: defaultRegisterHeroConfig,
+  emailTemplate: defaultEmailTemplateConfig,
 };
 
 const SITE_CONFIG_ENDPOINT = "/api/site-config";
@@ -147,6 +195,18 @@ export const normalizeManagedSiteConfig = (config?: Partial<ManagedSiteConfig> |
     ...defaultLoginHeroConfig,
     ...(config?.loginHero || {}),
   },
+  registerHero: {
+    ...defaultRegisterHeroConfig,
+    ...(config?.registerHero || {}),
+  },
+  emailTemplate: {
+    ...defaultEmailTemplateConfig,
+    ...(config?.emailTemplate || {}),
+    fontSize:
+      typeof config?.emailTemplate?.fontSize === "number"
+        ? config.emailTemplate.fontSize
+        : defaultEmailTemplateConfig.fontSize,
+  },
 });
 
 const readLocalConfigFallback = () => {
@@ -179,6 +239,12 @@ export const loadLoginHeroConfig = async (): Promise<LoginHeroConfig> => {
   const config = await loadManagedSiteConfig();
   const sanityLoginHero = await loadSanityLoginHero(config.loginHero);
   return sanityLoginHero || config.loginHero;
+};
+
+export const loadRegisterHeroConfig = async (): Promise<RegisterHeroConfig> => {
+  const config = await loadManagedSiteConfig();
+  const sanityRegisterHero = await loadSanityRegisterHero(config.registerHero);
+  return sanityRegisterHero || config.registerHero;
 };
 
 export const saveManagedSiteConfig = async (config: ManagedSiteConfig, token: string) => {

@@ -1,7 +1,11 @@
-import type { LoginHeroConfig } from "@/lib/siteConfig";
+import type { LoginHeroConfig, RegisterHeroConfig } from "@/lib/siteConfig";
 
 type SanityLoginHeroResponse = {
   result?: Partial<LoginHeroConfig> | null;
+};
+
+type SanityRegisterHeroResponse = {
+  result?: Partial<RegisterHeroConfig> | null;
 };
 
 const SANITY_PROJECT_ID = import.meta.env.VITE_SANITY_PROJECT_ID;
@@ -12,6 +16,17 @@ const loginHeroQuery = `*[_type == "loginHero"][0]{
   title,
   description,
   securityText,
+  backgroundColor,
+  textColor,
+  "imageUrl": image.asset->url
+}`;
+
+const registerHeroQuery = `*[_type == "registerHero"][0]{
+  badge,
+  title,
+  description,
+  noteTitle,
+  noteText,
   backgroundColor,
   textColor,
   "imageUrl": image.asset->url
@@ -32,6 +47,31 @@ export const loadSanityLoginHero = async (fallback: LoginHeroConfig): Promise<Lo
     if (!response.ok) return null;
 
     const data = (await response.json()) as SanityLoginHeroResponse;
+    if (!data.result) return null;
+
+    return {
+      ...fallback,
+      ...data.result,
+      imageUrl: data.result.imageUrl || "",
+    };
+  } catch {
+    return null;
+  }
+};
+
+export const loadSanityRegisterHero = async (fallback: RegisterHeroConfig): Promise<RegisterHeroConfig | null> => {
+  if (!hasSanityConfig()) return null;
+
+  const url = new URL(
+    `https://${SANITY_PROJECT_ID}.api.sanity.io/v${SANITY_API_VERSION}/data/query/${SANITY_DATASET}`,
+  );
+  url.searchParams.set("query", registerHeroQuery);
+
+  try {
+    const response = await fetch(url.toString());
+    if (!response.ok) return null;
+
+    const data = (await response.json()) as SanityRegisterHeroResponse;
     if (!data.result) return null;
 
     return {

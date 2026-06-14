@@ -458,8 +458,8 @@
       "requestsDescription": "Requests pending review",
       "categoriesTitle": "Manage categories",
       "categoriesDescription": "Categories & verification form",
-      "loginBrandingTitle": "Login panel",
-      "loginBrandingDescription": "Image, colors, and copy",
+      "loginBrandingTitle": "Login & register panels",
+      "loginBrandingDescription": "Edit left panels in Sanity",
       "auditLogsTitle": "Audit log",
       "auditLogsDescription": "Track admin activity"
     },

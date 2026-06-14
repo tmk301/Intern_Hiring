@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
@@ -8,6 +8,11 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { USER_ROLES } from "@/lib/roles";
+import {
+  defaultManagedSiteConfig,
+  loadRegisterHeroConfig,
+  type RegisterHeroConfig,
+} from "@/lib/siteConfig";
 import {
   Card,
   CardContent,
@@ -66,7 +71,22 @@ const Register = () => {
   const [isResending, setIsResending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [pendingEmail, setPendingEmail] = useState("");
+  const [registerHero, setRegisterHero] = useState<RegisterHeroConfig>(
+    defaultManagedSiteConfig.registerHero,
+  );
   const navigate = useNavigate();
+
+  useEffect(() => {
+    let isMounted = true;
+
+    loadRegisterHeroConfig().then((config) => {
+      if (isMounted) setRegisterHero(config);
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const registerSchema = useMemo(
     () =>
@@ -191,27 +211,36 @@ const Register = () => {
           transition={{ duration: 0.45 }}
           className="grid w-full max-w-5xl overflow-hidden rounded-xl border bg-white shadow-strong md:grid-cols-[0.78fr_1fr]"
         >
-          <section className="hidden bg-secondary/70 p-6 md:flex md:flex-col md:justify-between">
+          <section
+            className="hidden bg-secondary/70 bg-cover bg-center p-6 md:flex md:flex-col md:justify-between"
+            style={{
+              backgroundColor: registerHero.backgroundColor,
+              backgroundImage: registerHero.imageUrl
+                ? `linear-gradient(180deg, ${registerHero.backgroundColor}e6, ${registerHero.backgroundColor}f5), url(${registerHero.imageUrl})`
+                : undefined,
+              color: registerHero.textColor,
+            }}
+          >
             <div>
-              <Badge className="mb-4 bg-primary text-primary-foreground">
-                {t("register.badge")}
+              <Badge className="mb-4 border-white/20 bg-white/15 text-current shadow-none backdrop-blur">
+                {registerHero.badge || t("register.badge")}
               </Badge>
-              <h1 className="text-3xl font-bold leading-tight text-foreground">
-                {t("register.heroTitle")}
+              <h1 className="text-3xl font-bold leading-tight">
+                {registerHero.title || t("register.heroTitle")}
               </h1>
-              <p className="mt-4 text-sm leading-6 text-muted-foreground">
-                {t("register.heroDescription")}
+              <p className="mt-4 text-sm leading-6 opacity-80">
+                {registerHero.description || t("register.heroDescription")}
               </p>
             </div>
-            <div className="rounded-lg border bg-white p-4 shadow-soft">
+            <div className="rounded-lg border border-white/20 bg-white/90 p-4 text-slate-900 shadow-soft backdrop-blur">
               <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
                 <GraduationCap className="h-5 w-5" />
               </div>
               <p className="text-sm font-medium text-foreground">
-                {t("register.defaultRole")}
+                {registerHero.noteTitle || t("register.defaultRole")}
               </p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                {t("register.recruiterHint")}
+                {registerHero.noteText || t("register.recruiterHint")}
               </p>
             </div>
           </section>

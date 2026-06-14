@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useSearchParams } from "react-router-dom";
 import {
@@ -8,13 +8,17 @@ import {
   CheckCircle2,
   Eye,
   FileCheck2,
+  Image,
   Loader2,
+  Mail,
   Palette,
   RefreshCw,
   RotateCcw,
+  Save,
   Settings2,
   ShieldAlert,
   Trash2,
+  Upload,
   Users,
   UserCog,
   XCircle,
@@ -40,8 +44,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  defaultEmailTemplateConfig,
+  defaultManagedSiteConfig,
+  loadManagedSiteConfig,
+  saveManagedSiteConfig,
+  type EmailTemplateConfig,
+  type ManagedSiteConfig,
+} from "@/lib/siteConfig";
+import { supabase } from "@/lib/supabase";
 
-type AdminSection = "users" | "jobs" | "employer-requests" | "categories" | "audit-logs";
+type AdminSection = "users" | "jobs" | "employer-requests" | "categories" | "audit-logs" | "email-format";
 type JobStatusFilter = "ALL" | "PENDING" | "APPROVED" | "REJECTED";
 type JobHiddenFilter = "ALL" | "HIDDEN" | "VISIBLE";
 
@@ -135,13 +149,23 @@ const auditActions: AuditAction[] = [
 
 const auditTargetTypes: AuditTargetType[] = ["USER", "JOB", "CATEGORY_OPTION", "RECRUITER_APPLICATION", "RECRUITER_FORM_FIELD"];
 
-const adminSections: AdminSection[] = ["users", "jobs", "employer-requests", "categories", "audit-logs"];
+const adminSections: AdminSection[] = ["users", "jobs", "employer-requests", "categories", "audit-logs", "email-format"];
 const SANITY_STUDIO_URL = import.meta.env.VITE_SANITY_STUDIO_URL || "http://localhost:3333";
+const EMAIL_TEMPLATE_IMAGE_BUCKET = "company";
+const EMAIL_TEMPLATE_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
+
+const safeUploadFileName = (name: string) =>
+  name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "email-header-image";
 
 const AdminDashboard: React.FC = () => {
   const { t, i18n } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, token, isAuthenticated, isLoading } = useAuth();
+  const emailImageInputRef = useRef<HTMLInputElement | null>(null);
   const [activeSection, setActiveSection] = useState<AdminSection>("users");
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [jobs, setJobs] = useState<AdminJobPost[]>([]);
@@ -161,6 +185,10 @@ const AdminDashboard: React.FC = () => {
   const [jobStatusFilter, setJobStatusFilter] = useState<JobStatusFilter>("ALL");
   const [jobHiddenFilter, setJobHiddenFilter] = useState<JobHiddenFilter>("ALL");
   const [jobDateFilter, setJobDateFilter] = useState("");
+  const [managedConfig, setManagedConfig] = useState<ManagedSiteConfig>(defaultManagedSiteConfig);
+  const [emailTemplate, setEmailTemplate] = useState<EmailTemplateConfig>(defaultEmailTemplateConfig);
+  const [savingEmailTemplate, setSavingEmailTemplate] = useState(false);
+  const [uploadingEmailImage, setUploadingEmailImage] = useState(false);
 
   const activeJobs = useMemo(() => jobs.filter((job) => !isTrashedJob(job)), [jobs]);
   const trashedJobs = useMemo(() => jobs.filter(isTrashedJob), [jobs]);
@@ -282,6 +310,26 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    loadManagedSiteConfig()
+      .then((config) => {
+        if (cancelled) return;
+        setManagedConfig(config);
+        setEmailTemplate(config.emailTemplate);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          toast.error(t("admin.emailFormat.loadError", { defaultValue: "Could not load email format." }));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [t]);
 
   useEffect(() => {
     if (activeSection === "audit-logs") {
@@ -466,6 +514,84 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const updateEmailTemplate = <K extends keyof EmailTemplateConfig>(key: K, value: EmailTemplateConfig[K]) => {
+    setEmailTemplate((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  };
+
+  const handleSaveEmailTemplate = async () => {
+    if (!token) return;
+
+    setSavingEmailTemplate(true);
+    try {
+      const nextConfig = {
+        ...managedConfig,
+        emailTemplate: {
+          ...emailTemplate,
+          fontSize: Math.max(12, Math.min(20, Number(emailTemplate.fontSize) || defaultEmailTemplateConfig.fontSize)),
+        },
+      };
+      const savedConfig = await saveManagedSiteConfig(nextConfig, token);
+      setManagedConfig(savedConfig);
+      setEmailTemplate(savedConfig.emailTemplate);
+      toast.success(t("admin.emailFormat.saveSuccess", { defaultValue: "Email format updated." }));
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, t("admin.emailFormat.saveError", { defaultValue: "Could not update email format." })));
+    } finally {
+      setSavingEmailTemplate(false);
+    }
+  };
+
+  const handleResetEmailTemplate = () => {
+    setEmailTemplate(defaultEmailTemplateConfig);
+  };
+
+  const handleEmailHeaderImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error(t("admin.emailFormat.imageInvalid", { defaultValue: "Please choose a valid image file." }));
+      return;
+    }
+
+    if (file.size > EMAIL_TEMPLATE_IMAGE_MAX_BYTES) {
+      toast.error(t("admin.emailFormat.imageTooLarge", { defaultValue: "Image must be 2MB or smaller." }));
+      return;
+    }
+
+    setUploadingEmailImage(true);
+    try {
+      const {
+        data: { user: supabaseUser },
+      } = await supabase.auth.getUser();
+
+      if (!supabaseUser) {
+        throw new Error("Not authenticated");
+      }
+
+      const filePath = `${supabaseUser.id}/email-template/${Date.now()}-${crypto.randomUUID()}-${safeUploadFileName(file.name)}`;
+      const { error } = await supabase.storage.from(EMAIL_TEMPLATE_IMAGE_BUCKET).upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+      if (error) throw error;
+
+      const publicUrl = supabase.storage.from(EMAIL_TEMPLATE_IMAGE_BUCKET).getPublicUrl(filePath).data.publicUrl;
+      updateEmailTemplate("headerImageUrl", publicUrl);
+      toast.success(t("admin.emailFormat.imageUploadSuccess", { defaultValue: "Header image uploaded." }));
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, t("admin.emailFormat.imageUploadError", { defaultValue: "Could not upload image." })));
+    } finally {
+      setUploadingEmailImage(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -571,6 +697,23 @@ const AdminDashboard: React.FC = () => {
             <CardContent>
               <div className="text-3xl font-bold">{auditTotal}</div>
               <p className="text-xs text-muted-foreground">{t("admin.stats.auditLogsDescription")}</p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={`cursor-pointer transition hover:shadow-md ${activeSection === "email-format" ? "border-primary" : ""}`}
+            onClick={() => openSection("email-format")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                {t("admin.stats.emailFormatTitle", { defaultValue: "Email format" })}
+              </CardTitle>
+              <Mail className="h-5 w-5 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                {t("admin.stats.emailFormatDescription", { defaultValue: "Colors, font size, header image" })}
+              </p>
             </CardContent>
           </Card>
 
@@ -958,6 +1101,181 @@ const AdminDashboard: React.FC = () => {
             {activeSection === "categories" && token && (
               <CategoryManagementPanel token={token} />
             )}
+
+            {activeSection === "email-format" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t("admin.emailFormat.title", { defaultValue: "Email format" })}</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="email-brand">
+                        {t("admin.emailFormat.brandName", { defaultValue: "Brand name" })}
+                      </Label>
+                      <Input
+                        id="email-brand"
+                        value={emailTemplate.brandName}
+                        onChange={(event) => updateEmailTemplate("brandName", event.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email-font-size">
+                        {t("admin.emailFormat.fontSize", { defaultValue: "Font size" })}
+                      </Label>
+                      <Input
+                        id="email-font-size"
+                        type="number"
+                        min={12}
+                        max={20}
+                        value={emailTemplate.fontSize}
+                        onChange={(event) => updateEmailTemplate("fontSize", Number(event.target.value))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email-background">
+                        {t("admin.emailFormat.backgroundColor", { defaultValue: "Background color" })}
+                      </Label>
+                      <Input
+                        id="email-background"
+                        type="color"
+                        value={emailTemplate.backgroundColor}
+                        onChange={(event) => updateEmailTemplate("backgroundColor", event.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email-card-color">
+                        {t("admin.emailFormat.cardColor", { defaultValue: "Card color" })}
+                      </Label>
+                      <Input
+                        id="email-card-color"
+                        type="color"
+                        value={emailTemplate.cardColor}
+                        onChange={(event) => updateEmailTemplate("cardColor", event.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email-text-color">
+                        {t("admin.emailFormat.textColor", { defaultValue: "Text color" })}
+                      </Label>
+                      <Input
+                        id="email-text-color"
+                        type="color"
+                        value={emailTemplate.textColor}
+                        onChange={(event) => updateEmailTemplate("textColor", event.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email-accent-color">
+                        {t("admin.emailFormat.accentColor", { defaultValue: "Accent color" })}
+                      </Label>
+                      <Input
+                        id="email-accent-color"
+                        type="color"
+                        value={emailTemplate.accentColor}
+                        onChange={(event) => updateEmailTemplate("accentColor", event.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="email-image">
+                        {t("admin.emailFormat.headerImage", { defaultValue: "Header image" })}
+                      </Label>
+                      <input
+                        ref={emailImageInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleEmailHeaderImageUpload}
+                      />
+                      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+                        <Input
+                          id="email-image"
+                          value={emailTemplate.headerImageUrl}
+                          readOnly
+                          placeholder={t("admin.emailFormat.noHeaderImage", { defaultValue: "No image uploaded" })}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => emailImageInputRef.current?.click()}
+                          disabled={uploadingEmailImage}
+                        >
+                          {uploadingEmailImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                          {t("admin.emailFormat.uploadImage", { defaultValue: "Upload" })}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => updateEmailTemplate("headerImageUrl", "")}
+                          disabled={!emailTemplate.headerImageUrl || uploadingEmailImage}
+                          aria-label={t("admin.emailFormat.clearImage", { defaultValue: "Clear image" })}
+                        >
+                          <Image className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="email-footer">
+                        {t("admin.emailFormat.footerText", { defaultValue: "Footer text" })}
+                      </Label>
+                      <Textarea
+                        id="email-footer"
+                        value={emailTemplate.footerText}
+                        onChange={(event) => updateEmailTemplate("footerText", event.target.value)}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2 sm:col-span-2">
+                      <Button onClick={handleSaveEmailTemplate} disabled={savingEmailTemplate}>
+                        {savingEmailTemplate ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                        {t("common.save", { defaultValue: "Save" })}
+                      </Button>
+                      <Button type="button" variant="outline" onClick={handleResetEmailTemplate}>
+                        <RotateCcw className="h-4 w-4" />
+                        {t("admin.emailFormat.reset", { defaultValue: "Reset defaults" })}
+                      </Button>
+                    </div>
+                  </div>
+                  <div
+                    className="rounded-md border p-4"
+                    style={{ backgroundColor: emailTemplate.backgroundColor }}
+                  >
+                    <div
+                      className="mx-auto rounded-md border border-slate-200 p-5"
+                      style={{ backgroundColor: emailTemplate.cardColor }}
+                    >
+                      {emailTemplate.headerImageUrl && (
+                        <img
+                          src={emailTemplate.headerImageUrl}
+                          alt=""
+                          className="mb-5 max-h-64 w-full rounded-md object-contain"
+                        />
+                      )}
+                      <div className="mb-4 text-sm font-bold" style={{ color: emailTemplate.accentColor }}>
+                        {emailTemplate.brandName || defaultEmailTemplateConfig.brandName}
+                      </div>
+                      <h3 className="mb-3 text-xl font-semibold text-slate-950">
+                        {t("admin.emailFormat.previewTitle", { defaultValue: "Application update" })}
+                      </h3>
+                      <div
+                        className="space-y-3 leading-7"
+                        style={{ color: emailTemplate.textColor, fontSize: `${emailTemplate.fontSize}px` }}
+                      >
+                        <p>{t("admin.emailFormat.previewGreeting", { defaultValue: "Xin chao Nguyen Van A," })}</p>
+                        <p>
+                          {t("admin.emailFormat.previewBody", {
+                            defaultValue: "Nha tuyen dung da xem xet ho so cua ban cho vi tri Frontend Developer Intern.",
+                          })}
+                        </p>
+                      </div>
+                      <div className="my-5 h-px bg-slate-200" />
+                      <p className="text-center text-xs text-slate-500">{emailTemplate.footerText}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {activeSection === "audit-logs" && (
               <Card>
                 <CardHeader>
