@@ -10,6 +10,7 @@ import {
   ClipboardList,
   CheckCircle2,
   Eye,
+  EyeOff,
   FileCheck2,
   Image,
   Loader2,
@@ -36,6 +37,16 @@ import { Badge } from "@/components/ui/badge";
 import { ActionIconButton } from "@/components/ui/action-icon-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -44,13 +55,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getReviewStatusBadgeClassName, getRoleBadgeClassName, normalizeRoleName } from "@/lib/dashboardStyles";
-import { DEFAULT_PAGE_SIZE, getSafePage, paginateItems } from "@/lib/pagination";
+import { paginateItems } from "@/lib/pagination";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
   defaultEmailTemplateConfig,
@@ -64,8 +74,10 @@ import { supabase } from "@/lib/supabase";
 
 type AdminSection = "users" | "jobs" | "employer-requests" | "categories" | "audit-logs" | "email-format";
 type JobStatusFilter = "ALL" | "PENDING" | "APPROVED" | "REJECTED";
-type JobHiddenFilter = "ALL" | "HIDDEN" | "VISIBLE";
+type JobHiddenFilter = "ALL" | "HIDDEN" | "VISIBLE" | "TRASH";
+type JobDeleteMode = "trash" | "permanent";
 type UserSortKey = "email" | "fullName" | "role" | "status";
+type JobSortKey = "title" | "company" | "recruiter" | "createdAt" | "deletedAt" | "status" | "hidden";
 type SortDirection = "asc" | "desc";
 type UserRoleFilter = "ALL" | UserRole;
 type UserStatusFilter = "ALL" | "ACTIVE" | "RESTRICTED";
@@ -82,6 +94,12 @@ const formatDate = (value?: string | null, locale = "en-US") => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString(locale);
+};
+
+const getTimeValue = (value?: string | null) => {
+  if (!value) return null;
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? null : time;
 };
 
 const getPrimaryCvUrl = (user: AdminUser) => {
@@ -148,6 +166,7 @@ const auditActions: AuditAction[] = [
   "USER_ROLE_UPDATED",
   "USER_RESTRICTION_UPDATED",
   "ADMIN_JOB_CREATED",
+  "ADMIN_JOB_UPDATED",
   "ADMIN_JOB_TRASHED",
   "ADMIN_JOB_RESTORED",
   "ADMIN_JOB_DELETED",
@@ -181,6 +200,110 @@ const AdminDashboard: React.FC = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const getAuditLogDescription = useCallback((log: any) => {
+    const metadata = log.metadata || {};
+    const title = metadata.title || "";
+    const jobId = metadata.jobId || String(log.targetId || "");
+    const hidden = metadata.hidden;
+
+    switch (log.action) {
+      case "USER_ROLE_UPDATED":
+        return t("admin.auditLogs.descriptions.USER_ROLE_UPDATED", {
+          email: metadata.email || "",
+          role: t("role." + metadata.newRole, { defaultValue: metadata.newRole }),
+          defaultValue: log.description
+        });
+      case "USER_RESTRICTION_UPDATED":
+        return t("admin.auditLogs.descriptions.USER_RESTRICTION_UPDATED", {
+          email: metadata.email || "",
+          restricted: metadata.restricted === "true" ? t("admin.users.restricted") : t("admin.users.active"),
+          defaultValue: log.description
+        });
+      case "ADMIN_JOB_CREATED":
+        return t("admin.auditLogs.descriptions.ADMIN_JOB_CREATED", {
+          title,
+          defaultValue: log.description
+        });
+      case "ADMIN_JOB_UPDATED":
+        return t("admin.auditLogs.descriptions.ADMIN_JOB_UPDATED", {
+          title,
+          status: hidden === "true" ? t("admin.jobs.filters.hiddenOnly") : t("admin.jobs.filters.visibleOnly"),
+          defaultValue: log.description
+        });
+      case "ADMIN_JOB_TRASHED":
+        return t("admin.auditLogs.descriptions.ADMIN_JOB_TRASHED", {
+          title,
+          defaultValue: log.description
+        });
+      case "ADMIN_JOB_RESTORED":
+        return t("admin.auditLogs.descriptions.ADMIN_JOB_RESTORED", {
+          title,
+          defaultValue: log.description
+        });
+      case "ADMIN_JOB_DELETED":
+        return t("admin.auditLogs.descriptions.ADMIN_JOB_DELETED", {
+          jobId,
+          defaultValue: log.description
+        });
+      case "JOB_APPROVED":
+        return t("admin.auditLogs.descriptions.JOB_APPROVED", {
+          title,
+          defaultValue: log.description
+        });
+      case "JOB_REJECTED":
+        return t("admin.auditLogs.descriptions.JOB_REJECTED", {
+          title,
+          defaultValue: log.description
+        });
+      case "CATEGORY_CREATED":
+        return t("admin.auditLogs.descriptions.CATEGORY_CREATED", {
+          label: metadata.label || "",
+          categoryKey: metadata.categoryKey || "",
+          defaultValue: log.description
+        });
+      case "CATEGORY_UPDATED":
+        return t("admin.auditLogs.descriptions.CATEGORY_UPDATED", {
+          label: metadata.label || "",
+          categoryKey: metadata.categoryKey || "",
+          defaultValue: log.description
+        });
+      case "CATEGORY_DELETED":
+        return t("admin.auditLogs.descriptions.CATEGORY_DELETED", {
+          categoryOptionId: metadata.categoryOptionId || String(log.targetId || ""),
+          defaultValue: log.description
+        });
+      case "RECRUITER_APPLICATION_APPROVED":
+        return t("admin.auditLogs.descriptions.RECRUITER_APPLICATION_APPROVED", {
+          email: metadata.applicantEmail || "",
+          defaultValue: log.description
+        });
+      case "RECRUITER_APPLICATION_REJECTED":
+        return t("admin.auditLogs.descriptions.RECRUITER_APPLICATION_REJECTED", {
+          email: metadata.applicantEmail || "",
+          defaultValue: log.description
+        });
+      case "RECRUITER_FORM_FIELD_CREATED":
+        return t("admin.auditLogs.descriptions.RECRUITER_FORM_FIELD_CREATED", {
+          label: metadata.label || "",
+          name: metadata.name || "",
+          defaultValue: log.description
+        });
+      case "RECRUITER_FORM_FIELD_UPDATED":
+        return t("admin.auditLogs.descriptions.RECRUITER_FORM_FIELD_UPDATED", {
+          label: metadata.label || "",
+          name: metadata.name || "",
+          defaultValue: log.description
+        });
+      case "RECRUITER_FORM_FIELD_DELETED":
+        return t("admin.auditLogs.descriptions.RECRUITER_FORM_FIELD_DELETED", {
+          fieldId: metadata.fieldId || String(log.targetId || ""),
+          defaultValue: log.description
+        });
+      default:
+        return log.description;
+    }
+  }, [t]);
   const { user, token, isAuthenticated, isLoading } = useAuth();
   const emailImageInputRef = useRef<HTMLInputElement | null>(null);
   const [activeSection, setActiveSection] = useState<AdminSection>("users");
@@ -189,11 +312,14 @@ const AdminDashboard: React.FC = () => {
   const [requests, setRequests] = useState<RecruiterApplication[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [auditTotal, setAuditTotal] = useState(0);
+  const [auditPage, setAuditPage] = useState(0);
+  const [auditPageSize, setAuditPageSize] = useState(20);
   const [auditAction, setAuditAction] = useState<AuditAction | "">("");
   const [auditTargetType, setAuditTargetType] = useState<AuditTargetType | "">("");
   const [auditActorEmail, setAuditActorEmail] = useState("");
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [selectedJob, setSelectedJob] = useState<AdminJobPost | null>(null);
+  const [jobPendingDelete, setJobPendingDelete] = useState<{ job: AdminJobPost; mode: JobDeleteMode } | null>(null);
   const [rejectingRequest, setRejectingRequest] = useState<RecruiterApplication | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [loadingData, setLoadingData] = useState(true);
@@ -201,19 +327,22 @@ const AdminDashboard: React.FC = () => {
   const [jobStatusFilter, setJobStatusFilter] = useState<JobStatusFilter>("ALL");
   const [jobHiddenFilter, setJobHiddenFilter] = useState<JobHiddenFilter>("ALL");
   const [jobDateFilter, setJobDateFilter] = useState("");
+  const [userPage, setUserPage] = useState(1);
+  const [userPageSize, setUserPageSize] = useState(10);
+  const [jobPage, setJobPage] = useState(1);
+  const [jobPageSize, setJobPageSize] = useState(10);
   const [userSort, setUserSort] = useState<{ key: UserSortKey; direction: SortDirection }>({
     key: "email",
     direction: "asc",
   });
+  const [jobSort, setJobSort] = useState<{ key: JobSortKey; direction: SortDirection }>({
+    key: "createdAt",
+    direction: "desc",
+  });
   const [userRoleFilter, setUserRoleFilter] = useState<UserRoleFilter>("ALL");
   const [userStatusFilter, setUserStatusFilter] = useState<UserStatusFilter>("ALL");
 
-  const usersPage = getSafePage(searchParams.get("usersPage"));
-  const pendingJobsPage = getSafePage(searchParams.get("pendingJobsPage"));
-  const approvedJobsPage = getSafePage(searchParams.get("approvedJobsPage"));
-  const trashJobsPage = getSafePage(searchParams.get("trashJobsPage"));
-  const auditPage = getSafePage(searchParams.get("auditPage"));
-
+          
   const setUrlPage = (key: string, page: number) => {
     const next = new URLSearchParams(searchParams);
     next.set(key, String(page));
@@ -230,19 +359,12 @@ const AdminDashboard: React.FC = () => {
 
   const activeJobs = useMemo(() => jobs.filter((job) => !isTrashedJob(job)), [jobs]);
   const trashedJobs = useMemo(() => jobs.filter(isTrashedJob), [jobs]);
-  const pendingJobs = useMemo(
-    () => activeJobs.filter((job) => normalizeJobStatus(job.status) === "PENDING"),
-    [activeJobs],
-  );
-  const approvedJobs = useMemo(
-    () => activeJobs.filter((job) => normalizeJobStatus(job.status) === "APPROVED"),
-    [activeJobs],
-  );
   const applyJobFilters = useCallback(
     (items: AdminJobPost[]) => items.filter((job) => {
       const statusMatches = jobStatusFilter === "ALL" || normalizeJobStatus(job.status) === jobStatusFilter;
       const hiddenMatches =
         jobHiddenFilter === "ALL" ||
+        jobHiddenFilter === "TRASH" ||
         (jobHiddenFilter === "HIDDEN" ? Boolean(job.hidden) : !job.hidden);
       const dateMatches = !jobDateFilter || job.createdAt?.slice(0, 10) === jobDateFilter;
 
@@ -250,9 +372,38 @@ const AdminDashboard: React.FC = () => {
     }),
     [jobDateFilter, jobHiddenFilter, jobStatusFilter],
   );
-  const filteredPendingJobs = useMemo(() => applyJobFilters(pendingJobs), [applyJobFilters, pendingJobs]);
-  const filteredApprovedJobs = useMemo(() => applyJobFilters(approvedJobs), [applyJobFilters, approvedJobs]);
+  const filteredActiveJobs = useMemo(() => applyJobFilters(activeJobs), [activeJobs, applyJobFilters]);
   const filteredTrashedJobs = useMemo(() => applyJobFilters(trashedJobs), [applyJobFilters, trashedJobs]);
+  const sortJobs = useCallback(
+    (items: AdminJobPost[]) =>
+      [...items].sort((first, second) => {
+        switch (jobSort.key) {
+          case "title":
+            return compareNullable(first.title, second.title, jobSort.direction);
+          case "company":
+            return compareNullable(first.company ?? null, second.company ?? null, jobSort.direction);
+          case "recruiter":
+            return compareNullable(
+              first.employerEmail || first.employerName || null,
+              second.employerEmail || second.employerName || null,
+              jobSort.direction,
+            );
+          case "createdAt":
+            return compareNullable(getTimeValue(first.createdAt), getTimeValue(second.createdAt), jobSort.direction);
+          case "deletedAt":
+            return compareNullable(getTimeValue(first.deletedAt), getTimeValue(second.deletedAt), jobSort.direction);
+          case "status":
+            return compareNullable(normalizeJobStatus(first.status), normalizeJobStatus(second.status), jobSort.direction);
+          case "hidden":
+            return compareNullable(first.hidden ? 1 : 0, second.hidden ? 1 : 0, jobSort.direction);
+          default:
+            return 0;
+        }
+      }),
+    [jobSort.direction, jobSort.key],
+  );
+  const sortedActiveJobs = useMemo(() => sortJobs(filteredActiveJobs), [filteredActiveJobs, sortJobs]);
+  const sortedTrashedJobs = useMemo(() => sortJobs(filteredTrashedJobs), [filteredTrashedJobs, sortJobs]);
   const pendingRequests = useMemo(
     () => requests.filter((request) => request.status === "PENDING"),
     [requests],
@@ -290,10 +441,18 @@ const AdminDashboard: React.FC = () => {
         }),
     [userRoleFilter, userSort.direction, userSort.key, userStatusFilter, users],
   );
-  const pagedUsers = paginateItems(sortedUsers, usersPage, DEFAULT_PAGE_SIZE);
-  const pagedPendingJobs = paginateItems(filteredPendingJobs, pendingJobsPage, DEFAULT_PAGE_SIZE);
-  const pagedApprovedJobs = paginateItems(filteredApprovedJobs, approvedJobsPage, DEFAULT_PAGE_SIZE);
-  const pagedTrashedJobs = paginateItems(filteredTrashedJobs, trashJobsPage, DEFAULT_PAGE_SIZE);
+          const paginatedUsers = useMemo(
+    () => paginateItems(sortedUsers, userPage, userPageSize),
+    [sortedUsers, userPage, userPageSize],
+  );
+  const paginatedActiveJobs = useMemo(
+    () => paginateItems(sortedActiveJobs, jobPage, jobPageSize),
+    [jobPage, jobPageSize, sortedActiveJobs],
+  );
+  const paginatedTrashedJobs = useMemo(
+    () => paginateItems(sortedTrashedJobs, jobPage, jobPageSize),
+    [jobPage, jobPageSize, sortedTrashedJobs],
+  );
   const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
   const formatAdminDate = useCallback((value?: string | null) => formatDate(value, dateLocale), [dateLocale]);
   const selectedUserCvUrl = useMemo(
@@ -375,8 +534,8 @@ const AdminDashboard: React.FC = () => {
     if (!token) return;
     try {
       const page = await adminApi.listAuditLogs(token, {
-        page: auditPage - 1,
-        size: DEFAULT_PAGE_SIZE,
+        page: auditPage,
+        size: auditPageSize,
         action: auditAction,
         targetType: auditTargetType,
         actorEmail: auditActorEmail.trim(),
@@ -387,6 +546,22 @@ const AdminDashboard: React.FC = () => {
       toast.error(getErrorMessage(error, t("admin.auditLogs.loadError")));
     }
   }, [auditAction, auditActorEmail, auditPage, auditTargetType, token, t]);
+
+  const loadEmailTemplateConfig = useCallback(async () => {
+    try {
+      const config = await loadManagedSiteConfig();
+      setManagedConfig(config);
+      setEmailTemplate(config.emailTemplate);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, t("admin.emailFormat.loadError", { defaultValue: "Could not load email format." })));
+    }
+  }, [token, t]);
+
+  useEffect(() => {
+    if (activeSection === "email-format") {
+      loadEmailTemplateConfig();
+    }
+  }, [activeSection, loadEmailTemplateConfig]);
 
   const loadData = useCallback(async () => {
     if (!token) return;
@@ -409,7 +584,7 @@ const AdminDashboard: React.FC = () => {
         setJobs(jobResult.value);
       } else {
         setJobs([]);
-        toast.error(getErrorMessage(jobResult.reason, "Không thể tải danh sách JD."));
+        toast.error(getErrorMessage(jobResult.reason, t("admin.jobs.loadError")));
       }
 
       if (requestResult.status === "fulfilled") {
@@ -451,6 +626,14 @@ const AdminDashboard: React.FC = () => {
       loadAuditLogs();
     }
   }, [activeSection, loadAuditLogs]);
+
+  useEffect(() => {
+    setUserPage(1);
+  }, [userRoleFilter, userSort.direction, userSort.key, userStatusFilter]);
+
+  useEffect(() => {
+    setJobPage(1);
+  }, [jobDateFilter, jobHiddenFilter, jobSort.direction, jobSort.key, jobStatusFilter]);
 
   const requireConfirm = (message: string) => window.confirm(message);
 
@@ -572,7 +755,6 @@ const AdminDashboard: React.FC = () => {
 
   const handleDeleteJobPermanently = async (job: AdminJobPost) => {
     if (!token) return;
-    if (!requireConfirm(t("admin.deleteJobConfirm"))) return;
 
     setActionId(job.id);
     try {
@@ -584,6 +766,18 @@ const AdminDashboard: React.FC = () => {
     } finally {
       setActionId(null);
     }
+  };
+
+  const confirmJobDelete = async () => {
+    if (!jobPendingDelete) return;
+
+    const { job, mode } = jobPendingDelete;
+    if (mode === "trash") {
+      await handleTrashJob(job);
+    } else {
+      await handleDeleteJobPermanently(job);
+    }
+    setJobPendingDelete(null);
   };
 
   const handleReviewRequest = async (
@@ -629,8 +823,30 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleToggleJobHidden = async (job: AdminJobPost) => {
+    if (!token) return;
+
+    setActionId(job.id);
+    try {
+      await adminApi.toggleJobHidden(token, job.id, !job.hidden);
+      toast.success(job.hidden ? t("recruiter.toast.showSuccess") : t("recruiter.toast.hideSuccess"));
+      await loadData();
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : t("recruiter.toast.statusError"));
+    } finally {
+      setActionId(null);
+    }
+  };
+
   const updateUserSort = (key: UserSortKey) => {
     setUserSort((current) => ({
+      key,
+      direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+
+  const updateJobSort = (key: JobSortKey) => {
+    setJobSort((current) => ({
       key,
       direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
     }));
@@ -645,6 +861,22 @@ const AdminDashboard: React.FC = () => {
         type="button"
         className="inline-flex items-center gap-2 rounded-sm text-left font-medium transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         onClick={() => updateUserSort(key)}
+      >
+        <span>{label}</span>
+        <SortIcon className={`h-3.5 w-3.5 ${active ? "text-primary" : "text-muted-foreground"}`} />
+      </button>
+    );
+  };
+
+  const renderJobSortableHeader = (key: JobSortKey, label: string) => {
+    const active = jobSort.key === key;
+    const SortIcon = !active ? ArrowUpDown : jobSort.direction === "asc" ? ArrowUp : ArrowDown;
+
+    return (
+      <button
+        type="button"
+        className="inline-flex items-center gap-2 rounded-sm text-left font-medium transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        onClick={() => updateJobSort(key)}
       >
         <span>{label}</span>
         <SortIcon className={`h-3.5 w-3.5 ${active ? "text-primary" : "text-muted-foreground"}`} />
@@ -793,7 +1025,7 @@ const AdminDashboard: React.FC = () => {
               <Briefcase className="h-5 w-5 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{pendingJobs.length}</div>
+              <div className="text-3xl font-bold">{jobs.length}</div>
               <p className="text-xs text-muted-foreground">{t("admin.stats.trashCount", { count: trashedJobs.length })}</p>
             </CardContent>
           </Card>
@@ -870,49 +1102,45 @@ const AdminDashboard: React.FC = () => {
                   <CardTitle>{t("admin.users.title")}</CardTitle>
                 </CardHeader>
                 <CardContent>
+                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Select value={userRoleFilter} onValueChange={(value) => setUserRoleFilter(value as UserRoleFilter)}>
+                        <SelectTrigger className="w-full sm:w-40">
+                          <SelectValue placeholder={t("common.role")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ALL">{t("admin.users.allRoles")}</SelectItem>
+                          {roleOptions.map((role) => (
+                            <SelectItem key={role} value={role}>
+                              {t(`role.${role}`)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={userStatusFilter} onValueChange={(value) => setUserStatusFilter(value as UserStatusFilter)}>
+                        <SelectTrigger className="w-full sm:w-40">
+                          <SelectValue placeholder={t("common.status")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ALL">{t("admin.users.allStatuses")}</SelectItem>
+                          <SelectItem value="ACTIVE">{t("admin.users.active")}</SelectItem>
+                          <SelectItem value="RESTRICTED">{t("admin.users.restricted")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>{renderUserSortableHeader("email", "Email")}</TableHead>
                         <TableHead>{renderUserSortableHeader("fullName", t("admin.users.fullName"))}</TableHead>
-                        <TableHead>
-                          <div className="flex flex-col gap-2">
-                            {renderUserSortableHeader("role", t("common.role"))}
-                            <Select value={userRoleFilter} onValueChange={(value) => setUserRoleFilter(value as UserRoleFilter)}>
-                              <SelectTrigger className="h-8 w-36 bg-white text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="ALL">{t("admin.users.allRoles")}</SelectItem>
-                                {roleOptions.map((role) => (
-                                  <SelectItem key={role} value={role}>
-                                    {t(`role.${role}`)}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </TableHead>
-                        <TableHead>
-                          <div className="flex flex-col gap-2">
-                            {renderUserSortableHeader("status", t("common.status"))}
-                            <Select value={userStatusFilter} onValueChange={(value) => setUserStatusFilter(value as UserStatusFilter)}>
-                              <SelectTrigger className="h-8 w-40 bg-white text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="ALL">{t("admin.users.allStatuses")}</SelectItem>
-                                <SelectItem value="ACTIVE">{t("admin.users.active")}</SelectItem>
-                                <SelectItem value="RESTRICTED">{t("admin.users.restricted")}</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </TableHead>
+                        <TableHead>{renderUserSortableHeader("role", t("common.role"))}</TableHead>
+                        <TableHead>{renderUserSortableHeader("status", t("common.status"))}</TableHead>
                         <TableHead className="text-center">{t("common.actions")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {pagedUsers.items.map((account) => {
+                      {paginatedUsers.map((account) => {
                         const restricted = isRestrictedUser(account);
                         const pendingRequest = pendingRequestByApplicantId.get(String(account.id));
 
@@ -924,20 +1152,20 @@ const AdminDashboard: React.FC = () => {
                             </TableCell>
                             <TableCell>
                               <Select
-                                  value={normalizeRoleName(account.role)}
-                                  disabled={actionId === account.id || isAdminRole(account.role)}
-                                  onValueChange={(role) => handleRoleChange(account, role as UserRole)}
+                                value={normalizeRoleName(account.role)}
+                                disabled={actionId === account.id || isAdminRole(account.role)}
+                                onValueChange={(role) => handleRoleChange(account, role as UserRole)}
                               >
                                 <SelectTrigger
-                                    className={`h-auto w-fit rounded-full px-2.5 py-0.5 text-xs font-semibold shadow-none ${getRoleBadgeClassName(account.role)}`}
+                                  className={`h-auto w-fit rounded-full px-2.5 py-0.5 text-xs font-semibold shadow-none ${getRoleBadgeClassName(account.role)}`}
                                 >
                                   <SelectValue placeholder={t("admin.users.setRole")} />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {(isAdminRole(account.role) ? [USER_ROLES.ADMIN] : assignableRoleOptions).map((role) => (
-                                      <SelectItem key={role} value={role}>
-                                        {t(`role.${role}`)}
-                                      </SelectItem>
+                                    <SelectItem key={role} value={role}>
+                                      {t(`role.${role}`)}
+                                    </SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
@@ -981,7 +1209,13 @@ const AdminDashboard: React.FC = () => {
                       })}
                     </TableBody>
                   </Table>
-                  <PaginationControls page={pagedUsers.page} totalPages={pagedUsers.totalPages} onPageChange={(page) => setUrlPage("usersPage", page)} />
+                  <PaginationControls
+                    page={userPage}
+                    pageSize={userPageSize}
+                    totalItems={sortedUsers.length}
+                    onPageChange={setUserPage}
+                    onPageSizeChange={setUserPageSize}
+                  />
                 </CardContent>
               </Card>
             )}
@@ -992,149 +1226,169 @@ const AdminDashboard: React.FC = () => {
                   <CardTitle>{t("admin.jobs.title")}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Tabs defaultValue="pending">
-                    <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                      <TabsList>
-                        <TabsTrigger value="pending">{t("admin.jobs.pendingTab")}</TabsTrigger>
-                        <TabsTrigger value="approved">{t("admin.jobs.approvedTab")}</TabsTrigger>
-                        <TabsTrigger value="trash">{t("admin.jobs.trashTab")}</TabsTrigger>
-                      </TabsList>
-                      <div className="grid gap-2 sm:grid-cols-3">
-                        <Select value={jobStatusFilter} onValueChange={(value) => setJobStatusFilter(value as JobStatusFilter)}>
-                          <SelectTrigger className="w-full sm:w-40">
-                            <SelectValue placeholder={t("admin.jobs.filters.status")} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ALL">{t("admin.jobs.filters.allStatuses")}</SelectItem>
-                            <SelectItem value="PENDING">{t("admin.jobs.statuses.PENDING")}</SelectItem>
-                            <SelectItem value="APPROVED">{t("admin.jobs.statuses.APPROVED")}</SelectItem>
-                            <SelectItem value="REJECTED">{t("admin.jobs.statuses.REJECTED")}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Select value={jobHiddenFilter} onValueChange={(value) => setJobHiddenFilter(value as JobHiddenFilter)}>
-                          <SelectTrigger className="w-full sm:w-40">
-                            <SelectValue placeholder={t("admin.jobs.filters.hidden")} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ALL">{t("admin.jobs.filters.allVisibility")}</SelectItem>
-                            <SelectItem value="VISIBLE">{t("admin.jobs.filters.visibleOnly")}</SelectItem>
-                            <SelectItem value="HIDDEN">{t("admin.jobs.filters.hiddenOnly")}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Input
-                          type="date"
-                          value={jobDateFilter}
-                          onChange={(event) => setJobDateFilter(event.target.value)}
-                          aria-label={t("admin.jobs.filters.date")}
-                        />
-                      </div>
+                  <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-end">
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      <Select value={jobStatusFilter} onValueChange={(value) => setJobStatusFilter(value as JobStatusFilter)}>
+                        <SelectTrigger className="w-full sm:w-40">
+                          <SelectValue placeholder={t("admin.jobs.filters.status")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ALL">{t("admin.jobs.filters.allStatuses")}</SelectItem>
+                          <SelectItem value="PENDING">{t("admin.jobs.statuses.PENDING")}</SelectItem>
+                          <SelectItem value="APPROVED">{t("admin.jobs.statuses.APPROVED")}</SelectItem>
+                          <SelectItem value="REJECTED">{t("admin.jobs.statuses.REJECTED")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select value={jobHiddenFilter} onValueChange={(value) => setJobHiddenFilter(value as JobHiddenFilter)}>
+                        <SelectTrigger className="w-full sm:w-40">
+                          <SelectValue placeholder={t("admin.jobs.filters.hidden")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ALL">{t("admin.jobs.filters.allVisibility")}</SelectItem>
+                          <SelectItem value="VISIBLE">{t("admin.jobs.filters.visibleOnly")}</SelectItem>
+                          <SelectItem value="HIDDEN">{t("admin.jobs.filters.hiddenOnly")}</SelectItem>
+                          <SelectItem value="TRASH">{t("admin.jobs.trashTab")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="date"
+                        value={jobDateFilter}
+                        onChange={(event) => setJobDateFilter(event.target.value)}
+                        aria-label={t("admin.jobs.filters.date")}
+                      />
                     </div>
-                    <TabsContent value="pending">
+                  </div>
+                  {jobHiddenFilter === "TRASH" ? (
+                    <>
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>{t("admin.jobs.titleColumn")}</TableHead>
-                            <TableHead>{t("common.company")}</TableHead>
-                            <TableHead>{t("common.recruiter")}</TableHead>
-                            <TableHead>{t("admin.jobs.postedDate")}</TableHead>
-                            <TableHead>{t("common.status")}</TableHead>
-                            <TableHead>{t("admin.jobs.hiddenColumn")}</TableHead>
+                            <TableHead>{renderJobSortableHeader("title", t("admin.jobs.titleColumn"))}</TableHead>
+                            <TableHead>{renderJobSortableHeader("company", t("common.company"))}</TableHead>
+                            <TableHead>{renderJobSortableHeader("deletedAt", t("admin.jobs.deletedDate"))}</TableHead>
                             <TableHead className="text-center">{t("common.actions")}</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                           {pagedPendingJobs.items.map((job) => (
-                            <TableRow key={job.id}>
-                              <TableCell className="font-medium">{job.title}</TableCell>
-                              <TableCell>{job.company || "-"}</TableCell>
-                              <TableCell>{job.employerEmail || job.employerName || "-"}</TableCell>
-                              <TableCell>{formatAdminDate(job.createdAt)}</TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className={getReviewStatusBadgeClassName(job.status)}>
-                                  {t(`admin.jobs.statuses.${normalizeJobStatus(job.status)}`)}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>{job.hidden ? t("common.yes") : t("common.no")}</TableCell>
-                              <TableCell>
-                                <div className="flex flex-wrap justify-center gap-2">
-                                  <ActionIconButton icon={Eye} label={t("common.details")} variantStyle="view" onClick={() => setSelectedJob(job)} />
-                                  <ActionIconButton icon={CheckCircle2} label={t("admin.jobs.approve")} variantStyle="approve" disabled={actionId === job.id} onClick={() => handleReviewJob(job, true)} />
-                                  <ActionIconButton icon={XCircle} label={t("admin.jobs.reject")} variantStyle="reject" disabled={actionId === job.id} onClick={() => handleReviewJob(job, false)} />
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                      <PaginationControls page={pagedPendingJobs.page} totalPages={pagedPendingJobs.totalPages} onPageChange={(page) => setUrlPage("pendingJobsPage", page)} />
-                    </TabsContent>
-                    <TabsContent value="approved">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>{t("admin.jobs.titleColumn")}</TableHead>
-                            <TableHead>{t("common.company")}</TableHead>
-                            <TableHead>{t("common.recruiter")}</TableHead>
-                            <TableHead>{t("admin.jobs.postedDate")}</TableHead>
-                            <TableHead>{t("common.status")}</TableHead>
-                            <TableHead>{t("admin.jobs.hiddenColumn")}</TableHead>
-                            <TableHead className="text-center">{t("common.actions")}</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                           {pagedApprovedJobs.items.map((job) => (
-                            <TableRow key={job.id}>
-                              <TableCell className="font-medium">{job.title}</TableCell>
-                              <TableCell>{job.company || "-"}</TableCell>
-                              <TableCell>{job.employerEmail || job.employerName || "-"}</TableCell>
-                              <TableCell>{formatAdminDate(job.createdAt)}</TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className={getReviewStatusBadgeClassName(job.status)}>
-                                  {t(`admin.jobs.statuses.${normalizeJobStatus(job.status)}`)}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>{job.hidden ? t("common.yes") : t("common.no")}</TableCell>
-                              <TableCell>
-                                <div className="flex flex-wrap justify-center gap-2">
-                                  <ActionIconButton icon={Eye} label={t("common.details")} variantStyle="view" onClick={() => setSelectedJob(job)} />
-                                  <ActionIconButton icon={Trash2} label={t("admin.jobs.moveToTrash")} variantStyle="delete" disabled={actionId === job.id} onClick={() => handleTrashJob(job)} />
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                      <PaginationControls page={pagedApprovedJobs.page} totalPages={pagedApprovedJobs.totalPages} onPageChange={(page) => setUrlPage("approvedJobsPage", page)} />
-                    </TabsContent>
-                    <TabsContent value="trash">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>{t("admin.jobs.titleColumn")}</TableHead>
-                            <TableHead>{t("common.company")}</TableHead>
-                            <TableHead>{t("admin.jobs.deletedDate")}</TableHead>
-                            <TableHead className="text-center">{t("common.actions")}</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                           {pagedTrashedJobs.items.map((job) => (
+                          {paginatedTrashedJobs.map((job) => (
                             <TableRow key={job.id}>
                               <TableCell className="font-medium">{job.title}</TableCell>
                               <TableCell>{job.company || "-"}</TableCell>
                               <TableCell>{formatAdminDate(job.deletedAt)}</TableCell>
                               <TableCell>
                                 <div className="flex justify-center gap-2">
-                                  <ActionIconButton icon={RotateCcw} label={t("admin.jobs.restore")} variantStyle="restore" disabled={actionId === job.id} onClick={() => handleRestoreJob(job)} />
-                                  <ActionIconButton icon={Trash2} label={t("admin.jobs.deletePermanent")} variantStyle="delete" disabled={actionId === job.id} onClick={() => handleDeleteJobPermanently(job)} />
+                                  <ActionIconButton
+                                    icon={RotateCcw}
+                                    label={t("admin.jobs.restore")}
+                                    variantStyle="restore"
+                                    disabled={actionId === job.id}
+                                    onClick={(e) => { e.stopPropagation(); handleRestoreJob(job); }}
+                                  />
+                                  <ActionIconButton
+                                    icon={Trash2}
+                                    label={t("admin.jobs.deletePermanent")}
+                                    variantStyle="delete"
+                                    disabled={actionId === job.id}
+                                    onClick={(e) => { e.stopPropagation(); setJobPendingDelete({ job, mode: "permanent" }); }}
+                                  />
                                 </div>
                               </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
                       </Table>
-                      <PaginationControls page={pagedTrashedJobs.page} totalPages={pagedTrashedJobs.totalPages} onPageChange={(page) => setUrlPage("trashJobsPage", page)} />
-                    </TabsContent>
-                  </Tabs>
+                      <PaginationControls
+                        page={jobPage}
+                        pageSize={jobPageSize}
+                        totalItems={sortedTrashedJobs.length}
+                        onPageChange={setJobPage}
+                        onPageSizeChange={setJobPageSize}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{renderJobSortableHeader("title", t("admin.jobs.titleColumn"))}</TableHead>
+                            <TableHead>{renderJobSortableHeader("company", t("common.company"))}</TableHead>
+                            <TableHead>{renderJobSortableHeader("recruiter", t("common.recruiter"))}</TableHead>
+                            <TableHead>{renderJobSortableHeader("createdAt", t("admin.jobs.postedDate"))}</TableHead>
+                            <TableHead>{renderJobSortableHeader("status", t("common.status"))}</TableHead>
+                            <TableHead className="w-28 text-center">
+                              <div className="flex justify-center">
+                                {renderJobSortableHeader("hidden", t("admin.jobs.hiddenColumn"))}
+                              </div>
+                            </TableHead>
+                            <TableHead className="text-center">{t("common.actions")}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {paginatedActiveJobs.map((job) => {
+                            const jobStatus = normalizeJobStatus(job.status);
+
+                            return (
+                              <TableRow key={job.id} className="cursor-pointer" onClick={() => setSelectedJob(job)}>
+                                <TableCell className="font-medium">{job.title}</TableCell>
+                                <TableCell>{job.company || "-"}</TableCell>
+                                <TableCell>{job.employerEmail || job.employerName || "-"}</TableCell>
+                                <TableCell>{formatAdminDate(job.createdAt)}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className={getReviewStatusBadgeClassName(job.status)}>
+                                    {t(`admin.jobs.statuses.${jobStatus}`)}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="w-28 text-center">
+                                  <div className="flex justify-center">
+                                    <span
+                                      className={`inline-flex items-center justify-center ${job.hidden ? "text-red-700" : "text-emerald-700"
+                                        }`}
+                                      title={job.hidden ? t("admin.jobs.filters.hiddenOnly") : t("admin.jobs.filters.visibleOnly")}
+                                      aria-label={job.hidden ? t("admin.jobs.filters.hiddenOnly") : t("admin.jobs.filters.visibleOnly")}
+                                    >
+                                      {job.hidden ? <XCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex flex-wrap justify-center gap-2">
+                                    <ActionIconButton
+                                      icon={job.hidden ? Eye : EyeOff}
+                                      label={t(job.hidden ? "recruiter.jobs.show" : "recruiter.jobs.hide")}
+                                      variantStyle={job.hidden ? "show" : "hide"}
+                                      disabled={actionId === job.id}
+                                      onClick={(e) => { e.stopPropagation(); handleToggleJobHidden(job); }}
+                                    />
+                                    {jobStatus === "PENDING" ? (
+                                      <>
+                                        <ActionIconButton icon={CheckCircle2} label={t("admin.jobs.approve")} variantStyle="approve" disabled={actionId === job.id} onClick={(e) => { e.stopPropagation(); handleReviewJob(job, true); }} />
+                                        <ActionIconButton icon={XCircle} label={t("admin.jobs.reject")} variantStyle="reject" disabled={actionId === job.id} onClick={(e) => { e.stopPropagation(); handleReviewJob(job, false); }} />
+                                      </>
+                                    ) : (
+                                      <ActionIconButton
+                                        icon={Trash2}
+                                        label={t("admin.jobs.moveToTrash")}
+                                        variantStyle="delete"
+                                        disabled={actionId === job.id}
+                                        onClick={(e) => { e.stopPropagation(); setJobPendingDelete({ job, mode: "trash" }); }}
+                                      />
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                      <PaginationControls
+                        page={jobPage}
+                        pageSize={jobPageSize}
+                        totalItems={sortedActiveJobs.length}
+                        onPageChange={setJobPage}
+                        onPageSizeChange={setJobPageSize}
+                      />
+                    </>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -1158,6 +1412,7 @@ const AdminDashboard: React.FC = () => {
                         id="email-brand"
                         value={emailTemplate.brandName}
                         onChange={(event) => updateEmailTemplate("brandName", event.target.value)}
+                        placeholder="Enter brand name / Nhập tên thương hiệu"
                       />
                     </div>
                     <div className="space-y-2">
@@ -1264,6 +1519,7 @@ const AdminDashboard: React.FC = () => {
                         id="email-footer"
                         value={emailTemplate.footerText}
                         onChange={(event) => updateEmailTemplate("footerText", event.target.value)}
+                        placeholder="Enter footer text / Nhập chữ ở chân trang"
                       />
                     </div>
                     <div className="flex flex-wrap gap-2 sm:col-span-2">
@@ -1293,7 +1549,7 @@ const AdminDashboard: React.FC = () => {
                         />
                       )}
                       <div className="mb-4 text-sm font-bold" style={{ color: emailTemplate.accentColor }}>
-                        {emailTemplate.brandName || defaultEmailTemplateConfig.brandName}
+                        {emailTemplate.brandName || "InternHiring"}
                       </div>
                       <h3 className="mb-3 text-xl font-semibold text-slate-950">
                         {t("admin.emailFormat.previewTitle", { defaultValue: "Application update" })}
@@ -1310,7 +1566,9 @@ const AdminDashboard: React.FC = () => {
                         </p>
                       </div>
                       <div className="my-5 h-px bg-slate-200" />
-                      <p className="text-center text-xs text-slate-500">{emailTemplate.footerText}</p>
+                      <p className="text-center text-xs text-slate-500">
+                        {emailTemplate.footerText || "Email này được gửi từ hệ thống thông báo InternHiring. / This email was sent from InternHiring notification system."}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -1367,7 +1625,7 @@ const AdminDashboard: React.FC = () => {
                           <TableCell><Badge variant="outline">{t(`admin.auditLogs.actions.${log.action}`, { defaultValue: log.action })}</Badge></TableCell>
                           <TableCell>{t(`admin.auditLogs.targets.${log.targetType}`, { defaultValue: log.targetType })} #{log.targetId ?? "-"}</TableCell>
                           <TableCell>
-                            <div>{log.description}</div>
+                            <div>{getAuditLogDescription(log)}</div>
                             {log.metadata && Object.keys(log.metadata).length > 0 && (
                               <div className="mt-1 text-xs text-muted-foreground">
                                 {Object.entries(log.metadata).map(([key, value]) => `${key}: ${value}`).join(" · ")}
@@ -1379,13 +1637,63 @@ const AdminDashboard: React.FC = () => {
                     </TableBody>
                   </Table>
                   {auditLogs.length === 0 && <p className="py-8 text-center text-muted-foreground">{t("admin.auditLogs.empty")}</p>}
-                  <PaginationControls page={auditPage} totalPages={Math.max(1, Math.ceil(auditTotal / DEFAULT_PAGE_SIZE))} onPageChange={setAuditUrlPage} />
+                  <div className="text-sm text-muted-foreground">
+                    <span>{t("admin.auditLogs.total", { count: auditTotal })}</span>
+                  </div>
+                  <PaginationControls
+                    page={auditPage + 1}
+                    pageSize={auditPageSize}
+                    totalItems={auditTotal}
+                    onPageChange={(page) => setAuditPage(page - 1)}
+                    onPageSizeChange={(pageSize) => {
+                      setAuditPageSize(pageSize);
+                      setAuditPage(0);
+                    }}
+                  />
                 </CardContent>
               </Card>
             )}
           </>
         )}
       </section>
+
+      <AlertDialog
+        open={Boolean(jobPendingDelete)}
+        onOpenChange={(open) => {
+          if (!open && actionId !== jobPendingDelete?.job.id) {
+            setJobPendingDelete(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {jobPendingDelete?.mode === "permanent"
+                ? t("admin.jobs.deletePermanent")
+                : t("admin.jobs.moveToTrash")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {jobPendingDelete?.mode === "permanent"
+                ? t("admin.deleteJobConfirm")
+                : t("admin.trashJobConfirm")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionId === jobPendingDelete?.job.id}>
+              {t("common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={actionId === jobPendingDelete?.job.id}
+              onClick={confirmJobDelete}
+            >
+              {jobPendingDelete?.mode === "permanent"
+                ? t("admin.jobs.deletePermanent")
+                : t("admin.jobs.moveToTrash")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={Boolean(selectedUser)} onOpenChange={(open) => !open && setSelectedUser(null)}>
         <DialogContent className="max-w-2xl">

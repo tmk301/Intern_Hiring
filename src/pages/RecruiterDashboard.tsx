@@ -1,8 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useSearchParams } from "react-router-dom";
-import { DEFAULT_PAGE_SIZE, getSafePage, paginateItems } from "@/lib/pagination";
-import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
   ArrowDown,
   ArrowUp,
@@ -17,7 +15,7 @@ import {
   RefreshCw,
   Trash2,
   Users,
-  CheckCircle,
+  CheckCircle2,
   XCircle,
   FileText,
   History,
@@ -42,6 +40,8 @@ import { recruiterApi, CandidateApplication, CompanyProfile, isApiError, type Re
 import { getReviewStatusBadgeClassName, getReviewStatusTranslationKey, getRoleBadgeClassName, normalizeRoleName } from "@/lib/dashboardStyles";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { paginateItems } from "@/lib/pagination";
 import { ActionIconButton } from "@/components/ui/action-icon-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -277,9 +277,7 @@ const RecruiterDashboard: React.FC = () => {
   const [jobHistory, setJobHistory] = useState<RecruiterJobChangeLog[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  const jobsPage = getSafePage(searchParams.get("recruiterJobsPage"));
-  const applicationsPage = getSafePage(searchParams.get("recruiterApplicationsPage"));
-  const setUrlPage = (key: string, page: number) => {
+      const setUrlPage = (key: string, page: number) => {
     const next = new URLSearchParams(searchParams);
     next.set(key, String(page));
     setSearchParams(next);
@@ -292,6 +290,10 @@ const RecruiterDashboard: React.FC = () => {
     key: "appliedAt",
     direction: "desc",
   });
+  const [jobPage, setJobPage] = useState(1);
+  const [jobPageSize, setJobPageSize] = useState(10);
+  const [applicationPage, setApplicationPage] = useState(1);
+  const [applicationPageSize, setApplicationPageSize] = useState(10);
 
   // State quản lý ứng viên
   const [applications, setApplications] = useState<CandidateApplication[]>([]);
@@ -340,8 +342,14 @@ const RecruiterDashboard: React.FC = () => {
       ),
     [applicationSort.direction, applicationSort.key, applications],
   );
-  const pagedJobs = paginateItems(sortedJobs, jobsPage, DEFAULT_PAGE_SIZE);
-  const pagedApplications = paginateItems(sortedApplications, applicationsPage, DEFAULT_PAGE_SIZE);
+  const paginatedJobs = useMemo(
+    () => paginateItems(sortedJobs, jobPage, jobPageSize),
+    [jobPage, jobPageSize, sortedJobs],
+  );
+  const paginatedApplications = useMemo(
+    () => paginateItems(sortedApplications, applicationPage, applicationPageSize),
+    [applicationPage, applicationPageSize, sortedApplications],
+  );
 
   const resetForm = useCallback(() => {
     const defaultAddress = companyAddressOptions.find((option) => option.isDefault) || companyAddressOptions[0];
@@ -358,6 +366,14 @@ const RecruiterDashboard: React.FC = () => {
   useEffect(() => {
     resetForm();
   }, [resetForm]);
+
+  useEffect(() => {
+    setJobPage(1);
+  }, [jobSort.direction, jobSort.key]);
+
+  useEffect(() => {
+    setApplicationPage(1);
+  }, [applicationSort.direction, applicationSort.key]);
 
   useEffect(() => {
     if (!token) {
@@ -708,7 +724,7 @@ const RecruiterDashboard: React.FC = () => {
   const renderApplicationAction = (application: CandidateApplication, status: "ACCEPTED" | "REJECTED") => {
     const isApprove = status === "ACCEPTED";
     const label = t(isApprove ? "recruiter.applications.approve" : "recruiter.applications.reject");
-    const Icon = isApprove ? CheckCircle : XCircle;
+    const Icon = isApprove ? CheckCircle2 : XCircle;
 
     return (
       <ActionIconButton
@@ -807,7 +823,7 @@ const RecruiterDashboard: React.FC = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t("recruiter.stats.acceptedApplicants")}</CardTitle>
-              <CheckCircle className="h-5 w-5 text-emerald-600" />
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{acceptedApplications.length}</div>
@@ -1062,6 +1078,7 @@ const RecruiterDashboard: React.FC = () => {
             ) : jobs.length === 0 ? (
               <p className="py-10 text-center text-sm text-muted-foreground">{t("recruiter.jobs.empty")}</p>
             ) : (
+              <>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1075,7 +1092,7 @@ const RecruiterDashboard: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pagedJobs.items.map((job) => {
+                  {paginatedJobs.map((job) => {
                     const status = normalizeStatus(job.status);
                     const hidden = isHiddenJob(job);
 
@@ -1112,14 +1129,14 @@ const RecruiterDashboard: React.FC = () => {
                             )}
                             <ActionIconButton
                               icon={Pencil}
-                              label="Sửa"
+                              label={t("recruiter.jobs.edit")}
                               variantStyle="show"
                               disabled={actionId === job.id}
                               onClick={() => startEditJob(job)}
                             />
                             <ActionIconButton
                               icon={History}
-                              label="Lịch sử"
+                              label={t("recruiter.jobs.history")}
                               variantStyle="hide"
                               disabled={actionId === job.id}
                               onClick={() => openJobHistory(job)}
@@ -1138,9 +1155,14 @@ const RecruiterDashboard: React.FC = () => {
                   })}
                 </TableBody>
               </Table>
-            )}
-            {!loadingJobs && jobs.length > 0 && (
-              <PaginationControls page={pagedJobs.page} totalPages={pagedJobs.totalPages} onPageChange={(page) => setUrlPage("recruiterJobsPage", page)} />
+              <PaginationControls
+                page={jobPage}
+                pageSize={jobPageSize}
+                totalItems={sortedJobs.length}
+                onPageChange={setJobPage}
+                onPageSizeChange={setJobPageSize}
+              />
+              </>
             )}
           </CardContent>
           )}
@@ -1170,6 +1192,7 @@ const RecruiterDashboard: React.FC = () => {
             ) : applications.length === 0 ? (
               <p className="py-10 text-center text-sm text-muted-foreground">{t("recruiter.applications.empty")}</p>
             ) : (
+              <>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1182,7 +1205,7 @@ const RecruiterDashboard: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pagedApplications.items.map((app) => (
+                  {paginatedApplications.map((app) => (
                     <TableRow key={app.id}>
                       <TableCell>
                         <div className="font-medium">{app.applicantName || t("recruiter.applications.applicant")}</div>
@@ -1218,9 +1241,14 @@ const RecruiterDashboard: React.FC = () => {
                   ))}
                 </TableBody>
               </Table>
-            )}
-            {!loadingApps && applications.length > 0 && (
-              <PaginationControls page={pagedApplications.page} totalPages={pagedApplications.totalPages} onPageChange={(page) => setUrlPage("recruiterApplicationsPage", page)} />
+              <PaginationControls
+                page={applicationPage}
+                pageSize={applicationPageSize}
+                totalItems={sortedApplications.length}
+                onPageChange={setApplicationPage}
+                onPageSizeChange={setApplicationPageSize}
+              />
+              </>
             )}
           </CardContent>
           )}

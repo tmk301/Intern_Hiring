@@ -27,7 +27,11 @@
     "optional": "Optional",
     "yes": "Yes",
     "no": "No",
-    "back": "Back"
+    "back": "Back",
+    "previous": "Previous",
+    "next": "Next",
+    "itemsPerPage": "Items per page",
+    "save": "Save"
   },
   "toast": {
     "error": "Error",
@@ -75,6 +79,7 @@
     "buttonLabel": "Notifications",
     "title": "Notifications",
     "empty": "No new notifications.",
+    "markAllRead": "Mark all as read",
     "missingCvTitle": "Upload your CV",
     "missingCvDescription": "Add a CV to your profile so you can apply faster.",
     "incompleteProfileTitle": "Complete your profile",
@@ -359,7 +364,9 @@
       "createdAt": "Posted date",
       "hide": "Hide",
       "show": "Show",
-      "delete": "Delete"
+      "delete": "Delete",
+      "edit": "Edit",
+      "history": "History"
     },
     "applications": {
       "approve": "Approve",
@@ -425,6 +432,13 @@
     "cv_title": "Resume",
     "view_cv": "View current Resume",
     "drag_drop_cv": "Drag and drop file here or click to select (PDF / DOC / DOCX)",
+    "uploadCv": "Upload resume",
+    "manageCv": "Manage resumes",
+    "manageCvDescription": "Manage up to {{count}} resumes and choose one default resume to show on your profile.",
+    "defaultCv": "Default resume",
+    "setDefaultCv": "Set default",
+    "deleteCv": "Delete resume",
+    "noCv": "No resume uploaded yet.",
     "back": "Go back",
     "lastNamePlaceholder": "Enter last name",
     "firstNamePlaceholder": "Enter first name",
@@ -434,8 +448,13 @@
     "uploading": "Uploading...",
     "resumeTypeError": "Only PDF/DOC/DOCX files are accepted",
     "resumeSizeError": "File must not exceed 10MB",
+    "resumeMaxCountError": "You can save at most {{count}} resumes",
     "resumeUploadSuccess": "Resume uploaded",
     "resumeUploadError": "Could not upload resume",
+    "resumeDeleteSuccess": "Resume removed from profile",
+    "resumeDeleteError": "Could not delete resume",
+    "defaultCvSuccess": "Default resume updated",
+    "defaultCvError": "Could not set default resume",
     "avatarUploadSuccess": "Avatar updated",
     "avatarUploadError": "Could not upload image",
     "avatarTypeError": "Only image files are accepted",
@@ -502,6 +521,7 @@
     "revokeRecruiterError": "Could not revoke recruiter permission.",
     "restoreRecruiterSuccess": "Recruiter permission restored.",
     "restoreRecruiterError": "Could not restore recruiter permission.",
+    "trashJobConfirm": "Move this job post to trash?",
     "trashJobSuccess": "Job post moved to trash.",
     "trashJobError": "Could not move job post to trash.",
     "restoreJobSuccess": "Job post restored.",
@@ -526,7 +546,9 @@
       "loginBrandingTitle": "Login & register panels",
       "loginBrandingDescription": "Edit left panels in Sanity",
       "auditLogsTitle": "Audit log",
-      "auditLogsDescription": "Track admin activity"
+      "auditLogsDescription": "Track admin activity",
+      "emailFormatTitle": "Email format",
+      "emailFormatDescription": "Colors, font size, header image"
     },
     "users": {
       "title": "User account list",
@@ -550,7 +572,7 @@
       "titleColumn": "Title",
       "postedDate": "Posted date",
       "deletedDate": "Deleted date",
-      "hiddenColumn": "Hidden",
+      "hiddenColumn": "Visible",
       "moveToTrash": "Move to trash",
       "restore": "Restore",
       "deletePermanent": "Delete permanently",
@@ -574,7 +596,8 @@
         "PENDING": "Pending",
         "APPROVED": "Approved",
         "REJECTED": "Rejected"
-      }
+      },
+      "loadError": "Could not load job posts."
     },
     "requests": {
       "title": "Review recruiter verification requests",
@@ -702,7 +725,8 @@
         "RECRUITER_APPLICATION_REJECTED": "Rejected recruiter application",
         "RECRUITER_FORM_FIELD_CREATED": "Created form field",
         "RECRUITER_FORM_FIELD_UPDATED": "Updated form field",
-        "RECRUITER_FORM_FIELD_DELETED": "Deleted form field"
+        "RECRUITER_FORM_FIELD_DELETED": "Deleted form field",
+        "ADMIN_JOB_UPDATED": "Updated job visibility"
       },
       "targets": {
         "USER": "User",
@@ -710,7 +734,51 @@
         "CATEGORY_OPTION": "Category option",
         "RECRUITER_APPLICATION": "Recruiter application",
         "RECRUITER_FORM_FIELD": "Form field"
+      },
+      "descriptions": {
+        "USER_ROLE_UPDATED": "Updated user role for {{email}} to {{role}}",
+        "USER_RESTRICTION_UPDATED": "Updated status of {{email}} to {{restricted}}",
+        "ADMIN_JOB_CREATED": "Created job post: {{title}}",
+        "ADMIN_JOB_UPDATED": "Updated visibility of job post {{title}} to {{status}}",
+        "ADMIN_JOB_TRASHED": "Moved job post {{title}} to trash",
+        "ADMIN_JOB_RESTORED": "Restored job post {{title}}",
+        "ADMIN_JOB_DELETED": "Permanently deleted job post ID #{{jobId}}",
+        "JOB_APPROVED": "Approved job post: {{title}}",
+        "JOB_REJECTED": "Rejected job post: {{title}}",
+        "CATEGORY_CREATED": "Created category option: {{label}} ({{categoryKey}})",
+        "CATEGORY_UPDATED": "Updated category option: {{label}} ({{categoryKey}})",
+        "CATEGORY_DELETED": "Deleted category option ID #{{categoryOptionId}}",
+        "RECRUITER_APPLICATION_APPROVED": "Approved recruiter application from {{email}}",
+        "RECRUITER_APPLICATION_REJECTED": "Rejected recruiter application from {{email}}",
+        "RECRUITER_FORM_FIELD_CREATED": "Created recruiter form field: {{label}} ({{name}})",
+        "RECRUITER_FORM_FIELD_UPDATED": "Updated recruiter form field: {{label}} ({{name}})",
+        "RECRUITER_FORM_FIELD_DELETED": "Deleted recruiter form field ID #{{fieldId}}"
       }
+    },
+    "emailFormat": {
+      "title": "Email format",
+      "brandName": "Brand name",
+      "fontSize": "Font size",
+      "backgroundColor": "Background color",
+      "cardColor": "Card color",
+      "textColor": "Text color",
+      "accentColor": "Accent color",
+      "headerImage": "Header image",
+      "noHeaderImage": "No image uploaded",
+      "uploadImage": "Upload",
+      "clearImage": "Clear image",
+      "footerText": "Footer text",
+      "reset": "Reset defaults",
+      "previewTitle": "Application update",
+      "previewGreeting": "Hello Nguyen Van A,",
+      "previewBody": "The recruiter has reviewed your application for the Frontend Developer Intern position.",
+      "loadError": "Could not load email format.",
+      "saveSuccess": "Email format updated.",
+      "saveError": "Could not update email format.",
+      "imageInvalid": "Please choose a valid image file.",
+      "imageTooLarge": "Image must be 2MB or smaller.",
+      "imageUploadSuccess": "Header image uploaded.",
+      "imageUploadError": "Could not upload image."
     }
   },
   "notFound": {

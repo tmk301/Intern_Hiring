@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
@@ -7,11 +7,11 @@ import { useAuth } from "@/context/AuthContext";
 import { candidateApi, type CandidateApplication } from "@/lib/api";
 import { getReviewStatusBadgeClassName, getReviewStatusTranslationKey } from "@/lib/dashboardStyles";
 import { isCandidateRole } from "@/lib/roles";
-import { DEFAULT_PAGE_SIZE, getSafePage, paginateItems } from "@/lib/pagination";
-import { PaginationControls } from "@/components/ui/pagination-controls";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { paginateItems } from "@/lib/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const formatDate = (value: string) =>
@@ -64,15 +64,10 @@ const LoadingState = () => (
 
 const Applications = () => {
   const { token, user, isAuthenticated } = useAuth();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const submittedPage = getSafePage(searchParams.get("submittedPage"));
-  const acceptedPage = getSafePage(searchParams.get("acceptedPage"));
-
-  const setPage = (key: "submittedPage" | "acceptedPage", page: number) => {
-    const next = new URLSearchParams(searchParams);
-    next.set(key, String(page));
-    setSearchParams(next);
-  };
+  const [submittedPage, setSubmittedPage] = useState(1);
+  const [submittedPageSize, setSubmittedPageSize] = useState(10);
+  const [acceptedPage, setAcceptedPage] = useState(1);
+  const [acceptedPageSize, setAcceptedPageSize] = useState(10);
 
   const { data = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["candidate-applications", token],
@@ -85,10 +80,16 @@ const Applications = () => {
     const submitted = data.filter((application) => application.status !== "ACCEPTED");
     return { submittedApplications: submitted, acceptedApplications: accepted };
   }, [data]);
+  const paginatedSubmittedApplications = useMemo(
+    () => paginateItems(submittedApplications, submittedPage, submittedPageSize),
+    [submittedApplications, submittedPage, submittedPageSize],
+  );
+  const paginatedAcceptedApplications = useMemo(
+    () => paginateItems(acceptedApplications, acceptedPage, acceptedPageSize),
+    [acceptedApplications, acceptedPage, acceptedPageSize],
+  );
 
-  const submitted = paginateItems(submittedApplications, submittedPage, DEFAULT_PAGE_SIZE);
-  const accepted = paginateItems(acceptedApplications, acceptedPage, DEFAULT_PAGE_SIZE);
-
+    
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (!isCandidateRole(user?.role)) return <Navigate to="/" replace />;
 
@@ -103,9 +104,56 @@ const Applications = () => {
         </div>
         {isError ? <div className="rounded-2xl border border-destructive/20 bg-destructive/10 p-6 text-destructive"><p className="font-semibold">Không tải được danh sách ứng tuyển.</p><Button variant="outline" className="mt-4 border-destructive text-destructive hover:bg-destructive/10" onClick={() => refetch()}>Thử lại</Button></div> : (
           <Tabs defaultValue="submitted" className="space-y-6">
-            <TabsList className="h-auto rounded-full bg-secondary p-1 shadow-soft"><TabsTrigger value="submitted" className="rounded-full px-5 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Đã gửi ({submittedApplications.length})</TabsTrigger><TabsTrigger value="accepted" className="rounded-full px-5 py-3 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">Đã được duyệt ({acceptedApplications.length})</TabsTrigger></TabsList>
-            <TabsContent value="submitted" className="space-y-4">{isLoading ? <LoadingState /> : submitted.items.length ? submitted.items.map((application) => <ApplicationCard key={application.id} application={application} />) : <EmptyState />}<PaginationControls page={submitted.page} totalPages={submitted.totalPages} onPageChange={(page) => setPage("submittedPage", page)} /></TabsContent>
-            <TabsContent value="accepted" className="space-y-4">{isLoading ? <LoadingState /> : accepted.items.length ? accepted.items.map((application) => <ApplicationCard key={application.id} application={application} />) : <EmptyState accepted />}<PaginationControls page={accepted.page} totalPages={accepted.totalPages} onPageChange={(page) => setPage("acceptedPage", page)} /></TabsContent>
+            <TabsList className="h-auto rounded-full bg-secondary p-1 shadow-soft">
+              <TabsTrigger value="submitted" className="rounded-full px-5 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                Đã gửi ({submittedApplications.length})
+              </TabsTrigger>
+              <TabsTrigger value="accepted" className="rounded-full px-5 py-3 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
+                Đã được duyệt ({acceptedApplications.length})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="submitted" className="space-y-4">
+              {isLoading ? (
+                <LoadingState />
+              ) : submittedApplications.length ? (
+                <>
+                  {paginatedSubmittedApplications.map((application) => (
+                    <ApplicationCard key={application.id} application={application} />
+                  ))}
+                  <PaginationControls
+                    page={submittedPage}
+                    pageSize={submittedPageSize}
+                    totalItems={submittedApplications.length}
+                    onPageChange={setSubmittedPage}
+                    onPageSizeChange={setSubmittedPageSize}
+                  />
+                </>
+              ) : (
+                <EmptyState />
+              )}
+            </TabsContent>
+
+            <TabsContent value="accepted" className="space-y-4">
+              {isLoading ? (
+                <LoadingState />
+              ) : acceptedApplications.length ? (
+                <>
+                  {paginatedAcceptedApplications.map((application) => (
+                    <ApplicationCard key={application.id} application={application} />
+                  ))}
+                  <PaginationControls
+                    page={acceptedPage}
+                    pageSize={acceptedPageSize}
+                    totalItems={acceptedApplications.length}
+                    onPageChange={setAcceptedPage}
+                    onPageSizeChange={setAcceptedPageSize}
+                  />
+                </>
+              ) : (
+                <EmptyState accepted />
+              )}
+            </TabsContent>
           </Tabs>
         )}
       </section>

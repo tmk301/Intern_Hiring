@@ -238,7 +238,20 @@ const AdminUserProfile: React.FC = () => {
                 </CardContent>
               </Card>
             ) : showCompanyProfileCard ? (
-              <Card>
+              <Card
+                className={cn(companyProfile && "cursor-pointer transition hover:border-primary/40 hover:shadow-md")}
+                role={companyProfile ? "button" : undefined}
+                tabIndex={companyProfile ? 0 : undefined}
+                onClick={() => {
+                  if (companyProfile?.id) navigate(`/companies/${companyProfile.id}`);
+                }}
+                onKeyDown={(event) => {
+                  if (companyProfile?.id && (event.key === "Enter" || event.key === " ")) {
+                    event.preventDefault();
+                    navigate(`/companies/${companyProfile.id}`);
+                  }
+                }}
+              >
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Building2 className="h-5 w-5 text-primary" />

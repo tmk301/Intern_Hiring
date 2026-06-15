@@ -17,6 +17,7 @@ import ResetPasswordPage from "./pages/ResetPassword";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminCompanyReview from "./pages/AdminCompanyReview";
 import AdminUserProfile from "./pages/AdminUserProfile";
+import CompanyProfile from "./pages/CompanyProfile";
 import RecruiterDashboard from "./pages/RecruiterDashboard";
 import RecruiterVerification from "./pages/RecruiterVerification";
 import ModeratorDashboard from "./pages/ModeratorDashboard.tsx";
@@ -169,6 +170,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/companies/:companyId" element={<CompanyProfile />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/admin/users/:userId" element={<AdminRoute><AdminUserProfile /></AdminRoute>} />

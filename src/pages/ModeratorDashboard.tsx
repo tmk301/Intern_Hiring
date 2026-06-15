@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -7,11 +7,11 @@ import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext.tsx";
 import { isAdminRole, isModeratorRole } from "@/lib/roles.ts";
 import { getReviewStatusBadgeClassName, getRoleBadgeClassName, normalizeReviewStatus, normalizeRoleName } from "@/lib/dashboardStyles.ts";
-import { DEFAULT_PAGE_SIZE, getSafePage, paginateItems } from "@/lib/pagination.ts";
 import { moderatorApi, type ModeratorJobPost } from "@/lib/api.ts";
-import { PaginationControls } from "@/components/ui/pagination-controls.tsx";
 import { ActionIconButton } from "@/components/ui/action-icon-button.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
+import { PaginationControls } from "@/components/ui/pagination-controls.tsx";
+import { paginateItems } from "@/lib/pagination.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 import {
@@ -40,8 +40,8 @@ const ModeratorDashboard: React.FC = () => {
   const queryClient = useQueryClient();
   const [selectedJob, setSelectedJob] = useState<ModeratorJobPost | null>(null);
   const [actionId, setActionId] = useState<string | number | null>(null);
-  const [searchParams, setSearchParams] = useSearchParams();
-  const currentPage = getSafePage(searchParams.get("moderatorPage"));
+  const [jobPage, setJobPage] = useState(1);
+  const [jobPageSize, setJobPageSize] = useState(10);
   const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
   const formatModeratorDate = useCallback(
     (value?: string | null) => formatDate(value, dateLocale),
@@ -58,15 +58,13 @@ const ModeratorDashboard: React.FC = () => {
     enabled: !!token && isAuthenticated,
     staleTime: 1000 * 60 * 5,
   });
+  const paginatedJobs = useMemo(
+    () => paginateItems(jobs, jobPage, jobPageSize),
+    [jobPage, jobPageSize, jobs],
+  );
 
-  const pageData = paginateItems(jobs, currentPage, DEFAULT_PAGE_SIZE);
-
-  const setCurrentPage = (page: number) => {
-    const next = new URLSearchParams(searchParams);
-    next.set("moderatorPage", String(page));
-    setSearchParams(next);
-  };
-
+  
+  
   const approveMutation = useMutation({
     mutationFn: (jobId: string | number) => moderatorApi.approveJob(token!, jobId),
     onSuccess: () => {
@@ -169,48 +167,70 @@ const ModeratorDashboard: React.FC = () => {
               </div>
             ) : (
               <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("admin.jobs.titleColumn")}</TableHead>
-                      <TableHead>{t("common.company")}</TableHead>
-                      <TableHead>{t("common.recruiter")}</TableHead>
-                      <TableHead>{t("admin.jobs.postedDate")}</TableHead>
-                      <TableHead>{t("common.status")}</TableHead>
-                      <TableHead>{t("admin.jobs.hiddenColumn")}</TableHead>
-                      <TableHead className="text-center">{t("common.actions")}</TableHead>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("admin.jobs.titleColumn")}</TableHead>
+                    <TableHead>{t("common.company")}</TableHead>
+                    <TableHead>{t("common.recruiter")}</TableHead>
+                    <TableHead>{t("admin.jobs.postedDate")}</TableHead>
+                    <TableHead>{t("common.status")}</TableHead>
+                    <TableHead>{t("admin.jobs.hiddenColumn")}</TableHead>
+                    <TableHead className="text-center">{t("common.actions")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedJobs.map((job) => (
+                    <TableRow key={job.id}>
+                      <TableCell className="font-medium">{job.title}</TableCell>
+                      <TableCell>{job.company || "-"}</TableCell>
+                      <TableCell>{job.employerEmail || job.employerName || job.recruiterName || "-"}</TableCell>
+                      <TableCell>{formatModeratorDate(job.createdAt)}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={getReviewStatusBadgeClassName(job.status)}>
+                          {t(`admin.jobs.statuses.${normalizeReviewStatus(job.status)}`)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{job.hidden ? t("common.yes") : t("common.no")}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap justify-center gap-2">
+                          <ActionIconButton
+                            icon={Eye}
+                            label={t("common.details")}
+                            variantStyle="view"
+                            onClick={() => setSelectedJob(job)}
+                          />
+                          <ActionIconButton
+                            icon={CheckCircle2}
+                            label={t("admin.jobs.approve")}
+                            variantStyle="approve"
+                            disabled={actionId === job.id}
+                            onClick={() => handleApprove(job)}
+                          />
+                          <ActionIconButton
+                            icon={XCircle}
+                            label={t("admin.jobs.reject")}
+                            variantStyle="reject"
+                            disabled={actionId === job.id}
+                            onClick={() => handleReject(job)}
+                          />
+                        </div>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pageData.items.map((job) => (
-                      <TableRow key={job.id}>
-                        <TableCell className="font-medium">{job.title}</TableCell>
-                        <TableCell>{job.company || "-"}</TableCell>
-                        <TableCell>{job.employerEmail || job.employerName || job.recruiterName || "-"}</TableCell>
-                        <TableCell>{formatModeratorDate(job.createdAt)}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={getReviewStatusBadgeClassName(job.status)}>
-                            {t(`admin.jobs.statuses.${normalizeReviewStatus(job.status)}`)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{job.hidden ? t("common.yes") : t("common.no")}</TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap justify-center gap-2">
-                            <ActionIconButton icon={Eye} label={t("common.details")} variantStyle="view" onClick={() => setSelectedJob(job)} />
-                            <ActionIconButton icon={CheckCircle2} label={t("admin.jobs.approve")} variantStyle="approve" disabled={actionId === job.id} onClick={() => handleApprove(job)} />
-                            <ActionIconButton icon={XCircle} label={t("admin.jobs.reject")} variantStyle="reject" disabled={actionId === job.id} onClick={() => handleReject(job)} />
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                  ))}
+                </TableBody>
+              </Table>
+              <PaginationControls
+                page={jobPage}
+                pageSize={jobPageSize}
+                totalItems={jobs.length}
+                onPageChange={setJobPage}
+                onPageSizeChange={setJobPageSize}
+              />
               </>
             )}
           </CardContent>
-          {!loadingData && jobs.length > 0 && (
-            <PaginationControls page={pageData.page} totalPages={pageData.totalPages} onPageChange={setCurrentPage} className="pb-6" />
-          )}
+
         </Card>
       </section>
 

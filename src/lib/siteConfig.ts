@@ -143,14 +143,14 @@ export const defaultRegisterHeroConfig: RegisterHeroConfig = {
 };
 
 export const defaultEmailTemplateConfig: EmailTemplateConfig = {
-  brandName: "InternHiring",
+  brandName: "",
   headerImageUrl: "",
   backgroundColor: "#f8fafc",
   cardColor: "#ffffff",
   textColor: "#334155",
   accentColor: "#2563eb",
   fontSize: 15,
-  footerText: "Email nay duoc gui tu he thong thong bao InternHiring.",
+  footerText: "",
 };
 
 export const defaultManagedSiteConfig: ManagedSiteConfig = {
