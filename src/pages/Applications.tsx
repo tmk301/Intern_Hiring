@@ -23,79 +23,81 @@ const ApplicationCard = ({ application }: { application: CandidateApplication })
   const { t } = useTranslation();
 
   return (
-  <article className="group relative overflow-hidden border-l-4 border-slate-900 bg-white p-5 shadow-[8px_8px_0_0_rgba(15,23,42,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[12px_12px_0_0_rgba(15,23,42,0.12)]">
-    <div className="absolute right-0 top-0 h-16 w-16 bg-emerald-400/10 [clip-path:polygon(100%_0,0_0,100%_100%)]" />
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className={getReviewStatusBadgeClassName(application.status)}>
-            {t(`recruiter.applications.statuses.${getReviewStatusTranslationKey(application.status)}`)}
-          </Badge>
-          {application.jobType && (
-            <Badge variant="secondary" className="rounded-none">
-              {application.jobType}
+    <article className="group relative overflow-hidden rounded-xl border bg-card p-5 shadow-soft transition-smooth hover:-translate-y-1 hover:shadow-medium">
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary-light to-accent" />
+      <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary/10 transition-smooth group-hover:scale-125" />
+
+      <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className={getReviewStatusBadgeClassName(application.status)}>
+              {t(`recruiter.applications.statuses.${getReviewStatusTranslationKey(application.status)}`)}
             </Badge>
-          )}
-        </div>
+            {application.jobType && (
+              <Badge variant="secondary" className="rounded-full px-3 py-1">
+                {application.jobType}
+              </Badge>
+            )}
+          </div>
 
-        <div>
-          <h2 className="text-xl font-black tracking-tight text-slate-950">
-            {application.jobTitle || "Vị trí ứng tuyển"}
-          </h2>
-          <p className="mt-1 flex items-center gap-2 text-sm text-slate-600">
-            <BriefcaseBusiness className="h-4 w-4" />
-            {application.company || "Công ty đang tuyển"}
-          </p>
-        </div>
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-foreground">
+              {application.jobTitle || "Vị trí ứng tuyển"}
+            </h2>
+            <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+              <BriefcaseBusiness className="h-4 w-4 text-primary" />
+              {application.company || "Công ty đang tuyển"}
+            </p>
+          </div>
 
-        <div className="flex flex-wrap gap-3 text-sm text-slate-600">
-          {application.location && (
-            <span className="flex items-center gap-1.5">
-              <MapPin className="h-4 w-4" />
-              {application.location}
+          <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+            {application.location && (
+              <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
+                <MapPin className="h-4 w-4 text-primary" />
+                {application.location}
+              </span>
+            )}
+            <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
+              <CalendarDays className="h-4 w-4 text-primary" />
+              Gửi ngày {formatDate(application.appliedAt)}
             </span>
-          )}
-          <span className="flex items-center gap-1.5">
-            <CalendarDays className="h-4 w-4" />
-            Gửi ngày {formatDate(application.appliedAt)}
-          </span>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 lg:justify-end">
+          <Button asChild variant="outline" className="border-primary text-primary hover:bg-primary/10 hover:text-primary">
+            <a href={application.appliedCvUrl} target="_blank" rel="noreferrer">
+              <FileText className="mr-2 h-4 w-4" />
+              CV đã gửi
+            </a>
+          </Button>
+          <Button asChild variant="cta" className="bg-primary text-primary-foreground hover:bg-primary-dark">
+            <Link to={`/jobs?jobId=${application.jobId}`}>
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Xem công việc
+            </Link>
+          </Button>
         </div>
       </div>
-
-      <div className="flex flex-wrap gap-2 lg:justify-end">
-        <Button asChild variant="outline" className="rounded-none border-slate-900">
-          <a href={application.appliedCvUrl} target="_blank" rel="noreferrer">
-            <FileText className="mr-2 h-4 w-4" />
-            CV đã gửi
-          </a>
-        </Button>
-        <Button asChild className="rounded-none bg-slate-950 text-white hover:bg-emerald-700">
-          <Link to={`/jobs?jobId=${application.jobId}`}>
-            <ExternalLink className="mr-2 h-4 w-4" />
-            Xem công việc
-          </Link>
-        </Button>
-      </div>
-    </div>
-  </article>
+    </article>
   );
 };
 
 const EmptyState = ({ accepted }: { accepted?: boolean }) => (
-  <div className="border border-dashed border-slate-300 bg-white p-10 text-center">
-    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center bg-slate-950 text-white">
+  <div className="rounded-2xl border border-dashed bg-card p-10 text-center shadow-soft">
+    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
       {accepted ? <CheckCircle2 className="h-7 w-7" /> : <Clock3 className="h-7 w-7" />}
     </div>
-    <h2 className="text-xl font-black text-slate-950">
+    <h2 className="text-xl font-bold text-foreground">
       {accepted ? "Chưa có hồ sơ được duyệt" : "Bạn chưa gửi hồ sơ nào"}
     </h2>
-    <p className="mx-auto mt-2 max-w-md text-sm text-slate-600">
+    <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
       {accepted
         ? "Khi công ty chấp nhận CV, hồ sơ sẽ xuất hiện ở đây để bạn theo dõi bước tiếp theo."
         : "Khám phá các vị trí thực tập phù hợp và gửi CV đầu tiên của bạn."}
     </p>
     {!accepted && (
-      <Button asChild className="mt-5 rounded-none bg-emerald-600 hover:bg-emerald-700">
+      <Button asChild variant="cta" className="mt-5 bg-primary text-primary-foreground hover:bg-primary-dark">
         <Link to="/jobs">Tìm việc ngay</Link>
       </Button>
     )}
@@ -105,7 +107,7 @@ const EmptyState = ({ accepted }: { accepted?: boolean }) => (
 const LoadingState = () => (
   <div className="space-y-4">
     {[1, 2, 3].map((item) => (
-      <div key={item} className="border-l-4 border-slate-200 bg-white p-5">
+      <div key={item} className="rounded-xl border bg-card p-5 shadow-soft">
         <Skeleton className="mb-4 h-5 w-32" />
         <Skeleton className="mb-2 h-7 w-2/3" />
         <Skeleton className="h-4 w-1/2" />
@@ -134,46 +136,49 @@ const Applications = () => {
   if (!isCandidateRole(user?.role)) return <Navigate to="/" replace />;
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(135deg,#f8fafc_0%,#ecfdf5_42%,#f8fafc_100%)] px-4 py-10">
+    <main className="min-h-screen bg-gradient-subtle px-4 py-10">
       <section className="container mx-auto max-w-6xl">
-        <div className="mb-8 grid gap-6 border-b-4 border-slate-950 pb-8 lg:grid-cols-[1fr_auto] lg:items-end">
-          <div>
-            <p className="mb-3 inline-flex items-center bg-emerald-500 px-3 py-1 text-xs font-black uppercase tracking-[0.25em] text-slate-950">
-              Career dossier
-            </p>
-            <h1 className="text-4xl font-black tracking-tight text-slate-950 md:text-6xl">
-              Ứng tuyển
-            </h1>
-            <p className="mt-3 max-w-2xl text-base text-slate-600">
-              Theo dõi toàn bộ hồ sơ đã gửi và những vị trí đã được công ty duyệt.
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-center">
-            <div className="bg-slate-950 px-5 py-4 text-white">
-              <div className="text-3xl font-black">{submittedApplications.length}</div>
-              <div className="text-xs uppercase tracking-widest text-slate-300">Đã gửi</div>
+        <div className="mb-8 overflow-hidden rounded-3xl border bg-card shadow-medium">
+          <div className="grid gap-6 p-6 md:p-8 lg:grid-cols-[1fr_auto] lg:items-end">
+            <div>
+              <p className="mb-3 inline-flex items-center rounded-full bg-accent px-3 py-1 text-xs font-bold uppercase tracking-[0.22em] text-accent-foreground shadow-accent">
+                Career dossier
+              </p>
+              <h1 className="text-4xl font-extrabold tracking-tight text-primary md:text-6xl">
+                Ứng tuyển
+              </h1>
+              <p className="mt-3 max-w-2xl text-base text-muted-foreground">
+                Theo dõi toàn bộ hồ sơ đã gửi và những vị trí đã được công ty duyệt.
+              </p>
             </div>
-            <div className="bg-emerald-500 px-5 py-4 text-slate-950">
-              <div className="text-3xl font-black">{acceptedApplications.length}</div>
-              <div className="text-xs font-bold uppercase tracking-widest">Được duyệt</div>
+
+            <div className="grid grid-cols-2 gap-3 text-center">
+              <div className="rounded-2xl bg-primary px-5 py-4 text-primary-foreground shadow-soft">
+                <div className="text-3xl font-extrabold">{submittedApplications.length}</div>
+                <div className="text-xs font-semibold uppercase tracking-widest text-primary-foreground/80">Đã gửi</div>
+              </div>
+              <div className="rounded-2xl bg-accent px-5 py-4 text-accent-foreground shadow-accent">
+                <div className="text-3xl font-extrabold">{acceptedApplications.length}</div>
+                <div className="text-xs font-bold uppercase tracking-widest">Được duyệt</div>
+              </div>
             </div>
           </div>
         </div>
 
         {isError ? (
-          <div className="border border-rose-200 bg-rose-50 p-6 text-rose-800">
+          <div className="rounded-2xl border border-destructive/20 bg-destructive/10 p-6 text-destructive">
             <p className="font-semibold">Không tải được danh sách ứng tuyển.</p>
-            <Button variant="outline" className="mt-4 rounded-none" onClick={() => refetch()}>
+            <Button variant="outline" className="mt-4 border-destructive text-destructive hover:bg-destructive/10" onClick={() => refetch()}>
               Thử lại
             </Button>
           </div>
         ) : (
           <Tabs defaultValue="submitted" className="space-y-6">
-            <TabsList className="h-auto rounded-none bg-slate-950 p-1">
-              <TabsTrigger value="submitted" className="rounded-none px-5 py-3 data-[state=active]:bg-white">
+            <TabsList className="h-auto rounded-full bg-secondary p-1 shadow-soft">
+              <TabsTrigger value="submitted" className="rounded-full px-5 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 Đã gửi ({submittedApplications.length})
               </TabsTrigger>
-              <TabsTrigger value="accepted" className="rounded-none px-5 py-3 data-[state=active]:bg-emerald-400">
+              <TabsTrigger value="accepted" className="rounded-full px-5 py-3 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
                 Đã được duyệt ({acceptedApplications.length})
               </TabsTrigger>
             </TabsList>
