@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -165,14 +165,19 @@ const Profile = () => {
   });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isSavingTheme, setIsSavingTheme] = useState(false);
-  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(user?.emailNotificationsEnabled ?? true);
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(user?.emailNotificationsEnabled ?? false);
   const [isSavingEmailNotifications, setIsSavingEmailNotifications] = useState(false);
-  const profileThemeColor = user.themeColor || "#2563eb";
+
+  useEffect(() => {
+    setEmailNotificationsEnabled(user?.emailNotificationsEnabled ?? false);
+  }, [user?.emailNotificationsEnabled, user?.id]);
 
   if (!user || !token) {
     navigate("/login");
     return null;
   }
+
+  const profileThemeColor = user.themeColor || "#2563eb";
 
   const togglePasswordVisibility = (field: keyof typeof visiblePasswords) => {
     setVisiblePasswords((current) => ({
