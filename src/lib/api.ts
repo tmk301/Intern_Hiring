@@ -258,6 +258,26 @@ export type RecruiterJobPayload = {
   description: string;
 };
 
+export type RecruiterJobSnapshot = {
+  title?: string;
+  location?: string;
+  type?: string;
+  salary?: string;
+  experience?: string;
+  applicationDeadline?: string;
+  description?: string;
+};
+
+export type RecruiterJobChangeLog = {
+  id: string | number;
+  jobId: string | number;
+  actorEmail: string;
+  previousData: RecruiterJobSnapshot;
+  newData: RecruiterJobSnapshot;
+  changedFields: Array<keyof RecruiterJobSnapshot>;
+  createdAt: string;
+};
+
 export type AuditAction =
   | "USER_ROLE_UPDATED"
   | "USER_RESTRICTION_UPDATED"
@@ -538,11 +558,23 @@ export const recruiterApi = {
       body: JSON.stringify(data),
     }),
 
+  updateJob: (token: string, id: string | number, data: RecruiterJobPayload) =>
+    apiRequest<RecruiterJobPost>(`/api/recruiter/jobs/${encodeURIComponent(String(id))}`, {
+      method: "PUT",
+      headers: authHeaders(token),
+      body: JSON.stringify(data),
+    }),
+
   updateJobHidden: (token: string, id: string | number, hidden: boolean) =>
     apiRequest<RecruiterJobPost>(`/api/recruiter/jobs/${encodeURIComponent(String(id))}/hidden`, {
       method: "PATCH",
       headers: authHeaders(token),
       body: JSON.stringify({ hidden }),
+    }),
+
+  listJobChangeLogs: (token: string, id: string | number) =>
+    apiRequest<RecruiterJobChangeLog[]>(`/api/recruiter/jobs/${encodeURIComponent(String(id))}/change-logs`, {
+      headers: authHeaders(token),
     }),
 
   deleteJob: (token: string, id: string | number) =>

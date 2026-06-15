@@ -20,6 +20,8 @@ import {
   CheckCircle,
   XCircle,
   FileText,
+  History,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -36,7 +38,7 @@ import {
   type SalaryRangeOption,
 } from "@/components/jobs/jobFilterConfig";
 import { isRecruiterRole } from "@/lib/roles";
-import { recruiterApi, CandidateApplication, CompanyProfile, isApiError } from "@/lib/api";
+import { recruiterApi, CandidateApplication, CompanyProfile, isApiError, type RecruiterJobChangeLog, type RecruiterJobSnapshot } from "@/lib/api";
 import { getReviewStatusBadgeClassName, getReviewStatusTranslationKey, getRoleBadgeClassName, normalizeRoleName } from "@/lib/dashboardStyles";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +73,26 @@ type RecruiterJob = {
   updated_at: string | null;
   applicationDeadline: string | null;
 };
+
+type JobHistoryVersion = {
+  id: string;
+  label: string;
+  data: RecruiterJobSnapshot;
+  changedFields: Array<keyof RecruiterJobSnapshot>;
+  createdAt?: string;
+};
+
+type JobSnapshotField = keyof RecruiterJobSnapshot;
+
+const JOB_SNAPSHOT_FIELDS: JobSnapshotField[] = [
+  "title",
+  "location",
+  "type",
+  "salary",
+  "experience",
+  "applicationDeadline",
+  "description",
+];
 
 type JobFormValue = {
   title: string;
@@ -250,6 +272,10 @@ const RecruiterDashboard: React.FC = () => {
   const [isJobFormOpen, setIsJobFormOpen] = useState(true);
   const [isJobListOpen, setIsJobListOpen] = useState(true);
   const [isApplicationsOpen, setIsApplicationsOpen] = useState(true);
+  const [editingJob, setEditingJob] = useState<RecruiterJob | null>(null);
+  const [historyJob, setHistoryJob] = useState<RecruiterJob | null>(null);
+  const [jobHistory, setJobHistory] = useState<RecruiterJobChangeLog[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const jobsPage = getSafePage(searchParams.get("recruiterJobsPage"));
   const applicationsPage = getSafePage(searchParams.get("recruiterApplicationsPage"));
@@ -483,8 +509,6 @@ const RecruiterDashboard: React.FC = () => {
       "employerName",
       "employerEmail",
       "location",
-      "salaryRange",
-      "currency",
       "applicationDeadline",
       "workMode",
       "jobType",
@@ -492,10 +516,96 @@ const RecruiterDashboard: React.FC = () => {
       "description",
     ];
 
+    if (!editingJob) requiredFields.push("salaryRange", "currency");
+
     return Boolean(companyProfile) && requiredFields.every((field) => formValue[field].trim().length > 0);
   };
 
-  const handleCreateJob = async (event: React.FormEvent<HTMLFormElement>) => {
+  const buildJobPayload = () => ({
+    title: formValue.title.trim(),
+    company: formValue.company.trim(),
+    employerName: formValue.employerName.trim(),
+    location: formValue.location.trim(),
+    type: formValue.jobType.trim(),
+    salary: formValue.salaryRange && formValue.currency ? getFormattedSalary() : editingJob?.salary || "",
+    experience: getExperienceLabel(formValue.experience),
+    applicationDeadline: formValue.applicationDeadline,
+    description: getFormattedDescription(),
+  });
+
+  const startEditJob = (job: RecruiterJob) => {
+    setEditingJob(job);
+    setIsJobFormOpen(true);
+    setFormValue({
+      ...emptyJobFormValue,
+      title: job.title || "",
+      company: job.company || registeredCompanyName,
+      employerName: job.employer_name || recruiterName,
+      employerEmail: job.employer_email || recruiterEmail,
+      location: job.location || "",
+      salaryRange: "",
+      currency: "",
+      applicationDeadline: job.applicationDeadline || "",
+      workMode: "",
+      jobType: job.type || "",
+      experience: job.experience || "",
+      description: job.description || "",
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const cancelEditJob = () => {
+    setEditingJob(null);
+    resetForm();
+  };
+
+  const openJobHistory = async (job: RecruiterJob) => {
+    if (!token) return;
+
+    setHistoryJob(job);
+    setLoadingHistory(true);
+    try {
+      setJobHistory(await recruiterApi.listJobChangeLogs(token, job.id));
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Không thể tải lịch sử thay đổi");
+      setJobHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const getHistoryVersions = (): JobHistoryVersion[] => {
+    if (!historyJob) return [];
+
+    const currentData: RecruiterJobSnapshot = {
+      title: historyJob.title || "",
+      location: historyJob.location || "",
+      type: historyJob.type || "",
+      salary: historyJob.salary || "",
+      experience: historyJob.experience || "",
+      applicationDeadline: historyJob.applicationDeadline || "",
+      description: historyJob.description || "",
+    };
+
+    return [
+      {
+        id: "current",
+        label: "Current",
+        data: currentData,
+        changedFields: jobHistory[0]?.changedFields || [],
+        createdAt: historyJob.updated_at || undefined,
+      },
+      ...jobHistory.map((log, index) => ({
+        id: String(log.id),
+        label: `Version ${index + 1}`,
+        data: log.previousData,
+        changedFields: jobHistory[index + 1]?.changedFields || log.changedFields,
+        createdAt: log.createdAt,
+      })),
+    ];
+  };
+
+  const handleSubmitJob = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!validateForm()) {
@@ -507,18 +617,14 @@ const RecruiterDashboard: React.FC = () => {
 
     setSubmitting(true);
     try {
-      await recruiterApi.createJob(token, {
-        title: formValue.title.trim(),
-        company: formValue.company.trim(),
-        employerName: formValue.employerName.trim(),
-        location: formValue.location.trim(),
-        type: formValue.jobType.trim(),
-        salary: getFormattedSalary(),
-        experience: getExperienceLabel(formValue.experience),
-        applicationDeadline: formValue.applicationDeadline,
-        description: getFormattedDescription(),
-      });
-      toast.success(t("recruiter.toast.createSuccess"));
+      if (editingJob) {
+        await recruiterApi.updateJob(token, editingJob.id, buildJobPayload());
+        toast.success("Đã cập nhật bài viết");
+        setEditingJob(null);
+      } else {
+        await recruiterApi.createJob(token, buildJobPayload());
+        toast.success(t("recruiter.toast.createSuccess"));
+      }
       resetForm();
       await loadJobs();
     } catch (error: unknown) {
@@ -730,14 +836,14 @@ const RecruiterDashboard: React.FC = () => {
             >
               <CardTitle className="flex items-center gap-2 text-xl">
                 <PlusCircle className="h-5 w-5 text-primary" />
-                {t("recruiter.form.title")}
+                {editingJob ? "Chỉnh sửa bài viết" : t("recruiter.form.title")}
               </CardTitle>
               <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${isJobFormOpen ? "rotate-180" : ""}`} />
             </button>
           </CardHeader>
           {isJobFormOpen && (
           <CardContent>
-            <form className="grid gap-5 md:grid-cols-2 xl:grid-cols-4" onSubmit={handleCreateJob}>
+            <form className="grid gap-5 md:grid-cols-2 xl:grid-cols-4" onSubmit={handleSubmitJob}>
               {!loadingCompanyProfile && !companyProfile && (
                 <div className="md:col-span-2 xl:col-span-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                   {t("recruiter.form.companyProfileRequired")}
@@ -916,10 +1022,15 @@ const RecruiterDashboard: React.FC = () => {
                 />
               </div>
 
-              <div className="flex justify-end md:col-span-2 xl:col-span-4">
+              <div className="flex justify-end gap-2 md:col-span-2 xl:col-span-4">
+                {editingJob && (
+                  <Button type="button" variant="outline" className="w-auto" onClick={cancelEditJob} disabled={submitting}>
+                    {t("common.cancel")}
+                  </Button>
+                )}
                 <Button type="submit" variant="cta" className="w-auto" disabled={submitting || loadingCompanyProfile || !companyProfile}>
-                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
-                  {t("recruiter.form.submit")}
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : editingJob ? <Pencil className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />}
+                  {editingJob ? "Lưu thay đổi" : t("recruiter.form.submit")}
                 </Button>
               </div>
             </form>
@@ -999,6 +1110,20 @@ const RecruiterDashboard: React.FC = () => {
                                 onClick={() => updateJobHidden(job, true)}
                               />
                             )}
+                            <ActionIconButton
+                              icon={Pencil}
+                              label="Sửa"
+                              variantStyle="show"
+                              disabled={actionId === job.id}
+                              onClick={() => startEditJob(job)}
+                            />
+                            <ActionIconButton
+                              icon={History}
+                              label="Lịch sử"
+                              variantStyle="hide"
+                              disabled={actionId === job.id}
+                              onClick={() => openJobHistory(job)}
+                            />
                             <ActionIconButton
                               icon={Trash2}
                               label={t("recruiter.jobs.delete")}
@@ -1101,6 +1226,56 @@ const RecruiterDashboard: React.FC = () => {
           )}
         </Card>
       </section>
+
+      <AlertDialog open={Boolean(historyJob)} onOpenChange={(open) => !open && setHistoryJob(null)}>
+        <AlertDialogContent className="max-w-5xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Lịch sử thay đổi bài viết</AlertDialogTitle>
+            <AlertDialogDescription>
+              {historyJob?.title || "-"} — các ô màu cam là phần thay đổi so với phiên bản ngay trước đó.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {loadingHistory ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="h-7 w-7 animate-spin text-primary" />
+            </div>
+          ) : jobHistory.length === 0 ? (
+            <p className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
+              Chưa có thay đổi nào được ghi nhận.
+            </p>
+          ) : (
+            <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-2">
+              {getHistoryVersions().map((version) => (
+                <div key={version.id} className="rounded-lg border bg-white p-4 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="font-semibold text-slate-950">{version.label}</div>
+                    <div className="text-xs text-muted-foreground">{formatDate(version.createdAt, dateLocale)}</div>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {JOB_SNAPSHOT_FIELDS.map((field) => {
+                      const changed = version.changedFields.includes(field);
+                      return (
+                        <div
+                          key={field}
+                          className={`rounded-md border p-3 text-sm transition-colors ${
+                            changed ? "border-orange-300 bg-orange-50 text-orange-950" : "border-slate-200 bg-slate-50 text-slate-700"
+                          } ${field === "description" ? "md:col-span-2" : ""}`}
+                        >
+                          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{field}</div>
+                          <div className="whitespace-pre-wrap break-words">{String(version.data[field] || "-")}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Đóng</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={Boolean(jobPendingDelete)} onOpenChange={(open) => !open && setJobPendingDelete(null)}>
         <AlertDialogContent>
