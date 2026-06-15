@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Bell } from "lucide-react";
 import { notificationApi, type ApiNotification, type ApiUser } from "@/lib/api";
 import { isAdminRole, isCandidateRole, isModeratorRole, isRecruiterRole } from "@/lib/roles";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -185,11 +186,16 @@ export function NotificationButton({ user, token, mobile = false }: Notification
           notifications.map((notification) => (
             <DropdownMenuItem
               key={notification.id}
-              className="flex cursor-pointer flex-col items-start gap-1 whitespace-normal py-3"
+              className={cn(
+                "flex cursor-pointer flex-col items-start gap-1 whitespace-normal py-3",
+                notification.read ? "font-normal" : "font-semibold",
+              )}
               onClick={() => openNotification(notification)}
             >
-              <span className="font-medium">{notification.title}</span>
-              <span className="text-xs text-muted-foreground">{notification.description}</span>
+              <span className={notification.read ? "font-normal" : "font-semibold"}>{notification.title}</span>
+              <span className={cn("text-xs text-muted-foreground", notification.read ? "font-normal" : "font-semibold")}>
+                {notification.description}
+              </span>
             </DropdownMenuItem>
           ))
         ) : (

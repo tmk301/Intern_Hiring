@@ -529,8 +529,8 @@
       "requestsDescription": "Yêu cầu đang chờ duyệt",
       "categoriesTitle": "Quản lý danh mục",
       "categoriesDescription": "Danh mục & Form xác thực",
-      "loginBrandingTitle": "Ô login",
-      "loginBrandingDescription": "Hình ảnh, màu và nội dung",
+      "loginBrandingTitle": "Ô login & đăng ký",
+      "loginBrandingDescription": "Chỉnh ô bên trái trong Sanity",
       "auditLogsTitle": "Audit log",
       "auditLogsDescription": "Theo dõi thao tác admin"
     },

@@ -199,9 +199,8 @@ const Profile = () => {
   const [isSavingTheme, setIsSavingTheme] = useState(false);
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
   const [isLoadingCompanyProfile, setIsLoadingCompanyProfile] = useState(false);
-  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(user?.emailNotificationsEnabled ?? true);
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(user?.emailNotificationsEnabled ?? false);
   const [isSavingEmailNotifications, setIsSavingEmailNotifications] = useState(false);
-  const profileThemeColor = user?.themeColor || "#2563eb";
   const shouldShowCompanyProfile = isRecruiterRole(user?.role);
 
   useEffect(() => {
@@ -238,10 +237,16 @@ const Profile = () => {
     };
   }, [shouldShowCompanyProfile, t, toast, token]);
 
+  useEffect(() => {
+    setEmailNotificationsEnabled(user?.emailNotificationsEnabled ?? false);
+  }, [user?.emailNotificationsEnabled, user?.id]);
+
   if (!user || !token) {
     navigate("/login");
     return null;
   }
+
+  const profileThemeColor = user.themeColor || "#2563eb";
 
   const togglePasswordVisibility = (field: keyof typeof visiblePasswords) => {
     setVisiblePasswords((current) => ({
