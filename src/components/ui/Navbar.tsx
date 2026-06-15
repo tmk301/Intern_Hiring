@@ -19,9 +19,10 @@ import {
 import { isAdminRole, isCandidateRole, isModeratorRole, isRecruiterRole } from "@/lib/roles";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { NotificationButton } from "./NotificationButton";
 
 const Navbar = () => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, token, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation();
@@ -76,15 +77,10 @@ const Navbar = () => {
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-white shadow-sm">
       <div className="container mx-auto relative flex h-16 items-center px-4">
-
-        {/* LEFT - Logo */}
         <button type="button" className="flex shrink-0 items-center" onClick={() => scrollToSection()}>
-          <span className="font-bold text-xl text-primary">
-            InternHiring
-          </span>
+          <span className="font-bold text-xl text-primary">InternHiring</span>
         </button>
 
-        {/* CENTER - Menu (desktop) */}
         <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 xl:flex 2xl:gap-10">
           {navItems.map((item) => (
             <button
@@ -98,60 +94,56 @@ const Navbar = () => {
           ))}
         </div>
 
-        {/* RIGHT */}
         <div className="ml-auto flex shrink-0 items-center gap-3">
-          {/* DESKTOP AUTH */}
           <div className="hidden items-center gap-3 xl:flex">
             {isAuthenticated ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-2 rounded-full transition hover:opacity-80 cursor-pointer focus:outline-none focus-visible:outline-none">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={user?.avatarUrl} />
-                      <AvatarFallback>
-                        {user?.firstName?.charAt(0) || (
-                          <UserIcon className="h-4 w-4" />
-                        )}
-                      </AvatarFallback>
-                    </Avatar>
-
-                    <span className="text-sm">
-                      {user?.firstName}
-                    </span>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {showAdminLink && (
-                    <DropdownMenuItem asChild>
-                      <Link to="/admin">{t("nav.admin")}</Link>
+              <>
+                <NotificationButton user={user} token={token} />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex items-center gap-2 rounded-full transition hover:opacity-80 cursor-pointer focus:outline-none focus-visible:outline-none">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={user?.avatarUrl} />
+                        <AvatarFallback>
+                          {user?.firstName?.charAt(0) || <UserIcon className="h-4 w-4" />}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm">{user?.firstName}</span>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {showAdminLink && (
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin">{t("nav.admin")}</Link>
+                      </DropdownMenuItem>
+                    )}
+                    {showRecruiterLink && (
+                      <DropdownMenuItem asChild>
+                        <Link to="/recruiter">{t("nav.recruiterDashboard")}</Link>
+                      </DropdownMenuItem>
+                    )}
+                    {showModeratorLink && (
+                      <DropdownMenuItem asChild>
+                        <Link to="/moderator">Moderator</Link>
+                      </DropdownMenuItem>
+                    )}
+                    {showApplicationsLink && (
+                      <DropdownMenuItem asChild>
+                        <Link to="/applications">Ứng tuyển</Link>
+                      </DropdownMenuItem>
+                    )}
+                    {showProfileLink && (
+                      <DropdownMenuItem asChild>
+                        <Link to="/profile">{t("nav.profile")}</Link>
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={handleLogout}>
+                      <LogOut className="h-4 w-4 mr-2" />
+                      {t("nav.logout")}
                     </DropdownMenuItem>
-                  )}
-                  {showRecruiterLink && (
-                    <DropdownMenuItem asChild>
-                      <Link to="/recruiter">{t("nav.recruiterDashboard")}</Link>
-                    </DropdownMenuItem>
-                  )}
-                  {showModeratorLink && (
-                    <DropdownMenuItem asChild>
-                      <Link to="/moderator">Moderator</Link>
-                    </DropdownMenuItem>
-                  )}
-                  {showApplicationsLink && (
-                    <DropdownMenuItem asChild>
-                      <Link to="/applications">Ứng tuyển</Link>
-                    </DropdownMenuItem>
-                  )}
-                  {showProfileLink && (
-                    <DropdownMenuItem asChild>
-                      <Link to="/profile">{t("nav.profile")}</Link>
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut className="h-4 w-4 mr-2" />
-                    {t("nav.logout")}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
             ) : (
               <>
                 <Button
@@ -175,7 +167,6 @@ const Navbar = () => {
             <LanguageSwitcher />
           </div>
 
-          {/* MOBILE MENU */}
           <div className="xl:hidden">
             <Sheet>
               <SheetTrigger asChild>
@@ -188,7 +179,6 @@ const Navbar = () => {
                 <div className="mt-6 flex flex-col gap-4">
                   <LanguageSwitcher />
 
-                  {/* MENU ITEMS */}
                   {navItems.map((item) => (
                     <SheetClose asChild key={"path" in item ? item.path : item.targetId}>
                       <button
@@ -201,10 +191,12 @@ const Navbar = () => {
                     </SheetClose>
                   ))}
 
-                  {/* AUTH */}
                   <div className="border-t pt-4">
                     {isAuthenticated ? (
                       <>
+                        <div className="mb-2">
+                          <NotificationButton user={user} token={token} mobile />
+                        </div>
                         {showAdminLink && (
                           <Link to="/admin" className="mb-2 flex items-center gap-2 rounded-md p-2 hover:bg-muted transition">
                             <UserIcon className="h-4 w-4" />
@@ -240,10 +232,7 @@ const Navbar = () => {
                             <span className="text-sm font-medium">{user?.firstName}</span>
                           </Link>
                         )}
-                        <Button
-                          onClick={handleLogout}
-                          className="w-full"
-                        >
+                        <Button onClick={handleLogout} className="w-full">
                           {t("nav.logout")}
                         </Button>
                       </>
@@ -266,12 +255,10 @@ const Navbar = () => {
                       </>
                     )}
                   </div>
-
                 </div>
               </SheetContent>
             </Sheet>
           </div>
-
         </div>
       </div>
     </nav>
