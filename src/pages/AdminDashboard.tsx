@@ -45,6 +45,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { getReviewStatusBadgeClassName, getRoleBadgeClassName, normalizeRoleName } from "@/lib/dashboardStyles";
+import { DEFAULT_PAGE_SIZE, getSafePage, paginateItems } from "@/lib/pagination";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 
 type AdminSection = "users" | "jobs" | "categories" | "audit-logs";
 type JobStatusFilter = "ALL" | "PENDING" | "APPROVED" | "REJECTED";
@@ -163,7 +165,6 @@ const AdminDashboard: React.FC = () => {
   const [requests, setRequests] = useState<RecruiterApplication[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [auditTotal, setAuditTotal] = useState(0);
-  const [auditPage, setAuditPage] = useState(0);
   const [auditAction, setAuditAction] = useState<AuditAction | "">("");
   const [auditTargetType, setAuditTargetType] = useState<AuditTargetType | "">("");
   const [auditActorEmail, setAuditActorEmail] = useState("");
@@ -182,6 +183,22 @@ const AdminDashboard: React.FC = () => {
   });
   const [userRoleFilter, setUserRoleFilter] = useState<UserRoleFilter>("ALL");
   const [userStatusFilter, setUserStatusFilter] = useState<UserStatusFilter>("ALL");
+
+  const usersPage = getSafePage(searchParams.get("usersPage"));
+  const pendingJobsPage = getSafePage(searchParams.get("pendingJobsPage"));
+  const approvedJobsPage = getSafePage(searchParams.get("approvedJobsPage"));
+  const trashJobsPage = getSafePage(searchParams.get("trashJobsPage"));
+  const auditPage = getSafePage(searchParams.get("auditPage"));
+
+  const setUrlPage = (key: string, page: number) => {
+    const next = new URLSearchParams(searchParams);
+    next.set(key, String(page));
+    setSearchParams(next);
+  };
+
+  const setAuditUrlPage = (page: number) => setUrlPage("auditPage", page);
+
+  const resetAuditUrlPage = () => setAuditUrlPage(1);
 
   const activeJobs = useMemo(() => jobs.filter((job) => !isTrashedJob(job)), [jobs]);
   const trashedJobs = useMemo(() => jobs.filter(isTrashedJob), [jobs]);
@@ -245,6 +262,10 @@ const AdminDashboard: React.FC = () => {
         }),
     [userRoleFilter, userSort.direction, userSort.key, userStatusFilter, users],
   );
+  const pagedUsers = paginateItems(sortedUsers, usersPage, DEFAULT_PAGE_SIZE);
+  const pagedPendingJobs = paginateItems(filteredPendingJobs, pendingJobsPage, DEFAULT_PAGE_SIZE);
+  const pagedApprovedJobs = paginateItems(filteredApprovedJobs, approvedJobsPage, DEFAULT_PAGE_SIZE);
+  const pagedTrashedJobs = paginateItems(filteredTrashedJobs, trashJobsPage, DEFAULT_PAGE_SIZE);
   const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
   const formatAdminDate = useCallback((value?: string | null) => formatDate(value, dateLocale), [dateLocale]);
   const selectedUserCvUrl = useMemo(
@@ -326,8 +347,8 @@ const AdminDashboard: React.FC = () => {
     if (!token) return;
     try {
       const page = await adminApi.listAuditLogs(token, {
-        page: auditPage,
-        size: 20,
+        page: auditPage - 1,
+        size: DEFAULT_PAGE_SIZE,
         action: auditAction,
         targetType: auditTargetType,
         actorEmail: auditActorEmail.trim(),
@@ -748,7 +769,7 @@ const AdminDashboard: React.FC = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {sortedUsers.map((account) => {
+                      {pagedUsers.items.map((account) => {
                         const restricted = isRestrictedUser(account);
                         const pendingRequest = pendingRequestByApplicantId.get(String(account.id));
 
@@ -817,6 +838,7 @@ const AdminDashboard: React.FC = () => {
                       })}
                     </TableBody>
                   </Table>
+                  <PaginationControls page={pagedUsers.page} totalPages={pagedUsers.totalPages} onPageChange={(page) => setUrlPage("usersPage", page)} />
                 </CardContent>
               </Card>
             )}
@@ -878,7 +900,7 @@ const AdminDashboard: React.FC = () => {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {filteredPendingJobs.map((job) => (
+                           {pagedPendingJobs.items.map((job) => (
                             <TableRow key={job.id}>
                               <TableCell className="font-medium">{job.title}</TableCell>
                               <TableCell>{job.company || "-"}</TableCell>
@@ -901,6 +923,7 @@ const AdminDashboard: React.FC = () => {
                           ))}
                         </TableBody>
                       </Table>
+                      <PaginationControls page={pagedPendingJobs.page} totalPages={pagedPendingJobs.totalPages} onPageChange={(page) => setUrlPage("pendingJobsPage", page)} />
                     </TabsContent>
                     <TabsContent value="approved">
                       <Table>
@@ -916,7 +939,7 @@ const AdminDashboard: React.FC = () => {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {filteredApprovedJobs.map((job) => (
+                           {pagedApprovedJobs.items.map((job) => (
                             <TableRow key={job.id}>
                               <TableCell className="font-medium">{job.title}</TableCell>
                               <TableCell>{job.company || "-"}</TableCell>
@@ -938,6 +961,7 @@ const AdminDashboard: React.FC = () => {
                           ))}
                         </TableBody>
                       </Table>
+                      <PaginationControls page={pagedApprovedJobs.page} totalPages={pagedApprovedJobs.totalPages} onPageChange={(page) => setUrlPage("approvedJobsPage", page)} />
                     </TabsContent>
                     <TabsContent value="trash">
                       <Table>
@@ -950,7 +974,7 @@ const AdminDashboard: React.FC = () => {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {filteredTrashedJobs.map((job) => (
+                           {pagedTrashedJobs.items.map((job) => (
                             <TableRow key={job.id}>
                               <TableCell className="font-medium">{job.title}</TableCell>
                               <TableCell>{job.company || "-"}</TableCell>
@@ -965,6 +989,7 @@ const AdminDashboard: React.FC = () => {
                           ))}
                         </TableBody>
                       </Table>
+                      <PaginationControls page={pagedTrashedJobs.page} totalPages={pagedTrashedJobs.totalPages} onPageChange={(page) => setUrlPage("trashJobsPage", page)} />
                     </TabsContent>
                   </Tabs>
                 </CardContent>
@@ -981,14 +1006,14 @@ const AdminDashboard: React.FC = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid gap-3 md:grid-cols-4">
-                    <Select value={auditAction || "all"} onValueChange={(value) => { setAuditPage(0); setAuditAction(value === "all" ? "" : value as AuditAction); }}>
+                    <Select value={auditAction || "all"} onValueChange={(value) => { resetAuditUrlPage(); setAuditAction(value === "all" ? "" : value as AuditAction); }}>
                       <SelectTrigger><SelectValue placeholder={t("admin.auditLogs.action")} /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">{t("admin.auditLogs.allActions")}</SelectItem>
                         {auditActions.map((action) => <SelectItem key={action} value={action}>{t(`admin.auditLogs.actions.${action}`, { defaultValue: action })}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                    <Select value={auditTargetType || "all"} onValueChange={(value) => { setAuditPage(0); setAuditTargetType(value === "all" ? "" : value as AuditTargetType); }}>
+                    <Select value={auditTargetType || "all"} onValueChange={(value) => { resetAuditUrlPage(); setAuditTargetType(value === "all" ? "" : value as AuditTargetType); }}>
                       <SelectTrigger><SelectValue placeholder={t("admin.auditLogs.targetType")} /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">{t("admin.auditLogs.allTargets")}</SelectItem>
@@ -998,7 +1023,7 @@ const AdminDashboard: React.FC = () => {
                     <input
                       className="rounded-md border px-3 py-2 text-sm"
                       value={auditActorEmail}
-                      onChange={(event) => { setAuditPage(0); setAuditActorEmail(event.target.value); }}
+                      onChange={(event) => { resetAuditUrlPage(); setAuditActorEmail(event.target.value); }}
                       placeholder={t("admin.auditLogs.actorPlaceholder")}
                     />
                     <Button variant="outline" onClick={loadAuditLogs}>
@@ -1036,13 +1061,7 @@ const AdminDashboard: React.FC = () => {
                     </TableBody>
                   </Table>
                   {auditLogs.length === 0 && <p className="py-8 text-center text-muted-foreground">{t("admin.auditLogs.empty")}</p>}
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>{t("admin.auditLogs.total", { count: auditTotal })}</span>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" disabled={auditPage === 0} onClick={() => setAuditPage((page) => Math.max(0, page - 1))}>{t("admin.auditLogs.previous")}</Button>
-                      <Button variant="outline" size="sm" disabled={(auditPage + 1) * 20 >= auditTotal} onClick={() => setAuditPage((page) => page + 1)}>{t("admin.auditLogs.next")}</Button>
-                    </div>
-                  </div>
+                  <PaginationControls page={auditPage} totalPages={Math.max(1, Math.ceil(auditTotal / DEFAULT_PAGE_SIZE))} onPageChange={setAuditUrlPage} />
                 </CardContent>
               </Card>
             )}

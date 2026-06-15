@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Navigate } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
+import { DEFAULT_PAGE_SIZE, getSafePage, paginateItems } from "@/lib/pagination";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
   ArrowDown,
   ArrowUp,
@@ -248,6 +250,14 @@ const RecruiterDashboard: React.FC = () => {
   const [isJobFormOpen, setIsJobFormOpen] = useState(true);
   const [isJobListOpen, setIsJobListOpen] = useState(true);
   const [isApplicationsOpen, setIsApplicationsOpen] = useState(true);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const jobsPage = getSafePage(searchParams.get("recruiterJobsPage"));
+  const applicationsPage = getSafePage(searchParams.get("recruiterApplicationsPage"));
+  const setUrlPage = (key: string, page: number) => {
+    const next = new URLSearchParams(searchParams);
+    next.set(key, String(page));
+    setSearchParams(next);
+  };
   const [jobSort, setJobSort] = useState<{ key: JobSortKey; direction: SortDirection }>({
     key: "createdAt",
     direction: "desc",
@@ -304,6 +314,8 @@ const RecruiterDashboard: React.FC = () => {
       ),
     [applicationSort.direction, applicationSort.key, applications],
   );
+  const pagedJobs = paginateItems(sortedJobs, jobsPage, DEFAULT_PAGE_SIZE);
+  const pagedApplications = paginateItems(sortedApplications, applicationsPage, DEFAULT_PAGE_SIZE);
 
   const resetForm = useCallback(() => {
     const defaultAddress = companyAddressOptions.find((option) => option.isDefault) || companyAddressOptions[0];
@@ -952,7 +964,7 @@ const RecruiterDashboard: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedJobs.map((job) => {
+                  {pagedJobs.items.map((job) => {
                     const status = normalizeStatus(job.status);
                     const hidden = isHiddenJob(job);
 
@@ -1002,6 +1014,9 @@ const RecruiterDashboard: React.FC = () => {
                 </TableBody>
               </Table>
             )}
+            {!loadingJobs && jobs.length > 0 && (
+              <PaginationControls page={pagedJobs.page} totalPages={pagedJobs.totalPages} onPageChange={(page) => setUrlPage("recruiterJobsPage", page)} />
+            )}
           </CardContent>
           )}
         </Card>
@@ -1042,7 +1057,7 @@ const RecruiterDashboard: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedApplications.map((app) => (
+                  {pagedApplications.items.map((app) => (
                     <TableRow key={app.id}>
                       <TableCell>
                         <div className="font-medium">{app.applicantName || t("recruiter.applications.applicant")}</div>
@@ -1078,6 +1093,9 @@ const RecruiterDashboard: React.FC = () => {
                   ))}
                 </TableBody>
               </Table>
+            )}
+            {!loadingApps && applications.length > 0 && (
+              <PaginationControls page={pagedApplications.page} totalPages={pagedApplications.totalPages} onPageChange={(page) => setUrlPage("recruiterApplicationsPage", page)} />
             )}
           </CardContent>
           )}
