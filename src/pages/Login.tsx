@@ -164,14 +164,25 @@ const Login = () => {
     return null;
   }
 
+  const loginInputStyle = {
+    backgroundColor: loginHero.inputBackgroundColor,
+    borderColor: loginHero.inputBorderColor,
+    color: loginHero.inputTextColor,
+  };
+  const loginLabelStyle = { color: loginHero.labelTextColor };
+
   return (
-    <main className="h-[calc(100dvh-4rem)] overflow-hidden bg-gradient-subtle">
+    <main
+      className="h-[calc(100dvh-4rem)] overflow-hidden bg-gradient-subtle"
+      style={{ backgroundColor: loginHero.pageBackgroundColor }}
+    >
       <div className="container mx-auto flex h-full items-center justify-center px-4 py-4">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45 }}
-          className="grid w-full max-w-5xl overflow-hidden rounded-xl border bg-white shadow-strong md:grid-cols-[1fr_0.85fr]"
+          className="grid w-full max-w-5xl overflow-hidden rounded-xl border shadow-strong md:grid-cols-[1fr_0.85fr]"
+          style={{ backgroundColor: loginHero.formBackgroundColor }}
         >
           <section
             className="hidden bg-cover bg-center p-8 md:flex md:flex-col md:justify-between"
@@ -199,13 +210,16 @@ const Login = () => {
             </div>
           </section>
 
-          <Card className="border-0 shadow-none">
+          <Card className="border-0 shadow-none" style={{ backgroundColor: loginHero.formBackgroundColor }}>
             <CardHeader className="space-y-2 px-6 pb-4 pt-6 sm:px-8">
-              <CardTitle className="text-2xl font-bold text-foreground">
-                {t("login.title")}
+              <CardTitle
+                className="text-2xl font-bold text-foreground"
+                style={{ color: loginHero.formTitleTextColor }}
+              >
+                {loginHero.formTitle || t("login.title")}
               </CardTitle>
-              <CardDescription>
-                {t("login.description")}
+              <CardDescription style={{ color: loginHero.formDescriptionTextColor }}>
+                {loginHero.formDescription || t("login.description")}
               </CardDescription>
             </CardHeader>
             <CardContent className="px-6 pb-4 sm:px-8">
@@ -216,13 +230,14 @@ const Login = () => {
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email</FormLabel>
+                        <FormLabel style={loginLabelStyle}>Email</FormLabel>
                         <FormControl>
                           <div className="relative">
                             <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                             <Input
                               placeholder="ten@example.com"
                               className="h-10 pl-10"
+                              style={loginInputStyle}
                               {...field}
                             />
                           </div>
@@ -236,7 +251,7 @@ const Login = () => {
                     name="password"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t("login.passwordLabel")}</FormLabel>
+                        <FormLabel style={loginLabelStyle}>{t("login.passwordLabel")}</FormLabel>
                         <FormControl>
                           <div className="relative">
                             <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -244,6 +259,7 @@ const Login = () => {
                               type={showPassword ? "text" : "password"}
                               placeholder={t("login.passwordPlaceholder")}
                               className="h-10 pl-10 pr-10"
+                              style={loginInputStyle}
                               {...field}
                             />
                             <button
@@ -269,6 +285,7 @@ const Login = () => {
                       type="button"
                       onClick={() => setIsResetOpen(true)}
                       className="text-sm text-primary hover:underline"
+                      style={{ color: loginHero.linkTextColor }}
                     >
                       {t("login.forgotPassword")}
                     </button>
@@ -291,9 +308,13 @@ const Login = () => {
               </Form>
             </CardContent>
             <CardFooter className="flex justify-center border-t bg-secondary/40 px-6 py-4 sm:px-8">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground" style={{ color: loginHero.footerTextColor }}>
                 {t("login.noAccount")}{" "}
-                <Link to="/register" className="font-medium text-primary hover:underline">
+                <Link
+                  to="/register"
+                  className="font-medium text-primary hover:underline"
+                  style={{ color: loginHero.linkTextColor }}
+                >
                   {t("login.registerNow")}
                 </Link>
               </p>

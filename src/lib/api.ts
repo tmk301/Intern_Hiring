@@ -374,6 +374,11 @@ export const adminApi = {
       params: { includeTrash },
     }),
 
+  listJobChangeLogs: (token: string, jobId: string | number) =>
+    apiRequest<RecruiterJobChangeLog[]>(`/api/admin/jobs/${encodeURIComponent(String(jobId))}/change-logs`, {
+      headers: authHeaders(token),
+    }),
+
   createJob: (token: string, data: Omit<AdminJobPost, "id" | "createdAt" | "deletedAt" | "status">) =>
     apiRequest<AdminJobPost>("/api/admin/jobs", {
       method: "POST",
@@ -625,6 +630,11 @@ export const moderatorApi = {
 
   getJobDetail: (token: string, jobId: string | number) =>
     apiRequest<ModeratorJobPost>(`/api/moderator/jobs/${encodeURIComponent(String(jobId))}`, {
+      headers: authHeaders(token),
+    }),
+
+  listJobChangeLogs: (token: string, jobId: string | number) =>
+    apiRequest<RecruiterJobChangeLog[]>(`/api/moderator/jobs/${encodeURIComponent(String(jobId))}/change-logs`, {
       headers: authHeaders(token),
     }),
 

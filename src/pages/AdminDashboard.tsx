@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Eye,
   FileCheck2,
+  History,
   Image,
   Loader2,
   Mail,
@@ -28,7 +29,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
-import { adminApi, isApiError, moderatorApi, recruiterApi, type AdminJobPost, type AdminUser, type AuditAction, type AuditLog, type AuditTargetType, type RecruiterApplication } from "@/lib/api";
+import { adminApi, isApiError, moderatorApi, recruiterApi, type AdminJobPost, type AdminUser, type AuditAction, type AuditLog, type AuditTargetType, type RecruiterApplication, type RecruiterJobChangeLog, type RecruiterJobSnapshot } from "@/lib/api";
 import { isAdminRole, USER_ROLES, type UserRole } from "@/lib/roles";
 import { CategoryManagementPanel } from "@/components/admin/CategoryManagementPanel";
 import { Button } from "@/components/ui/button";
@@ -82,6 +83,28 @@ const formatDate = (value?: string | null, locale = "en-US") => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString(locale);
+};
+
+type JobSnapshotField = keyof RecruiterJobSnapshot;
+
+const JOB_SNAPSHOT_FIELDS: JobSnapshotField[] = [
+  "title",
+  "location",
+  "type",
+  "salary",
+  "experience",
+  "applicationDeadline",
+  "description",
+];
+
+const JOB_FIELD_LABELS: Record<JobSnapshotField, string> = {
+  title: "Tiêu đề",
+  location: "Địa điểm",
+  type: "Loại công việc",
+  salary: "Lương",
+  experience: "Kinh nghiệm",
+  applicationDeadline: "Hạn ứng tuyển",
+  description: "Mô tả",
 };
 
 const getPrimaryCvUrl = (user: AdminUser) => {
@@ -194,6 +217,8 @@ const AdminDashboard: React.FC = () => {
   const [auditActorEmail, setAuditActorEmail] = useState("");
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [selectedJob, setSelectedJob] = useState<AdminJobPost | null>(null);
+  const [selectedJobChangeLogs, setSelectedJobChangeLogs] = useState<RecruiterJobChangeLog[]>([]);
+  const [loadingJobChangeLogs, setLoadingJobChangeLogs] = useState(false);
   const [rejectingRequest, setRejectingRequest] = useState<RecruiterApplication | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [loadingData, setLoadingData] = useState(true);
@@ -629,6 +654,27 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const openJobDetail = async (job: AdminJobPost) => {
+    if (!token) return;
+
+    setSelectedJob(job);
+    setSelectedJobChangeLogs([]);
+    setLoadingJobChangeLogs(true);
+    try {
+      setSelectedJobChangeLogs(await adminApi.listJobChangeLogs(token, job.id));
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Không thể tải lịch sử thay đổi bài viết"));
+    } finally {
+      setLoadingJobChangeLogs(false);
+    }
+  };
+
+  const closeJobDetail = () => {
+    setSelectedJob(null);
+    setSelectedJobChangeLogs([]);
+    setLoadingJobChangeLogs(false);
+  };
+
   const updateUserSort = (key: UserSortKey) => {
     setUserSort((current) => ({
       key,
@@ -1057,7 +1103,7 @@ const AdminDashboard: React.FC = () => {
                               <TableCell>{job.hidden ? t("common.yes") : t("common.no")}</TableCell>
                               <TableCell>
                                 <div className="flex flex-wrap justify-center gap-2">
-                                  <ActionIconButton icon={Eye} label={t("common.details")} variantStyle="view" onClick={() => setSelectedJob(job)} />
+                                  <ActionIconButton icon={Eye} label={t("common.details")} variantStyle="view" onClick={() => openJobDetail(job)} />
                                   <ActionIconButton icon={CheckCircle2} label={t("admin.jobs.approve")} variantStyle="approve" disabled={actionId === job.id} onClick={() => handleReviewJob(job, true)} />
                                   <ActionIconButton icon={XCircle} label={t("admin.jobs.reject")} variantStyle="reject" disabled={actionId === job.id} onClick={() => handleReviewJob(job, false)} />
                                 </div>
@@ -1096,7 +1142,8 @@ const AdminDashboard: React.FC = () => {
                               <TableCell>{job.hidden ? t("common.yes") : t("common.no")}</TableCell>
                               <TableCell>
                                 <div className="flex flex-wrap justify-center gap-2">
-                                  <ActionIconButton icon={Eye} label={t("common.details")} variantStyle="view" onClick={() => setSelectedJob(job)} />
+                                  <ActionIconButton icon={Eye} label={t("common.details")} variantStyle="view" onClick={() => openJobDetail(job)} />
+                                  <ActionIconButton icon={History} label="Lịch sử" variantStyle="view" onClick={() => openJobDetail(job)} />
                                   <ActionIconButton icon={Trash2} label={t("admin.jobs.moveToTrash")} variantStyle="delete" disabled={actionId === job.id} onClick={() => handleTrashJob(job)} />
                                 </div>
                               </TableCell>
@@ -1411,8 +1458,8 @@ const AdminDashboard: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(selectedJob)} onOpenChange={(open) => !open && setSelectedJob(null)}>
-        <DialogContent className="max-w-3xl">
+      <Dialog open={Boolean(selectedJob)} onOpenChange={(open) => !open && closeJobDetail()}>
+        <DialogContent className="max-w-5xl">
           <DialogHeader>
             <DialogTitle>{t("admin.jobDialog.title")}</DialogTitle>
             <DialogDescription>{t("admin.jobDialog.description")}</DialogDescription>
@@ -1432,10 +1479,68 @@ const AdminDashboard: React.FC = () => {
                 <strong>{t("common.description")}:</strong>
                 <p className="mt-2 whitespace-pre-wrap rounded-md bg-muted p-3">{selectedJob.description || "-"}</p>
               </div>
+              <div className="border-t pt-4">
+                <div className="mb-3 flex items-center gap-2 font-semibold text-slate-950">
+                  <History className="h-4 w-4 text-primary" />
+                  Lịch sử chỉnh sửa
+                </div>
+                {loadingJobChangeLogs ? (
+                  <div className="flex items-center justify-center rounded-md border border-dashed py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  </div>
+                ) : selectedJobChangeLogs.length === 0 ? (
+                  <p className="rounded-md border border-dashed py-6 text-center text-sm text-muted-foreground">
+                    Chưa có thay đổi nào được ghi nhận.
+                  </p>
+                ) : (
+                  <div className="max-h-[45vh] space-y-4 overflow-y-auto pr-2">
+                    {selectedJobChangeLogs.map((log) => (
+                      <div key={log.id} className="rounded-lg border bg-white p-4">
+                        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <div className="font-medium text-slate-950">{log.actorEmail}</div>
+                            <div className="text-xs text-muted-foreground">{formatAdminDate(log.createdAt)}</div>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {log.changedFields.map((field) => (
+                              <Badge key={field} variant="outline" className="border-orange-300 bg-orange-50 text-orange-700">
+                                {JOB_FIELD_LABELS[field] || field}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {JOB_SNAPSHOT_FIELDS.filter((field) => log.changedFields.includes(field)).map((field) => (
+                            <div key={field} className={`rounded-md border border-orange-200 bg-orange-50 p-3 ${field === "description" ? "md:col-span-2" : ""}`}>
+                              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-orange-700">
+                                {JOB_FIELD_LABELS[field] || field}
+                              </div>
+                              <div className="grid gap-2 md:grid-cols-2">
+                                <div>
+                                  <div className="mb-1 text-xs font-medium text-muted-foreground">Trước</div>
+                                  <div className="whitespace-pre-wrap break-words rounded bg-white p-2 text-slate-700">
+                                    {String(log.previousData[field] || "-")}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="mb-1 text-xs font-medium text-muted-foreground">Sau</div>
+                                  <div className="whitespace-pre-wrap break-words rounded bg-white p-2 text-slate-950">
+                                    {String(log.newData[field] || "-")}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedJob(null)}>{t("common.close")}</Button>
+            <Button variant="outline" onClick={closeJobDetail}>{t("common.close")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

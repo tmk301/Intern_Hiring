@@ -619,7 +619,7 @@ const RecruiterDashboard: React.FC = () => {
     try {
       if (editingJob) {
         await recruiterApi.updateJob(token, editingJob.id, buildJobPayload());
-        toast.success("Đã cập nhật bài viết");
+        toast.success("Đã cập nhật bài viết. JD đang chờ Admin/Moderator duyệt lại.");
         setEditingJob(null);
       } else {
         await recruiterApi.createJob(token, buildJobPayload());

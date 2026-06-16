@@ -18,6 +18,18 @@ const loginHeroQuery = `*[_type == "loginHero"][0]{
   securityText,
   backgroundColor,
   textColor,
+  formTitle,
+  formDescription,
+  formTitleTextColor,
+  formDescriptionTextColor,
+  footerTextColor,
+  linkTextColor,
+  pageBackgroundColor,
+  formBackgroundColor,
+  inputBackgroundColor,
+  inputTextColor,
+  inputBorderColor,
+  labelTextColor,
   "imageUrl": image.asset->url
 }`;
 
@@ -29,6 +41,18 @@ const registerHeroQuery = `*[_type == "registerHero"][0]{
   noteText,
   backgroundColor,
   textColor,
+  formTitle,
+  formDescription,
+  lastNameLabel,
+  lastNamePlaceholder,
+  firstNameLabel,
+  firstNamePlaceholder,
+  emailLabel,
+  emailPlaceholder,
+  phoneLabel,
+  phonePlaceholder,
+  passwordLabel,
+  passwordPlaceholder,
   "imageUrl": image.asset->url
 }`;
 

@@ -24,6 +24,18 @@ export type LoginHeroConfig = {
   backgroundColor: string;
   textColor: string;
   imageUrl: string;
+  formTitle: string;
+  formDescription: string;
+  formTitleTextColor: string;
+  formDescriptionTextColor: string;
+  footerTextColor: string;
+  linkTextColor: string;
+  pageBackgroundColor: string;
+  formBackgroundColor: string;
+  inputBackgroundColor: string;
+  inputTextColor: string;
+  inputBorderColor: string;
+  labelTextColor: string;
 };
 
 export type RegisterHeroConfig = {
@@ -35,6 +47,18 @@ export type RegisterHeroConfig = {
   backgroundColor: string;
   textColor: string;
   imageUrl: string;
+  formTitle: string;
+  formDescription: string;
+  lastNameLabel: string;
+  lastNamePlaceholder: string;
+  firstNameLabel: string;
+  firstNamePlaceholder: string;
+  emailLabel: string;
+  emailPlaceholder: string;
+  phoneLabel: string;
+  phonePlaceholder: string;
+  passwordLabel: string;
+  passwordPlaceholder: string;
 };
 
 export type EmailTemplateConfig = {
@@ -129,6 +153,18 @@ export const defaultLoginHeroConfig: LoginHeroConfig = {
   backgroundColor: "#2563eb",
   textColor: "#ffffff",
   imageUrl: "",
+  formTitle: "\u0110\u0103ng nh\u1eadp",
+  formDescription: "Nh\u1eadp email v\u00e0 m\u1eadt kh\u1ea9u \u0111\u1ec3 truy c\u1eadp t\u00e0i kho\u1ea3n c\u1ee7a b\u1ea1n.",
+  formTitleTextColor: "#0f172a",
+  formDescriptionTextColor: "#64748b",
+  footerTextColor: "#64748b",
+  linkTextColor: "#2563eb",
+  pageBackgroundColor: "#f8fafc",
+  formBackgroundColor: "#ffffff",
+  inputBackgroundColor: "#ffffff",
+  inputTextColor: "#0f172a",
+  inputBorderColor: "#e2e8f0",
+  labelTextColor: "#0f172a",
 };
 
 export const defaultRegisterHeroConfig: RegisterHeroConfig = {
@@ -140,6 +176,18 @@ export const defaultRegisterHeroConfig: RegisterHeroConfig = {
   backgroundColor: "#f1f5f9",
   textColor: "#0f172a",
   imageUrl: "",
+  formTitle: "Đăng ký tài khoản",
+  formDescription: "Hoàn tất thông tin bên dưới để tạo tài khoản ứng viên.",
+  lastNameLabel: "Họ",
+  lastNamePlaceholder: "Nguyen",
+  firstNameLabel: "Tên",
+  firstNamePlaceholder: "An",
+  emailLabel: "Email",
+  emailPlaceholder: "ten@example.com",
+  phoneLabel: "Số điện thoại",
+  phonePlaceholder: "0901234567",
+  passwordLabel: "Mật khẩu",
+  passwordPlaceholder: "Tối thiểu 6 ký tự",
 };
 
 export const defaultEmailTemplateConfig: EmailTemplateConfig = {

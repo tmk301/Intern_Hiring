@@ -2,13 +2,13 @@ import React, { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Eye, Loader2, RefreshCw, ShieldCheck, XCircle } from "lucide-react";
+import { CheckCircle2, Eye, History, Loader2, RefreshCw, ShieldCheck, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext.tsx";
 import { isAdminRole, isModeratorRole } from "@/lib/roles.ts";
 import { getReviewStatusBadgeClassName, getRoleBadgeClassName, normalizeReviewStatus, normalizeRoleName } from "@/lib/dashboardStyles.ts";
 import { DEFAULT_PAGE_SIZE, getSafePage, paginateItems } from "@/lib/pagination.ts";
-import { moderatorApi, type ModeratorJobPost } from "@/lib/api.ts";
+import { moderatorApi, type ModeratorJobPost, type RecruiterJobChangeLog, type RecruiterJobSnapshot } from "@/lib/api.ts";
 import { PaginationControls } from "@/components/ui/pagination-controls.tsx";
 import { ActionIconButton } from "@/components/ui/action-icon-button.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -34,11 +34,35 @@ const formatDate = (value?: string | null, locale = "en-US") => {
   return date.toLocaleString(locale);
 };
 
+type JobSnapshotField = keyof RecruiterJobSnapshot;
+
+const JOB_SNAPSHOT_FIELDS: JobSnapshotField[] = [
+  "title",
+  "location",
+  "type",
+  "salary",
+  "experience",
+  "applicationDeadline",
+  "description",
+];
+
+const JOB_FIELD_LABELS: Record<JobSnapshotField, string> = {
+  title: "Tiêu đề",
+  location: "Địa điểm",
+  type: "Loại công việc",
+  salary: "Lương",
+  experience: "Kinh nghiệm",
+  applicationDeadline: "Hạn ứng tuyển",
+  description: "Mô tả",
+};
+
 const ModeratorDashboard: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { user, token, isAuthenticated, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const [selectedJob, setSelectedJob] = useState<ModeratorJobPost | null>(null);
+  const [selectedJobChangeLogs, setSelectedJobChangeLogs] = useState<RecruiterJobChangeLog[]>([]);
+  const [loadingChangeLogs, setLoadingChangeLogs] = useState(false);
   const [actionId, setActionId] = useState<string | number | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const currentPage = getSafePage(searchParams.get("moderatorPage"));
@@ -101,6 +125,27 @@ const ModeratorDashboard: React.FC = () => {
     if (!token || !window.confirm(t("admin.jobs.rejectConfirm"))) return;
     setActionId(job.id);
     rejectMutation.mutate(job.id);
+  };
+
+  const openJobDetail = async (job: ModeratorJobPost) => {
+    if (!token) return;
+
+    setSelectedJob(job);
+    setSelectedJobChangeLogs([]);
+    setLoadingChangeLogs(true);
+    try {
+      setSelectedJobChangeLogs(await moderatorApi.listJobChangeLogs(token, job.id));
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Không thể tải lịch sử thay đổi bài viết"));
+    } finally {
+      setLoadingChangeLogs(false);
+    }
+  };
+
+  const closeJobDetail = () => {
+    setSelectedJob(null);
+    setSelectedJobChangeLogs([]);
+    setLoadingChangeLogs(false);
   };
 
   if (authLoading) {
@@ -196,7 +241,7 @@ const ModeratorDashboard: React.FC = () => {
                         <TableCell>{job.hidden ? t("common.yes") : t("common.no")}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap justify-center gap-2">
-                            <ActionIconButton icon={Eye} label={t("common.details")} variantStyle="view" onClick={() => setSelectedJob(job)} />
+                            <ActionIconButton icon={Eye} label={t("common.details")} variantStyle="view" onClick={() => openJobDetail(job)} />
                             <ActionIconButton icon={CheckCircle2} label={t("admin.jobs.approve")} variantStyle="approve" disabled={actionId === job.id} onClick={() => handleApprove(job)} />
                             <ActionIconButton icon={XCircle} label={t("admin.jobs.reject")} variantStyle="reject" disabled={actionId === job.id} onClick={() => handleReject(job)} />
                           </div>
@@ -214,8 +259,8 @@ const ModeratorDashboard: React.FC = () => {
         </Card>
       </section>
 
-      <Dialog open={Boolean(selectedJob)} onOpenChange={(open) => !open && setSelectedJob(null)}>
-        <DialogContent className="max-w-3xl">
+      <Dialog open={Boolean(selectedJob)} onOpenChange={(open) => !open && closeJobDetail()}>
+        <DialogContent className="max-w-5xl">
           <DialogHeader>
             <DialogTitle>{t("admin.jobDialog.title")}</DialogTitle>
             <DialogDescription>{t("admin.jobDialog.description")}</DialogDescription>
@@ -236,11 +281,69 @@ const ModeratorDashboard: React.FC = () => {
                 <strong>{t("common.description")}:</strong>
                 <p className="mt-2 whitespace-pre-wrap rounded-md bg-muted p-3">{selectedJob.description || "-"}</p>
               </div>
+              <div className="border-t pt-4">
+                <div className="mb-3 flex items-center gap-2 font-semibold text-slate-950">
+                  <History className="h-4 w-4 text-primary" />
+                  Lịch sử chỉnh sửa
+                </div>
+                {loadingChangeLogs ? (
+                  <div className="flex items-center justify-center rounded-md border border-dashed py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  </div>
+                ) : selectedJobChangeLogs.length === 0 ? (
+                  <p className="rounded-md border border-dashed py-6 text-center text-sm text-muted-foreground">
+                    Chưa có thay đổi nào được ghi nhận.
+                  </p>
+                ) : (
+                  <div className="max-h-[45vh] space-y-4 overflow-y-auto pr-2">
+                    {selectedJobChangeLogs.map((log) => (
+                      <div key={log.id} className="rounded-lg border bg-white p-4">
+                        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <div className="font-medium text-slate-950">{log.actorEmail}</div>
+                            <div className="text-xs text-muted-foreground">{formatModeratorDate(log.createdAt)}</div>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {log.changedFields.map((field) => (
+                              <Badge key={field} variant="outline" className="border-orange-300 bg-orange-50 text-orange-700">
+                                {JOB_FIELD_LABELS[field] || field}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {JOB_SNAPSHOT_FIELDS.filter((field) => log.changedFields.includes(field)).map((field) => (
+                            <div key={field} className={`rounded-md border border-orange-200 bg-orange-50 p-3 ${field === "description" ? "md:col-span-2" : ""}`}>
+                              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-orange-700">
+                                {JOB_FIELD_LABELS[field] || field}
+                              </div>
+                              <div className="grid gap-2 md:grid-cols-2">
+                                <div>
+                                  <div className="mb-1 text-xs font-medium text-muted-foreground">Trước</div>
+                                  <div className="whitespace-pre-wrap break-words rounded bg-white p-2 text-slate-700">
+                                    {String(log.previousData[field] || "-")}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="mb-1 text-xs font-medium text-muted-foreground">Sau</div>
+                                  <div className="whitespace-pre-wrap break-words rounded bg-white p-2 text-slate-950">
+                                    {String(log.newData[field] || "-")}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedJob(null)}>
+            <Button variant="outline" onClick={closeJobDetail}>
               {t("common.close")}
             </Button>
           </DialogFooter>
