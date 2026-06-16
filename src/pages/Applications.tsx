@@ -1,18 +1,34 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Link, Navigate, useSearchParams } from "react-router-dom";
-import { BriefcaseBusiness, CalendarDays, CheckCircle2, Clock3, ExternalLink, FileText, MapPin } from "lucide-react";
+import { Link, Navigate } from "react-router-dom";
+import {
+  BriefcaseBusiness,
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  ExternalLink,
+  FileText,
+  Loader2,
+  MapPin,
+  RefreshCw,
+  XCircle,
+} from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { candidateApi, type CandidateApplication } from "@/lib/api";
-import { getReviewStatusBadgeClassName, getReviewStatusTranslationKey } from "@/lib/dashboardStyles";
-import { isCandidateRole } from "@/lib/roles";
+import {
+  getReviewStatusBadgeClassName,
+  getReviewStatusTranslationKey,
+  getRoleBadgeClassName,
+} from "@/lib/dashboardStyles";
+import { isCandidateRole, USER_ROLES } from "@/lib/roles";
+import { JOB_TYPE_OPTIONS } from "@/components/jobs/jobFilterConfig";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { paginateItems } from "@/lib/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const formatDate = (value: string) =>
   new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(value));
@@ -29,45 +45,110 @@ const ApplicationCard = ({ application }: { application: CandidateApplication })
             <Badge variant="outline" className={getReviewStatusBadgeClassName(application.status)}>
               {t(`recruiter.applications.statuses.${getReviewStatusTranslationKey(application.status)}`)}
             </Badge>
-            {application.jobType && <Badge variant="secondary" className="rounded-full px-3 py-1">{application.jobType}</Badge>}
+            {application.jobType && <Badge variant="secondary" className="rounded-full px-3 py-1">{JOB_TYPE_OPTIONS.find(o => o.value === application.jobType)?.labelKey ? t(JOB_TYPE_OPTIONS.find(o => o.value === application.jobType)!.labelKey!) : application.jobType}</Badge>}
           </div>
           <div>
-            <h2 className="text-xl font-bold tracking-tight text-foreground">{application.jobTitle || "Vị trí ứng tuyển"}</h2>
-            <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground"><BriefcaseBusiness className="h-4 w-4 text-primary" />{application.company || "Công ty đang tuyển"}</p>
+            <h2 className="text-xl font-bold tracking-tight text-foreground">{application.jobTitle || t("candidateDashboard.jobPosition")}</h2>
+            <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground"><BriefcaseBusiness className="h-4 w-4 text-primary" />{application.company || t("candidateDashboard.recruitingCompany")}</p>
           </div>
           <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
             {application.location && <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1"><MapPin className="h-4 w-4 text-primary" />{application.location}</span>}
-            <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1"><CalendarDays className="h-4 w-4 text-primary" />Gửi ngày {formatDate(application.appliedAt)}</span>
+            <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1"><CalendarDays className="h-4 w-4 text-primary" />{t("candidateDashboard.appliedDate", { date: formatDate(application.appliedAt) })}</span>
           </div>
         </div>
         <div className="flex flex-wrap gap-2 lg:justify-end">
-          <Button asChild variant="outline" className="border-primary text-primary hover:bg-primary/10 hover:text-primary"><a href={application.appliedCvUrl} target="_blank" rel="noreferrer"><FileText className="mr-2 h-4 w-4" />CV đã gửi</a></Button>
-          <Button asChild variant="cta" className="bg-primary text-primary-foreground hover:bg-primary-dark"><Link to={`/jobs?jobId=${application.jobId}`}><ExternalLink className="mr-2 h-4 w-4" />Xem công việc</Link></Button>
+          <Button asChild variant="outline" className="border-primary text-primary hover:bg-primary/10 hover:text-primary"><a href={application.appliedCvUrl} target="_blank" rel="noreferrer"><FileText className="mr-2 h-4 w-4" />{t("candidateDashboard.sentCv")}</a></Button>
+          <Button asChild variant="cta" className="bg-primary text-primary-foreground hover:bg-primary-dark"><Link to={`/jobs?jobId=${application.jobId}`}><ExternalLink className="mr-2 h-4 w-4" />{t("candidateDashboard.viewJob")}</Link></Button>
         </div>
       </div>
     </article>
   );
 };
 
-const EmptyState = ({ accepted }: { accepted?: boolean }) => (
-  <div className="rounded-2xl border border-dashed bg-card p-10 text-center shadow-soft">
-    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">{accepted ? <CheckCircle2 className="h-7 w-7" /> : <Clock3 className="h-7 w-7" />}</div>
-    <h2 className="text-xl font-bold text-foreground">{accepted ? "Chưa có hồ sơ được duyệt" : "Bạn chưa gửi hồ sơ nào"}</h2>
-    <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">{accepted ? "Khi công ty chấp nhận CV, hồ sơ sẽ xuất hiện ở đây để bạn theo dõi bước tiếp theo." : "Khám phá các vị trí thực tập phù hợp và gửi CV đầu tiên của bạn."}</p>
-    {!accepted && <Button asChild variant="cta" className="mt-5 bg-primary text-primary-foreground hover:bg-primary-dark"><Link to="/jobs">Tìm việc ngay</Link></Button>}
+const EmptyState = ({ type }: { type: "submitted" | "accepted" | "rejected" }) => {
+  const { t } = useTranslation();
+
+  const getIcon = () => {
+    switch (type) {
+      case "accepted":
+        return <CheckCircle2 className="h-7 w-7" />;
+      case "rejected":
+        return <XCircle className="h-7 w-7 text-red-500" />;
+      case "submitted":
+      default:
+        return <Clock3 className="h-7 w-7" />;
+    }
+  };
+
+  const getTitle = () => {
+    switch (type) {
+      case "accepted":
+        return t("candidateDashboard.emptyAcceptedTitle");
+      case "rejected":
+        return t("candidateDashboard.emptyRejectedTitle");
+      case "submitted":
+      default:
+        return t("candidateDashboard.emptySubmittedTitle");
+    }
+  };
+
+  const getDesc = () => {
+    switch (type) {
+      case "accepted":
+        return t("candidateDashboard.emptyAcceptedDesc");
+      case "rejected":
+        return t("candidateDashboard.emptyRejectedDesc");
+      case "submitted":
+      default:
+        return t("candidateDashboard.emptySubmittedDesc");
+    }
+  };
+
+  return (
+    <div className="py-12 text-center">
+      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+        {getIcon()}
+      </div>
+      <h2 className="text-xl font-bold text-foreground">
+        {getTitle()}
+      </h2>
+      <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+        {getDesc()}
+      </p>
+      {type === "submitted" && (
+        <Button asChild variant="cta" className="mt-5 bg-primary text-primary-foreground hover:bg-primary-dark">
+          <Link to="/jobs">{t("candidateDashboard.findJobNow")}</Link>
+        </Button>
+      )}
+    </div>
+  );
+};
+
+const LoadingState = () => (
+  <div className="space-y-4">
+    {[1, 2, 3].map((item) => (
+      <div key={item} className="rounded-xl border bg-card p-5 shadow-soft">
+        <Skeleton className="mb-4 h-5 w-32" />
+        <Skeleton className="mb-2 h-7 w-2/3" />
+        <Skeleton className="h-4 w-1/2" />
+      </div>
+    ))}
   </div>
 );
 
-const LoadingState = () => (
-  <div className="space-y-4">{[1, 2, 3].map((item) => <div key={item} className="rounded-xl border bg-card p-5 shadow-soft"><Skeleton className="mb-4 h-5 w-32" /><Skeleton className="mb-2 h-7 w-2/3" /><Skeleton className="h-4 w-1/2" /></div>)}</div>
-);
-
 const Applications = () => {
+  const { t } = useTranslation();
   const { token, user, isAuthenticated } = useAuth();
+  const [activeTab, setActiveTab] = useState<"submitted" | "accepted" | "rejected">("submitted");
+  
   const [submittedPage, setSubmittedPage] = useState(1);
   const [submittedPageSize, setSubmittedPageSize] = useState(10);
+  
   const [acceptedPage, setAcceptedPage] = useState(1);
   const [acceptedPageSize, setAcceptedPageSize] = useState(10);
+
+  const [rejectedPage, setRejectedPage] = useState(1);
+  const [rejectedPageSize, setRejectedPageSize] = useState(10);
 
   const { data = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["candidate-applications", token],
@@ -75,86 +156,189 @@ const Applications = () => {
     enabled: Boolean(token),
   });
 
-  const { submittedApplications, acceptedApplications } = useMemo(() => {
+  const { submittedApplications, acceptedApplications, rejectedApplications } = useMemo(() => {
     const accepted = data.filter((application) => application.status === "ACCEPTED");
-    const submitted = data.filter((application) => application.status !== "ACCEPTED");
-    return { submittedApplications: submitted, acceptedApplications: accepted };
+    const rejected = data.filter((application) => application.status === "REJECTED");
+    const submitted = data.filter((application) => application.status !== "ACCEPTED" && application.status !== "REJECTED");
+    return { submittedApplications: submitted, acceptedApplications: accepted, rejectedApplications: rejected };
   }, [data]);
+
   const paginatedSubmittedApplications = useMemo(
     () => paginateItems(submittedApplications, submittedPage, submittedPageSize),
     [submittedApplications, submittedPage, submittedPageSize],
   );
+
   const paginatedAcceptedApplications = useMemo(
     () => paginateItems(acceptedApplications, acceptedPage, acceptedPageSize),
     [acceptedApplications, acceptedPage, acceptedPageSize],
   );
 
-    
+  const paginatedRejectedApplications = useMemo(
+    () => paginateItems(rejectedApplications, rejectedPage, rejectedPageSize),
+    [rejectedApplications, rejectedPage, rejectedPageSize],
+  );
+
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (!isCandidateRole(user?.role)) return <Navigate to="/" replace />;
 
+  const getListTitle = () => {
+    switch (activeTab) {
+      case "accepted":
+        return t("candidateDashboard.acceptedListTitle");
+      case "rejected":
+        return t("candidateDashboard.rejectedListTitle");
+      case "submitted":
+      default:
+        return t("candidateDashboard.submittedListTitle");
+    }
+  };
+
   return (
-    <main className="min-h-screen bg-gradient-subtle px-4 py-10">
-      <section className="container mx-auto max-w-6xl">
-        <div className="mb-8 overflow-hidden rounded-3xl border bg-card shadow-medium">
-          <div className="grid gap-6 p-6 md:p-8 lg:grid-cols-[1fr_auto] lg:items-end">
-            <div><p className="mb-3 inline-flex items-center rounded-full bg-accent px-3 py-1 text-xs font-bold uppercase tracking-[0.22em] text-accent-foreground shadow-accent">Career dossier</p><h1 className="text-4xl font-extrabold tracking-tight text-primary md:text-6xl">Ứng tuyển</h1><p className="mt-3 max-w-2xl text-base text-muted-foreground">Theo dõi toàn bộ hồ sơ đã gửi và những vị trí đã được công ty duyệt.</p></div>
-            <div className="grid grid-cols-2 gap-3 text-center"><div className="rounded-2xl bg-primary px-5 py-4 text-primary-foreground shadow-soft"><div className="text-3xl font-extrabold">{submittedApplications.length}</div><div className="text-xs font-semibold uppercase tracking-widest text-primary-foreground/80">Đã gửi</div></div><div className="rounded-2xl bg-accent px-5 py-4 text-accent-foreground shadow-accent"><div className="text-3xl font-extrabold">{acceptedApplications.length}</div><div className="text-xs font-bold uppercase tracking-widest">Được duyệt</div></div></div>
+    <main className="min-h-screen bg-slate-50">
+      <section className="border-b bg-white">
+        <div className="container mx-auto px-4 py-8 max-w-6xl">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <Badge variant="outline" className={`mb-3 px-5 py-2 text-sm ${getRoleBadgeClassName(USER_ROLES.CANDIDATE)}`}>
+                {t("role.CANDIDATE")}
+              </Badge>
+              <h1 className="text-3xl font-bold text-slate-950">{t("candidateDashboard.title")}</h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {t("candidateDashboard.description")}
+              </p>
+            </div>
+            <Button variant="outline" onClick={() => refetch()} disabled={isLoading}>
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              {t("common.refresh")}
+            </Button>
           </div>
         </div>
-        {isError ? <div className="rounded-2xl border border-destructive/20 bg-destructive/10 p-6 text-destructive"><p className="font-semibold">Không tải được danh sách ứng tuyển.</p><Button variant="outline" className="mt-4 border-destructive text-destructive hover:bg-destructive/10" onClick={() => refetch()}>Thử lại</Button></div> : (
-          <Tabs defaultValue="submitted" className="space-y-6">
-            <TabsList className="h-auto rounded-full bg-secondary p-1 shadow-soft">
-              <TabsTrigger value="submitted" className="rounded-full px-5 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                Đã gửi ({submittedApplications.length})
-              </TabsTrigger>
-              <TabsTrigger value="accepted" className="rounded-full px-5 py-3 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
-                Đã được duyệt ({acceptedApplications.length})
-              </TabsTrigger>
-            </TabsList>
+      </section>
 
-            <TabsContent value="submitted" className="space-y-4">
-              {isLoading ? (
-                <LoadingState />
-              ) : submittedApplications.length ? (
-                <>
-                  {paginatedSubmittedApplications.map((application) => (
-                    <ApplicationCard key={application.id} application={application} />
-                  ))}
-                  <PaginationControls
-                    page={submittedPage}
-                    pageSize={submittedPageSize}
-                    totalItems={submittedApplications.length}
-                    onPageChange={setSubmittedPage}
-                    onPageSizeChange={setSubmittedPageSize}
-                  />
-                </>
-              ) : (
-                <EmptyState />
-              )}
-            </TabsContent>
+      <section className="container mx-auto space-y-6 px-4 py-8 max-w-6xl">
+        <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+          <Card
+            className={`cursor-pointer transition hover:shadow-md ${activeTab === "submitted" ? "border-primary" : ""}`}
+            onClick={() => setActiveTab("submitted")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{t("candidateDashboard.submitted")}</CardTitle>
+              <Clock3 className="h-5 w-5 text-amber-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{submittedApplications.length}</div>
+              <p className="text-xs text-muted-foreground">{t("candidateDashboard.submittedDesc")}</p>
+            </CardContent>
+          </Card>
 
-            <TabsContent value="accepted" className="space-y-4">
-              {isLoading ? (
-                <LoadingState />
-              ) : acceptedApplications.length ? (
-                <>
-                  {paginatedAcceptedApplications.map((application) => (
-                    <ApplicationCard key={application.id} application={application} />
-                  ))}
-                  <PaginationControls
-                    page={acceptedPage}
-                    pageSize={acceptedPageSize}
-                    totalItems={acceptedApplications.length}
-                    onPageChange={setAcceptedPage}
-                    onPageSizeChange={setAcceptedPageSize}
-                  />
-                </>
-              ) : (
-                <EmptyState accepted />
+          <Card
+            className={`cursor-pointer transition hover:shadow-md ${activeTab === "accepted" ? "border-primary" : ""}`}
+            onClick={() => setActiveTab("accepted")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{t("candidateDashboard.accepted")}</CardTitle>
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{acceptedApplications.length}</div>
+              <p className="text-xs text-muted-foreground">{t("candidateDashboard.acceptedDesc")}</p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={`cursor-pointer transition hover:shadow-md ${activeTab === "rejected" ? "border-primary" : ""}`}
+            onClick={() => setActiveTab("rejected")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{t("candidateDashboard.rejected")}</CardTitle>
+              <XCircle className="h-5 w-5 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{rejectedApplications.length}</div>
+              <p className="text-xs text-muted-foreground">{t("candidateDashboard.rejectedDesc")}</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {isLoading ? (
+          <Card>
+            <CardContent className="py-6">
+              <LoadingState />
+            </CardContent>
+          </Card>
+        ) : isError ? (
+          <div className="rounded-2xl border border-destructive/20 bg-destructive/10 p-6 text-destructive">
+            <p className="font-semibold">{t("candidateDashboard.loadError")}</p>
+            <Button variant="outline" className="mt-4 border-destructive text-destructive hover:bg-destructive/10" onClick={() => refetch()}>
+              {t("candidateDashboard.tryAgain")}
+            </Button>
+          </div>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                {getListTitle()}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {activeTab === "submitted" && (
+                submittedApplications.length ? (
+                  <>
+                    {paginatedSubmittedApplications.map((application) => (
+                      <ApplicationCard key={application.id} application={application} />
+                    ))}
+                    <PaginationControls
+                      page={submittedPage}
+                      pageSize={submittedPageSize}
+                      totalItems={submittedApplications.length}
+                      onPageChange={setSubmittedPage}
+                      onPageSizeChange={setSubmittedPageSize}
+                    />
+                  </>
+                ) : (
+                  <EmptyState type="submitted" />
+                )
               )}
-            </TabsContent>
-          </Tabs>
+
+              {activeTab === "accepted" && (
+                acceptedApplications.length ? (
+                  <>
+                    {paginatedAcceptedApplications.map((application) => (
+                      <ApplicationCard key={application.id} application={application} />
+                    ))}
+                    <PaginationControls
+                      page={acceptedPage}
+                      pageSize={acceptedPageSize}
+                      totalItems={acceptedApplications.length}
+                      onPageChange={setAcceptedPage}
+                      onPageSizeChange={setAcceptedPageSize}
+                    />
+                  </>
+                ) : (
+                  <EmptyState type="accepted" />
+                )
+              )}
+
+              {activeTab === "rejected" && (
+                rejectedApplications.length ? (
+                  <>
+                    {paginatedRejectedApplications.map((application) => (
+                      <ApplicationCard key={application.id} application={application} />
+                    ))}
+                    <PaginationControls
+                      page={rejectedPage}
+                      pageSize={rejectedPageSize}
+                      totalItems={rejectedApplications.length}
+                      onPageChange={setRejectedPage}
+                      onPageSizeChange={setRejectedPageSize}
+                    />
+                  </>
+                ) : (
+                  <EmptyState type="rejected" />
+                )
+              )}
+            </CardContent>
+          </Card>
         )}
       </section>
     </main>

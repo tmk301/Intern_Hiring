@@ -24,6 +24,10 @@ import {
   emptyJobFilterValue,
   defaultJobFilterOptions,
   USD_TO_VND_RATE,
+  WORK_MODE_OPTIONS,
+  JOB_TYPE_OPTIONS,
+  CURRENCY_OPTIONS,
+  getSalaryRangeOption,
   type JobFilterOption,
   type JobFilterOptions,
   type JobFilterValue,
@@ -483,9 +487,14 @@ const Jobs: React.FC = () => {
                 </CardHeader>
                 <CardContent className="space-y-4 flex-1">
                   <div className="flex flex-wrap gap-2">
-                    {job.type && <Badge variant="outline">{job.type}</Badge>}
-                    {job.salary && <Badge variant="outline">{job.salary}</Badge>}
-                    {job.experience && <Badge variant="outline">{job.experience}</Badge>}
+                    {job.type && <Badge variant="outline">{JOB_TYPE_OPTIONS.find(o => o.value === job.type)?.labelKey ? t(JOB_TYPE_OPTIONS.find(o => o.value === job.type)!.labelKey!) : job.type}</Badge>}
+                    {job.salary && (
+                      <Badge variant="outline">
+                        {getSalaryRangeOption(job.salary)?.labelKey ? t(getSalaryRangeOption(job.salary)!.labelKey!) : job.salary} {job.currency ? (CURRENCY_OPTIONS.find(o => o.value === job.currency)?.labelKey ? t(CURRENCY_OPTIONS.find(o => o.value === job.currency)!.labelKey!) : job.currency) : ""}
+                      </Badge>
+                    )}
+                    {job.mode && <Badge variant="outline">{WORK_MODE_OPTIONS.find(o => o.value === job.mode)?.labelKey ? t(WORK_MODE_OPTIONS.find(o => o.value === job.mode)!.labelKey!) : job.mode}</Badge>}
+                    {job.experience && <Badge variant="outline">{defaultJobFilterOptions.experience.find(o => o.value === job.experience)?.labelKey ? t(defaultJobFilterOptions.experience.find(o => o.value === job.experience)!.labelKey!) : job.experience}</Badge>}
                   </div>
                   {job.description && (
                     <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">

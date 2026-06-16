@@ -129,7 +129,7 @@ const Navbar = () => {
                     )}
                     {showApplicationsLink && (
                       <DropdownMenuItem asChild>
-                        <Link to="/applications">Ứng tuyển</Link>
+                        <Link to="/applications">{t("nav.applications")}</Link>
                       </DropdownMenuItem>
                     )}
                     {showProfileLink && (
@@ -218,7 +218,7 @@ const Navbar = () => {
                         {showApplicationsLink && (
                           <Link to="/applications" className="mb-2 flex items-center gap-2 rounded-md p-2 hover:bg-muted transition">
                             <UserIcon className="h-4 w-4" />
-                            <span className="text-sm font-medium">Ứng tuyển</span>
+                            <span className="text-sm font-medium">{t("nav.applications")}</span>
                           </Link>
                         )}
                         {showProfileLink && (

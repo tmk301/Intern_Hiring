@@ -70,6 +70,13 @@ import {
   type EmailTemplateConfig,
   type ManagedSiteConfig,
 } from "@/lib/siteConfig";
+import {
+  WORK_MODE_OPTIONS,
+  JOB_TYPE_OPTIONS,
+  CURRENCY_OPTIONS,
+  getSalaryRangeOption,
+  defaultJobFilterOptions
+} from "@/components/jobs/jobFilterConfig";
 import { supabase } from "@/lib/supabase";
 
 type AdminSection = "users" | "jobs" | "employer-requests" | "categories" | "audit-logs" | "email-format";
@@ -1732,9 +1739,10 @@ const AdminDashboard: React.FC = () => {
                 <div><strong>{t("common.company")}:</strong> {selectedJob.company || "-"}</div>
                 <div><strong>{t("common.recruiter")}:</strong> {selectedJob.employerEmail || selectedJob.employerName || "-"}</div>
                 <div><strong>{t("admin.jobDialog.location")}:</strong> {selectedJob.location || "-"}</div>
-                <div><strong>{t("common.type")}:</strong> {selectedJob.type || "-"}</div>
-                <div><strong>{t("common.salary")}:</strong> {selectedJob.salary || "-"}</div>
-                <div><strong>{t("recruiter.form.experience")}:</strong> {selectedJob.experience || "-"}</div>
+                <div><strong>{t("common.type")}:</strong> {selectedJob.type ? (JOB_TYPE_OPTIONS.find(o => o.value === selectedJob.type)?.labelKey ? t(JOB_TYPE_OPTIONS.find(o => o.value === selectedJob.type)!.labelKey!) : selectedJob.type) : "-"}</div>
+                <div><strong>{t("common.salary")}:</strong> {selectedJob.salary ? `${getSalaryRangeOption(selectedJob.salary)?.labelKey ? t(getSalaryRangeOption(selectedJob.salary)!.labelKey!) : selectedJob.salary} ${selectedJob.currency ? (CURRENCY_OPTIONS.find(o => o.value === selectedJob.currency)?.labelKey ? t(CURRENCY_OPTIONS.find(o => o.value === selectedJob.currency)!.labelKey!) : selectedJob.currency) : ""}` : "-"}</div>
+                <div><strong>{t("recruiter.form.workMode")}:</strong> {selectedJob.mode ? (WORK_MODE_OPTIONS.find(o => o.value === selectedJob.mode)?.labelKey ? t(WORK_MODE_OPTIONS.find(o => o.value === selectedJob.mode)!.labelKey!) : selectedJob.mode) : "-"}</div>
+                <div><strong>{t("recruiter.form.experience")}:</strong> {selectedJob.experience ? (defaultJobFilterOptions.experience.find(o => o.value === selectedJob.experience)?.labelKey ? t(defaultJobFilterOptions.experience.find(o => o.value === selectedJob.experience)!.labelKey!) : selectedJob.experience) : "-"}</div>
               </div>
               <div>
                 <strong>{t("common.description")}:</strong>

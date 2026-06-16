@@ -73,6 +73,7 @@
     "partners": "Partners",
     "recruitment": "Recruitment",
     "recruiterDashboard": "Recruiter dashboard",
+    "applications": "Applications",
     "auditLog": "Audit log"
   },
   "notifications": {
@@ -504,6 +505,33 @@
       "title": "Pending job posts",
       "empty": "There are no job posts waiting for review."
     }
+  },
+  "candidateDashboard": {
+    "title": "Applications",
+    "description": "Track all submitted profiles and positions approved by companies.",
+    "submitted": "Submitted",
+    "accepted": "Approved",
+    "rejected": "Rejected",
+    "submittedDesc": "Profiles pending decision",
+    "acceptedDesc": "Approved application profiles",
+    "rejectedDesc": "Rejected application profiles",
+    "jobPosition": "Job Position",
+    "recruitingCompany": "Recruiting Company",
+    "appliedDate": "Applied on {{date}}",
+    "sentCv": "Sent CV",
+    "viewJob": "View Job",
+    "submittedListTitle": "Submitted Applications",
+    "acceptedListTitle": "Approved applications list",
+    "rejectedListTitle": "Rejected applications list",
+    "loadError": "Could not load applications list.",
+    "tryAgain": "Try again",
+    "emptySubmittedTitle": "You have not submitted any applications",
+    "emptySubmittedDesc": "Explore suitable internship opportunities and submit your first CV.",
+    "emptyAcceptedTitle": "No approved applications yet",
+    "emptyAcceptedDesc": "When a company accepts your CV, the application will show up here for you to track the next steps.",
+    "emptyRejectedTitle": "No rejected applications yet",
+    "emptyRejectedDesc": "When a company rejects your CV, the application will show up here.",
+    "findJobNow": "Find jobs now"
   },
   "admin": {
     "loadError": "Could not load admin data.",

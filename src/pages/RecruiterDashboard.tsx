@@ -503,21 +503,6 @@ const RecruiterDashboard: React.FC = () => {
     });
   };
 
-  const getFormattedSalary = () => {
-    const selectedRange = getSalaryRangeOption(formValue.salaryRange);
-    const currency = getCurrencyCode(formValue.currency);
-
-    if (!selectedRange) return "";
-    return `${getSalaryRangeLabel(selectedRange)} ${currency}`.trim();
-  };
-
-  const getFormattedDescription = () =>
-    [
-      `${t("recruiter.form.workMode")}: ${formValue.workMode.trim()}`,
-      "",
-      formValue.description.trim(),
-    ].join("\n");
-
   const validateForm = () => {
     const requiredFields: Array<keyof JobFormValue> = [
       "title",
@@ -542,11 +527,13 @@ const RecruiterDashboard: React.FC = () => {
     company: formValue.company.trim(),
     employerName: formValue.employerName.trim(),
     location: formValue.location.trim(),
-    type: formValue.jobType.trim(),
-    salary: formValue.salaryRange && formValue.currency ? getFormattedSalary() : editingJob?.salary || "",
-    experience: getExperienceLabel(formValue.experience),
+    type: formValue.jobType,
+    salary: formValue.salaryRange,
+    currency: formValue.currency,
+    mode: formValue.workMode,
+    experience: formValue.experience,
     applicationDeadline: formValue.applicationDeadline,
-    description: getFormattedDescription(),
+    description: formValue.description.trim(),
   });
 
   const startEditJob = (job: RecruiterJob) => {
@@ -559,10 +546,10 @@ const RecruiterDashboard: React.FC = () => {
       employerName: job.employer_name || recruiterName,
       employerEmail: job.employer_email || recruiterEmail,
       location: job.location || "",
-      salaryRange: "",
-      currency: "",
+      salaryRange: job.salary || "",
+      currency: job.currency || "",
       applicationDeadline: job.applicationDeadline || "",
-      workMode: "",
+      workMode: job.mode || "",
       jobType: job.type || "",
       experience: job.experience || "",
       description: job.description || "",
@@ -598,6 +585,8 @@ const RecruiterDashboard: React.FC = () => {
       location: historyJob.location || "",
       type: historyJob.type || "",
       salary: historyJob.salary || "",
+      currency: historyJob.currency || "",
+      mode: historyJob.mode || "",
       experience: historyJob.experience || "",
       applicationDeadline: historyJob.applicationDeadline || "",
       description: historyJob.description || "",

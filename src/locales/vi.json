@@ -73,6 +73,7 @@
     "partners": "Đối tác",
     "recruitment": "Tuyển dụng",
     "recruiterDashboard": "Tuyển dụng",
+    "applications": "Ứng tuyển",
     "auditLog": "Nhật ký audit"
   },
   "notifications": {
@@ -511,6 +512,33 @@
       "title": "Tin tuyển dụng chờ duyệt",
       "empty": "Hiện không có tin tuyển dụng nào đang chờ duyệt."
     }
+  },
+  "candidateDashboard": {
+    "title": "Ứng tuyển",
+    "description": "Theo dõi toàn bộ hồ sơ đã gửi và những vị trí đã được công ty duyệt.",
+    "submitted": "Đã gửi",
+    "accepted": "Được duyệt",
+    "rejected": "Bị từ chối",
+    "submittedDesc": "Hồ sơ chờ kết quả",
+    "acceptedDesc": "Hồ sơ đã được duyệt",
+    "rejectedDesc": "Hồ sơ bị từ chối",
+    "jobPosition": "Vị trí ứng tuyển",
+    "recruitingCompany": "Công ty đang tuyển",
+    "appliedDate": "Gửi ngày {{date}}",
+    "sentCv": "CV đã gửi",
+    "viewJob": "Xem công việc",
+    "submittedListTitle": "Hồ sơ đã gửi",
+    "acceptedListTitle": "Danh sách hồ sơ được duyệt",
+    "rejectedListTitle": "Danh sách hồ sơ bị từ chối",
+    "loadError": "Không tải được danh sách ứng tuyển.",
+    "tryAgain": "Thử lại",
+    "emptySubmittedTitle": "Bạn chưa gửi hồ sơ nào",
+    "emptySubmittedDesc": "Khám phá các vị trí thực tập phù hợp và gửi CV đầu tiên của bạn.",
+    "emptyAcceptedTitle": "Chưa có hồ sơ được duyệt",
+    "emptyAcceptedDesc": "Khi công ty chấp nhận CV, hồ sơ sẽ xuất hiện ở đây để bạn theo dõi bước tiếp theo.",
+    "emptyRejectedTitle": "Chưa có hồ sơ bị từ chối",
+    "emptyRejectedDesc": "Khi công ty từ chối CV, hồ sơ sẽ xuất hiện ở đây để bạn theo dõi.",
+    "findJobNow": "Tìm việc ngay"
   },
   "admin": {
     "loadError": "Không thể tải dữ liệu quản trị.",
