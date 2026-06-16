@@ -27,7 +27,11 @@
     "optional": "Không bắt buộc",
     "yes": "Có",
     "no": "Không",
-    "back": "Quay lại"
+    "back": "Quay lại",
+    "previous": "Trước",
+    "next": "Sau",
+    "itemsPerPage": "Số lượng mỗi trang",
+    "save": "Lưu"
   },
   "toast": {
     "error": "Lỗi",
@@ -72,13 +76,14 @@
     "auditLog": "Nhật ký audit"
   },
   "notifications": {
-    "buttonLabel": "Thong bao",
-    "title": "Thong bao",
-    "empty": "Khong co thong bao moi.",
-    "missingCvTitle": "Tai CV cua ban len",
-    "missingCvDescription": "Them CV vao ho so de ung tuyen nhanh hon.",
-    "incompleteProfileTitle": "Hoan thien ho so",
-    "incompleteProfileDescription": "Bo sung so dien thoai, gioi tinh va ngay sinh."
+    "buttonLabel": "Thông báo",
+    "title": "Thông báo",
+    "empty": "Không có thông báo mới.",
+    "markAllRead": "Đánh dấu tất cả đã đọc",
+    "missingCvTitle": "Tải CV của bạn lên",
+    "missingCvDescription": "Thêm CV vào hồ sơ để ứng tuyển nhanh hơn.",
+    "incompleteProfileTitle": "Hoàn thiện hồ sơ",
+    "incompleteProfileDescription": "Bổ sung số điện thoại, giới tính và ngày sinh."
   },
   "auth": {
     "restrictedMessage": "Tài khoản của bạn đang bị hạn chế. Vui lòng liên hệ quản trị viên.",
@@ -352,9 +357,9 @@
       "wardPlaceholder": "Chọn Phường/Xã/Đặc khu",
       "wardPlaceholderDisabled": "Chọn Tỉnh trước",
       "submit": "Đăng việc",
-      "branchPlaceholder": "Ch?n chi nh?nh ?? ??ng k?",
-      "companyLockedHint": "T?n c?ng ty, t?n nh? tuy?n d?ng v? ??a ch? l?m vi?c ???c l?y t? h? s? c?ng ty ?? duy?t.",
-      "companyProfileRequired": "B?n c?n c? h? s? c?ng ty ?? ???c duy?t tr??c khi ??ng vi?c."
+      "branchPlaceholder": "Chọn chi nhánh đã đăng ký",
+      "companyLockedHint": "Tên công ty, tên nhà tuyển dụng và địa chỉ làm việc được lấy từ hồ sơ công ty đã duyệt.",
+      "companyProfileRequired": "Bạn cần có hồ sơ công ty đã được duyệt trước khi đăng việc."
     },
     "types": {
       "Internship": "Internship",
@@ -370,7 +375,9 @@
       "createdAt": "Ngày đăng",
       "hide": "Ẩn",
       "show": "Hiện",
-      "delete": "Xóa"
+      "delete": "Xóa",
+      "edit": "Sửa",
+      "history": "Lịch sử"
     },
     "applications": {
       "approve": "Duyệt",
@@ -414,7 +421,7 @@
       "statusError": "Không thể cập nhật trạng thái bài đăng.",
       "deleteSuccess": "Đã xóa vĩnh viễn bài đăng.",
       "deleteError": "Không thể xóa bài đăng.",
-      "companyProfileLoadError": "Kh?ng th? t?i h? s? c?ng ty c?a b?n."
+      "companyProfileLoadError": "Không thể tải hồ sơ công ty của bạn."
     }
   },
   "profile": {
@@ -436,6 +443,13 @@
     "cv_title": "CV",
     "view_cv": "Xem CV hiện tại",
     "drag_drop_cv": "Kéo thả file ở đây hoặc nhấn để chọn (PDF / DOC / DOCX)",
+    "uploadCv": "Tải CV lên",
+    "manageCv": "Quản lý CV",
+    "manageCvDescription": "Quản lý tối đa {{count}} CV, chọn một CV mặc định để hiển thị trên profile.",
+    "defaultCv": "CV mặc định",
+    "setDefaultCv": "Chọn mặc định",
+    "deleteCv": "Xóa CV",
+    "noCv": "Chưa có CV nào.",
     "back": "Quay lại",
     "lastNamePlaceholder": "Nhập họ",
     "firstNamePlaceholder": "Nhập tên",
@@ -445,8 +459,13 @@
     "uploading": "Đang tải lên...",
     "resumeTypeError": "Chỉ chấp nhận PDF/DOC/DOCX",
     "resumeSizeError": "File không được vượt quá 10MB",
+    "resumeMaxCountError": "Bạn chỉ được lưu tối đa {{count}} CV",
     "resumeUploadSuccess": "Đã tải lên CV",
     "resumeUploadError": "Không thể tải CV lên",
+    "resumeDeleteSuccess": "Đã xóa CV khỏi hồ sơ",
+    "resumeDeleteError": "Không thể xóa CV",
+    "defaultCvSuccess": "Đã đặt CV mặc định",
+    "defaultCvError": "Không thể đặt CV mặc định",
     "avatarUploadSuccess": "Đã cập nhật ảnh đại diện",
     "avatarUploadError": "Không thể tải ảnh lên",
     "avatarTypeError": "Chỉ chấp nhận file ảnh",
@@ -508,6 +527,7 @@
     "revokeRecruiterError": "Không thể thu hồi quyền tuyển dụng.",
     "restoreRecruiterSuccess": "Đã khôi phục quyền tuyển dụng.",
     "restoreRecruiterError": "Không thể khôi phục quyền tuyển dụng.",
+    "trashJobConfirm": "Chuyển bài đăng này vào thùng rác?",
     "trashJobSuccess": "Đã chuyển bài đăng vào thùng rác.",
     "trashJobError": "Không thể chuyển bài đăng vào thùng rác.",
     "restoreJobSuccess": "Đã khôi phục bài đăng.",
@@ -529,10 +549,12 @@
       "requestsDescription": "Yêu cầu đang chờ duyệt",
       "categoriesTitle": "Quản lý danh mục",
       "categoriesDescription": "Danh mục & Form xác thực",
-      "loginBrandingTitle": "Ô login",
-      "loginBrandingDescription": "Hình ảnh, màu và nội dung",
-      "auditLogsTitle": "Audit log",
-      "auditLogsDescription": "Theo dõi thao tác admin"
+      "loginBrandingTitle": "Ô login & đăng ký",
+      "loginBrandingDescription": "Chỉnh ô bên trái trong Sanity",
+      "auditLogsTitle": "Nhật ký hoạt động",
+      "auditLogsDescription": "Theo dõi thao tác admin",
+      "emailFormatTitle": "Định dạng email",
+      "emailFormatDescription": "Màu sắc, cỡ chữ, ảnh tiêu đề"
     },
     "users": {
       "title": "Danh sách tài khoản người dùng",
@@ -542,9 +564,9 @@
       "restrict": "Hạn chế",
       "unrestrict": "Bỏ hạn chế",
       "setRole": "Chọn vai trò",
-      "allRoles": "T?t c? vai tr?",
-      "allStatuses": "T?t c? tr?ng th?i",
-      "reviewCompanyRequest": "Duy?t x?c th?c c?ng ty"
+      "allRoles": "Tất cả vai trò",
+      "allStatuses": "Tất cả trạng thái",
+      "reviewCompanyRequest": "Duyệt xác thực công ty"
     },
     "jobs": {
       "title": "Quản lý tin tuyển dụng",
@@ -555,7 +577,7 @@
       "titleColumn": "Tiêu đề",
       "postedDate": "Ngày đăng",
       "deletedDate": "Ngày xóa",
-      "hiddenColumn": "Ẩn",
+      "hiddenColumn": "Hiển thị",
       "moveToTrash": "Vào thùng rác",
       "restore": "Khôi phục",
       "deletePermanent": "Xóa vĩnh viễn",
@@ -579,7 +601,8 @@
         "PENDING": "Chờ",
         "APPROVED": "Duyệt",
         "REJECTED": "Từ chối"
-      }
+      },
+      "loadError": "Không thể tải danh sách tin tuyển dụng."
     },
     "requests": {
       "title": "Duyệt yêu cầu xác thực nhà tuyển dụng",
@@ -707,7 +730,8 @@
         "RECRUITER_APPLICATION_REJECTED": "Từ chối nhà tuyển dụng",
         "RECRUITER_FORM_FIELD_CREATED": "Tạo trường form",
         "RECRUITER_FORM_FIELD_UPDATED": "Cập nhật trường form",
-        "RECRUITER_FORM_FIELD_DELETED": "Xóa trường form"
+        "RECRUITER_FORM_FIELD_DELETED": "Xóa trường form",
+        "ADMIN_JOB_UPDATED": "Cập nhật hiển thị bài đăng"
       },
       "targets": {
         "USER": "Người dùng",
@@ -715,7 +739,51 @@
         "CATEGORY_OPTION": "Danh mục",
         "RECRUITER_APPLICATION": "Yêu cầu tuyển dụng",
         "RECRUITER_FORM_FIELD": "Trường form"
+      },
+      "descriptions": {
+        "USER_ROLE_UPDATED": "Cập nhật vai trò của {{email}} thành {{role}}",
+        "USER_RESTRICTION_UPDATED": "Cập nhật trạng thái của {{email}} thành {{restricted}}",
+        "ADMIN_JOB_CREATED": "Tạo tin tuyển dụng: {{title}}",
+        "ADMIN_JOB_UPDATED": "Cập nhật trạng thái hiển thị của tin tuyển dụng {{title}} thành {{status}}",
+        "ADMIN_JOB_TRASHED": "Đưa tin tuyển dụng {{title}} vào thùng rác",
+        "ADMIN_JOB_RESTORED": "Khôi phục tin tuyển dụng {{title}}",
+        "ADMIN_JOB_DELETED": "Xóa vĩnh viễn tin tuyển dụng ID #{{jobId}}",
+        "JOB_APPROVED": "Duyệt tin tuyển dụng: {{title}}",
+        "JOB_REJECTED": "Từ chối tin tuyển dụng: {{title}}",
+        "CATEGORY_CREATED": "Tạo danh mục: {{label}} ({{categoryKey}})",
+        "CATEGORY_UPDATED": "Cập nhật danh mục: {{label}} ({{categoryKey}})",
+        "CATEGORY_DELETED": "Xóa danh mục ID #{{categoryOptionId}}",
+        "RECRUITER_APPLICATION_APPROVED": "Duyệt yêu cầu tuyển dụng từ {{email}}",
+        "RECRUITER_APPLICATION_REJECTED": "Từ chối yêu cầu tuyển dụng từ {{email}}",
+        "RECRUITER_FORM_FIELD_CREATED": "Tạo trường form xác thực: {{label}} ({{name}})",
+        "RECRUITER_FORM_FIELD_UPDATED": "Cập nhật trường form xác thực: {{label}} ({{name}})",
+        "RECRUITER_FORM_FIELD_DELETED": "Xóa trường form xác thực ID #{{fieldId}}"
       }
+    },
+    "emailFormat": {
+      "title": "Định dạng email",
+      "brandName": "Tên thương hiệu",
+      "fontSize": "Cỡ chữ",
+      "backgroundColor": "Màu nền",
+      "cardColor": "Màu thẻ",
+      "textColor": "Màu chữ",
+      "accentColor": "Màu nhấn",
+      "headerImage": "Ảnh tiêu đề",
+      "noHeaderImage": "Chưa tải ảnh lên",
+      "uploadImage": "Tải ảnh lên",
+      "clearImage": "Xóa ảnh",
+      "footerText": "Chữ ở chân trang",
+      "reset": "Đặt lại mặc định",
+      "previewTitle": "Cập nhật đơn ứng tuyển",
+      "previewGreeting": "Xin chào Nguyễn Văn A,",
+      "previewBody": "Nhà tuyển dụng đã xem xét hồ sơ của bạn cho vị trí Frontend Developer Intern.",
+      "loadError": "Không thể tải cấu hình email.",
+      "saveSuccess": "Cấu hình email đã được cập nhật thành công.",
+      "saveError": "Không thể cập nhật cấu hình email.",
+      "imageInvalid": "Vui lòng chọn một file ảnh hợp lệ.",
+      "imageTooLarge": "Kích thước ảnh không được vượt quá 2MB.",
+      "imageUploadSuccess": "Đã tải ảnh tiêu đề lên thành công.",
+      "imageUploadError": "Không thể tải ảnh tiêu đề lên."
     }
   },
   "notFound": {

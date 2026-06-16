@@ -1,6 +1,6 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Navigate } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Eye, Loader2, RefreshCw, ShieldCheck, XCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -10,6 +10,8 @@ import { getReviewStatusBadgeClassName, getRoleBadgeClassName, normalizeReviewSt
 import { moderatorApi, type ModeratorJobPost } from "@/lib/api.ts";
 import { ActionIconButton } from "@/components/ui/action-icon-button.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
+import { PaginationControls } from "@/components/ui/pagination-controls.tsx";
+import { paginateItems } from "@/lib/pagination.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 import {
@@ -38,6 +40,8 @@ const ModeratorDashboard: React.FC = () => {
   const queryClient = useQueryClient();
   const [selectedJob, setSelectedJob] = useState<ModeratorJobPost | null>(null);
   const [actionId, setActionId] = useState<string | number | null>(null);
+  const [jobPage, setJobPage] = useState(1);
+  const [jobPageSize, setJobPageSize] = useState(10);
   const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
   const formatModeratorDate = useCallback(
     (value?: string | null) => formatDate(value, dateLocale),
@@ -54,7 +58,13 @@ const ModeratorDashboard: React.FC = () => {
     enabled: !!token && isAuthenticated,
     staleTime: 1000 * 60 * 5,
   });
+  const paginatedJobs = useMemo(
+    () => paginateItems(jobs, jobPage, jobPageSize),
+    [jobPage, jobPageSize, jobs],
+  );
 
+  
+  
   const approveMutation = useMutation({
     mutationFn: (jobId: string | number) => moderatorApi.approveJob(token!, jobId),
     onSuccess: () => {
@@ -156,6 +166,7 @@ const ModeratorDashboard: React.FC = () => {
                 {t("moderator.jobs.empty")}
               </div>
             ) : (
+              <>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -169,7 +180,7 @@ const ModeratorDashboard: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {jobs.map((job) => (
+                  {paginatedJobs.map((job) => (
                     <TableRow key={job.id}>
                       <TableCell className="font-medium">{job.title}</TableCell>
                       <TableCell>{job.company || "-"}</TableCell>
@@ -209,8 +220,17 @@ const ModeratorDashboard: React.FC = () => {
                   ))}
                 </TableBody>
               </Table>
+              <PaginationControls
+                page={jobPage}
+                pageSize={jobPageSize}
+                totalItems={jobs.length}
+                onPageChange={setJobPage}
+                onPageSizeChange={setJobPageSize}
+              />
+              </>
             )}
           </CardContent>
+
         </Card>
       </section>
 

@@ -84,7 +84,7 @@ const Navbar = () => {
         <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 xl:flex 2xl:gap-10">
           {navItems.map((item) => (
             <button
-              key={"path" in item ? item.path : item.targetId}
+              key={String("path" in item ? item.path : item.targetId)}
               type="button"
               onClick={() => handleNavItem(item)}
               className="whitespace-nowrap px-2 text-center text-sm font-semibold text-black transition hover:text-primary"
@@ -180,7 +180,7 @@ const Navbar = () => {
                   <LanguageSwitcher />
 
                   {navItems.map((item) => (
-                    <SheetClose asChild key={"path" in item ? item.path : item.targetId}>
+                    <SheetClose asChild key={String("path" in item ? item.path : item.targetId)}>
                       <button
                         type="button"
                         onClick={() => handleNavItem(item)}

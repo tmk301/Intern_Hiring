@@ -1,0 +1,22 @@
+{
+  "name": "intern-hiring-sanity",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "set XDG_CONFIG_HOME=.config&& sanity dev --host 0.0.0.0 --port 3333",
+    "start": "set XDG_CONFIG_HOME=.config&& sanity start --host 0.0.0.0 --port 3333",
+    "deploy": "set XDG_CONFIG_HOME=.config&& sanity deploy"
+  },
+  "dependencies": {
+    "@sanity/vision": "^3.99.0",
+    "sanity": "^3.99.0",
+    "styled-components": "^6.1.19"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.23",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.8.3"
+  }
+}

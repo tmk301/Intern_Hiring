@@ -7,8 +7,6 @@ import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { recruiterApi, RecruiterApplication } from "@/lib/api";
 import { isAdminRole } from "@/lib/roles";
-import { getReviewStatusBadgeClassName } from "@/lib/dashboardStyles";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -111,10 +109,7 @@ const AdminCompanyReview: React.FC = () => {
           </Button>
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
-              <Badge variant="outline" className={getReviewStatusBadgeClassName(application.status)}>
-                {t(`admin.requests.statuses.${application.status}`, { defaultValue: application.status })}
-              </Badge>
-              <h1 className="mt-3 text-3xl font-bold text-slate-950">{formData.companyDisplayName || formData.companyFullName}</h1>
+              <h1 className="text-3xl font-bold text-slate-950">{formData.companyDisplayName || formData.companyFullName}</h1>
               <p className="mt-1 text-sm text-muted-foreground">{application.applicantEmail}</p>
             </div>
             {pending && (
@@ -123,7 +118,12 @@ const AdminCompanyReview: React.FC = () => {
                   <XCircle className="h-4 w-4" />
                   {t("admin.requests.reject")}
                 </Button>
-                <Button disabled={actionId === application.id} onClick={() => handleReview(true)}>
+                <Button
+                  variant="outline"
+                  className="border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                  disabled={actionId === application.id}
+                  onClick={() => handleReview(true)}
+                >
                   <CheckCircle2 className="h-4 w-4" />
                   {t("admin.requests.approve")}
                 </Button>

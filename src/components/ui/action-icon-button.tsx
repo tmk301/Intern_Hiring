@@ -53,7 +53,6 @@ export function ActionIconButton({
             className,
           )}
           aria-label={label}
-          title={label}
           {...buttonProps}
         >
           <Icon className="h-4 w-4" />

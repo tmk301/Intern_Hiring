@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Bell } from "lucide-react";
 import { notificationApi, type ApiNotification, type ApiUser } from "@/lib/api";
 import { isAdminRole, isCandidateRole, isModeratorRole, isRecruiterRole } from "@/lib/roles";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -75,6 +76,7 @@ export function NotificationButton({ user, token, mobile = false }: Notification
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [apiNotifications, setApiNotifications] = useState<NotificationItem[]>([]);
+  const [readProfileNotificationIds, setReadProfileNotificationIds] = useState<Set<string>>(new Set());
 
   const loadNotifications = useCallback(() => {
     if (!token) {
@@ -112,27 +114,29 @@ export function NotificationButton({ user, token, mobile = false }: Notification
     const items: NotificationItem[] = [];
 
     if (isCandidateRole(user.role) && !user.cvList?.length) {
+      const id = "missing-cv";
       items.push({
-        id: "missing-cv",
+        id,
         title: t("notifications.missingCvTitle"),
         description: t("notifications.missingCvDescription"),
         path: "/profile",
-        read: false,
+        read: readProfileNotificationIds.has(id),
       });
     }
 
     if (!user.phoneNumber || !user.gender || !user.dob) {
+      const id = "incomplete-profile";
       items.push({
-        id: "incomplete-profile",
+        id,
         title: t("notifications.incompleteProfileTitle"),
         description: t("notifications.incompleteProfileDescription"),
         path: "/profile",
-        read: false,
+        read: readProfileNotificationIds.has(id),
       });
     }
 
     return items;
-  }, [t, user]);
+  }, [readProfileNotificationIds, t, user]);
 
   const notifications = useMemo(
     () => [...apiNotifications, ...profileNotifications],
@@ -146,11 +150,29 @@ export function NotificationButton({ user, token, mobile = false }: Notification
       current.map((item) => (item.id === notification.id ? { ...item, read: true } : item)),
     );
 
+    if (notification.id.startsWith("missing-") || notification.id.startsWith("incomplete-")) {
+      setReadProfileNotificationIds((current) => new Set(current).add(notification.id));
+    }
+
     if (token && !notification.read && !notification.id.startsWith("missing-") && !notification.id.startsWith("incomplete-")) {
       notificationApi.markAsRead(token, notification.id).catch(() => undefined);
     }
 
     navigate(notification.path);
+  };
+
+  const markAllAsRead = async () => {
+    setApiNotifications((current) => current.map((notification) => ({ ...notification, read: true })));
+    setReadProfileNotificationIds(new Set(profileNotifications.map((notification) => notification.id)));
+
+    if (!token) return;
+
+    notificationApi.markAllAsRead(token).catch(() => {
+      const unreadApiNotifications = apiNotifications.filter((notification) => !notification.read);
+      unreadApiNotifications.forEach((notification) => {
+        notificationApi.markAsRead(token, notification.id).catch(() => undefined);
+      });
+    });
   };
 
   return (
@@ -179,17 +201,39 @@ export function NotificationButton({ user, token, mobile = false }: Notification
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80">
-        <DropdownMenuLabel>{t("notifications.title")}</DropdownMenuLabel>
+        <DropdownMenuLabel className="flex items-center justify-between gap-3">
+          <span>{t("notifications.title")}</span>
+          {unreadCount > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-xs text-primary hover:bg-sky-50 hover:text-primary"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                markAllAsRead();
+              }}
+            >
+              {t("notifications.markAllRead")}
+            </Button>
+          )}
+        </DropdownMenuLabel>
         <DropdownMenuSeparator />
         {notifications.length > 0 ? (
           notifications.map((notification) => (
             <DropdownMenuItem
               key={notification.id}
-              className="flex cursor-pointer flex-col items-start gap-1 whitespace-normal py-3"
+              className={cn(
+                "flex cursor-pointer flex-col items-start gap-1 whitespace-normal py-3 focus:bg-sky-50 focus:text-slate-950 data-[highlighted]:bg-sky-50 data-[highlighted]:text-slate-950",
+                notification.read ? "font-normal text-slate-900" : "font-semibold text-slate-950",
+              )}
               onClick={() => openNotification(notification)}
             >
-              <span className="font-medium">{notification.title}</span>
-              <span className="text-xs text-muted-foreground">{notification.description}</span>
+              <span className={notification.read ? "font-normal" : "font-semibold"}>{notification.title}</span>
+              <span className={cn("text-xs", notification.read ? "font-normal text-slate-500" : "font-semibold text-slate-600")}>
+                {notification.description}
+              </span>
             </DropdownMenuItem>
           ))
         ) : (
