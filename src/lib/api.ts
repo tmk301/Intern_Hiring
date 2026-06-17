@@ -193,6 +193,25 @@ export const notificationApi = {
       method: "POST",
       headers: authHeaders(token),
     }),
+
+  delete: (token: string, notificationId: string | number) =>
+    apiRequest<void>(`/api/notifications/${encodeURIComponent(String(notificationId))}`, {
+      method: "DELETE",
+      headers: authHeaders(token),
+    }),
+
+  deleteMany: (token: string, notificationIds: Array<string | number>) =>
+    apiRequest<void>("/api/notifications/bulk", {
+      method: "DELETE",
+      headers: authHeaders(token),
+      body: JSON.stringify(notificationIds.map((id) => Number(id)).filter((id) => Number.isFinite(id))),
+    }),
+
+  deleteAll: (token: string) =>
+    apiRequest<void>("/api/notifications", {
+      method: "DELETE",
+      headers: authHeaders(token),
+    }),
 };
 
 export type AdminUser = ApiUser & {
@@ -208,6 +227,8 @@ export type AdminJobPost = {
   location?: string;
   type?: string;
   salary?: string;
+  currency?: string | null;
+  mode?: string | null;
   experience?: string;
   applicationDeadline?: string | null;
   status?: string;
@@ -226,6 +247,8 @@ export type RecruiterJobPost = {
   location: string | null;
   type: string | null;
   salary: string | null;
+  currency: string | null;
+  mode: string | null;
   experience: string | null;
   applicationDeadline: string | null;
   description: string | null;
@@ -259,6 +282,8 @@ export type RecruiterJobPayload = {
   location: string;
   type: string;
   salary?: string;
+  currency?: string | null;
+  mode?: string | null;
   experience?: string;
   applicationDeadline?: string | null;
   description: string;
@@ -269,6 +294,8 @@ export type RecruiterJobSnapshot = {
   location?: string;
   type?: string;
   salary?: string;
+  currency?: string;
+  mode?: string;
   experience?: string;
   applicationDeadline?: string;
   description?: string;
@@ -624,6 +651,8 @@ export type ModeratorJobPost = {
   company?: string;
   location?: string;
   salary?: string;
+  currency?: string | null;
+  mode?: string | null;
   type?: string;
   experience?: string;
   status?: string;
@@ -669,6 +698,8 @@ export type PublicJobPost = {
     location: string | null;
     type: string | null;
     salary: string | null;
+    currency: string | null;
+    mode: string | null;
     experience: string | null;
     applicationDeadline: string | null;
     description: string | null;

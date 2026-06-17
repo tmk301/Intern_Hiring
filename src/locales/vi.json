@@ -30,6 +30,10 @@
     "back": "Quay lại",
     "previous": "Trước",
     "next": "Sau",
+    "firstPage": "Trang đầu",
+    "previousPage": "Trang trước",
+    "nextPage": "Trang sau",
+    "lastPage": "Trang cuối",
     "itemsPerPage": "Số lượng mỗi trang",
     "save": "Lưu"
   },
@@ -77,6 +81,11 @@
     "auditLog": "Nhật ký audit"
   },
   "notifications": {
+    "delete": "Xóa thông báo",
+    "selectAll": "Chọn tất cả",
+    "clearSelection": "Bỏ chọn tất cả",
+    "deleteSelected": "Xóa đã chọn",
+    "selectNotification": "Chọn thông báo",
     "buttonLabel": "Thông báo",
     "title": "Thông báo",
     "empty": "Không có thông báo mới.",

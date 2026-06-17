@@ -284,14 +284,14 @@ const Applications = () => {
               {activeTab === "submitted" && (
                 submittedApplications.length ? (
                   <>
-                    {paginatedSubmittedApplications.map((application) => (
+                    {paginatedSubmittedApplications.items.map((application) => (
                       <ApplicationCard key={application.id} application={application} />
                     ))}
                     <PaginationControls
-                      page={submittedPage}
-                      pageSize={submittedPageSize}
-                      totalItems={submittedApplications.length}
+                      page={paginatedSubmittedApplications.page}
+                      totalPages={paginatedSubmittedApplications.totalPages}
                       onPageChange={setSubmittedPage}
+                      pageSize={submittedPageSize}
                       onPageSizeChange={setSubmittedPageSize}
                     />
                   </>
@@ -303,14 +303,14 @@ const Applications = () => {
               {activeTab === "accepted" && (
                 acceptedApplications.length ? (
                   <>
-                    {paginatedAcceptedApplications.map((application) => (
+                    {paginatedAcceptedApplications.items.map((application) => (
                       <ApplicationCard key={application.id} application={application} />
                     ))}
                     <PaginationControls
-                      page={acceptedPage}
-                      pageSize={acceptedPageSize}
-                      totalItems={acceptedApplications.length}
+                      page={paginatedAcceptedApplications.page}
+                      totalPages={paginatedAcceptedApplications.totalPages}
                       onPageChange={setAcceptedPage}
+                      pageSize={acceptedPageSize}
                       onPageSizeChange={setAcceptedPageSize}
                     />
                   </>
@@ -322,14 +322,14 @@ const Applications = () => {
               {activeTab === "rejected" && (
                 rejectedApplications.length ? (
                   <>
-                    {paginatedRejectedApplications.map((application) => (
+                    {paginatedRejectedApplications.items.map((application) => (
                       <ApplicationCard key={application.id} application={application} />
                     ))}
                     <PaginationControls
-                      page={rejectedPage}
-                      pageSize={rejectedPageSize}
-                      totalItems={rejectedApplications.length}
+                      page={paginatedRejectedApplications.page}
+                      totalPages={paginatedRejectedApplications.totalPages}
                       onPageChange={setRejectedPage}
+                      pageSize={rejectedPageSize}
                       onPageSizeChange={setRejectedPageSize}
                     />
                   </>

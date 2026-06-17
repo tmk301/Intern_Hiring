@@ -180,7 +180,7 @@ const ModeratorDashboard: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedJobs.map((job) => (
+                  {paginatedJobs.items.map((job) => (
                     <TableRow key={job.id}>
                       <TableCell className="font-medium">{job.title}</TableCell>
                       <TableCell>{job.company || "-"}</TableCell>
@@ -221,10 +221,10 @@ const ModeratorDashboard: React.FC = () => {
                 </TableBody>
               </Table>
               <PaginationControls
-                page={jobPage}
-                pageSize={jobPageSize}
-                totalItems={jobs.length}
+                page={paginatedJobs.page}
+                totalPages={paginatedJobs.totalPages}
                 onPageChange={setJobPage}
+                pageSize={jobPageSize}
                 onPageSizeChange={setJobPageSize}
               />
               </>

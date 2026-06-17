@@ -1,112 +1,100 @@
-import { useMemo } from "react";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getVisiblePages } from "@/lib/pagination";
 
-const PAGE_SIZE_OPTIONS = [5, 10, 20, 30];
-
-const getPageItems = (currentPage: number, totalPages: number) => {
-  if (totalPages <= 6) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1);
-  }
-
-  if (currentPage <= 4) {
-    return [1, 2, 3, 4, 5, "ellipsis", totalPages] as const;
-  }
-
-  if (currentPage >= totalPages - 3) {
-    return [1, "ellipsis", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages] as const;
-  }
-
-  return [1, "ellipsis-start", currentPage - 1, currentPage, currentPage + 1, "ellipsis-end", totalPages] as const;
-};
+const PAGE_SIZE_OPTIONS = [5, 10, 15, 20];
 
 type PaginationControlsProps = {
   page: number;
-  pageSize: number;
-  totalItems: number;
+  totalPages: number;
   onPageChange: (page: number) => void;
-  onPageSizeChange: (pageSize: number) => void;
+  pageSize?: number;
+  onPageSizeChange?: (pageSize: number) => void;
+  className?: string;
 };
 
 export const PaginationControls = ({
   page,
-  pageSize,
-  totalItems,
+  totalPages,
   onPageChange,
+  pageSize,
   onPageSizeChange,
+  className = "",
 }: PaginationControlsProps) => {
   const { t } = useTranslation();
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  const currentPage = Math.min(Math.max(page, 1), totalPages);
-  const pageItems = useMemo(() => getPageItems(currentPage, totalPages), [currentPage, totalPages]);
+  const showPageSize = pageSize !== undefined && onPageSizeChange !== undefined;
 
-  if (totalItems === 0) return null;
+  if (totalPages <= 1 && !showPageSize) return null;
+
+  const pages = getVisiblePages(totalPages);
+  const isFirstPage = page <= 1;
+  const isLastPage = page >= totalPages;
 
   return (
-    <div className="mt-4 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <span>{t("common.itemsPerPage")}</span>
-        <Select
-          value={String(pageSize)}
-          onValueChange={(value) => {
-            onPageSizeChange(Number(value));
-            onPageChange(1);
-          }}
-        >
-          <SelectTrigger className="h-9 w-20">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {PAGE_SIZE_OPTIONS.map((option) => (
-              <SelectItem key={option} value={String(option)}>
-                {option}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+    <div className={`flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between ${className}`}>
+      {showPageSize ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>{t("common.itemsPerPage")}</span>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(value) => {
+              onPageSizeChange(Number(value));
+              onPageChange(1);
+            }}
+          >
+            <SelectTrigger className="h-9 w-20">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((option) => (
+                <SelectItem key={option} value={String(option)}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : (
+        <span />
+      )}
 
-      <div className="flex flex-wrap items-center justify-start gap-1 sm:justify-end">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={currentPage === 1}
-          onClick={() => onPageChange(currentPage - 1)}
-        >
-          {"<"} {t("common.previous")}
-        </Button>
+      {totalPages > 1 && (
+        <nav className="flex flex-wrap items-center justify-center gap-2" aria-label="Pagination">
+          <Button type="button" variant="outline" size="icon" aria-label={t("common.firstPage")} disabled={isFirstPage} onClick={() => onPageChange(1)}>
+            <ChevronsLeft className="h-4 w-4" />
+          </Button>
+          <Button type="button" variant="outline" size="icon" aria-label={t("common.previousPage")} disabled={isFirstPage} onClick={() => onPageChange(page - 1)}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
 
-        {pageItems.map((item) =>
-          typeof item === "number" ? (
-            <Button
-              key={item}
-              type="button"
-              variant={item === currentPage ? "default" : "outline"}
-              size="sm"
-              className="min-w-9 px-3"
-              onClick={() => onPageChange(item)}
-            >
-              {item}
-            </Button>
-          ) : (
-            <span key={item} className="px-2 text-sm text-muted-foreground">
-              ...
-            </span>
-          ),
-        )}
+          {pages.map((item) =>
+            item === "ellipsis" ? (
+              <span key="ellipsis" className="px-2 text-sm text-muted-foreground">...</span>
+            ) : (
+              <Button
+                key={item}
+                type="button"
+                variant={item === page ? "default" : "outline"}
+                size="icon"
+                aria-label={`Trang ${item}`}
+                aria-current={item === page ? "page" : undefined}
+                onClick={() => onPageChange(item)}
+              >
+                {item}
+              </Button>
+            ),
+          )}
 
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={currentPage === totalPages}
-          onClick={() => onPageChange(currentPage + 1)}
-        >
-          {t("common.next")} {">"}
-        </Button>
-      </div>
+          <Button type="button" variant="outline" size="icon" aria-label={t("common.nextPage")} disabled={isLastPage} onClick={() => onPageChange(page + 1)}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button type="button" variant="outline" size="icon" aria-label={t("common.lastPage")} disabled={isLastPage} onClick={() => onPageChange(totalPages)}>
+            <ChevronsRight className="h-4 w-4" />
+          </Button>
+        </nav>
+      )}
     </div>
   );
 };

@@ -1081,7 +1081,7 @@ const RecruiterDashboard: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedJobs.map((job) => {
+                  {paginatedJobs.items.map((job) => {
                     const status = normalizeStatus(job.status);
                     const hidden = isHiddenJob(job);
 
@@ -1145,10 +1145,10 @@ const RecruiterDashboard: React.FC = () => {
                 </TableBody>
               </Table>
               <PaginationControls
-                page={jobPage}
-                pageSize={jobPageSize}
-                totalItems={sortedJobs.length}
+                page={paginatedJobs.page}
+                totalPages={paginatedJobs.totalPages}
                 onPageChange={setJobPage}
+                pageSize={jobPageSize}
                 onPageSizeChange={setJobPageSize}
               />
               </>
@@ -1194,7 +1194,7 @@ const RecruiterDashboard: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedApplications.map((app) => (
+                  {paginatedApplications.items.map((app) => (
                     <TableRow key={app.id}>
                       <TableCell>
                         <div className="font-medium">{app.applicantName || t("recruiter.applications.applicant")}</div>
@@ -1231,10 +1231,10 @@ const RecruiterDashboard: React.FC = () => {
                 </TableBody>
               </Table>
               <PaginationControls
-                page={applicationPage}
-                pageSize={applicationPageSize}
-                totalItems={sortedApplications.length}
+                page={paginatedApplications.page}
+                totalPages={paginatedApplications.totalPages}
                 onPageChange={setApplicationPage}
+                pageSize={applicationPageSize}
                 onPageSizeChange={setApplicationPageSize}
               />
               </>

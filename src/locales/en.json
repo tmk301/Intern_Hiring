@@ -31,6 +31,10 @@
     "previous": "Previous",
     "next": "Next",
     "itemsPerPage": "Items per page",
+    "firstPage": "First page",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "lastPage": "Last page",
     "save": "Save"
   },
   "toast": {
@@ -81,6 +85,11 @@
     "title": "Notifications",
     "empty": "No new notifications.",
     "markAllRead": "Mark all as read",
+    "delete": "Delete notifications",
+    "selectAll": "Select all",
+    "clearSelection": "Clear selection",
+    "deleteSelected": "Delete selected",
+    "selectNotification": "Select notification",
     "missingCvTitle": "Upload your CV",
     "missingCvDescription": "Add a CV to your profile so you can apply faster.",
     "incompleteProfileTitle": "Complete your profile",

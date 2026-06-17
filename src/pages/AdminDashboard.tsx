@@ -60,7 +60,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getReviewStatusBadgeClassName, getRoleBadgeClassName, normalizeRoleName } from "@/lib/dashboardStyles";
-import { paginateItems } from "@/lib/pagination";
+import { getSafePage, paginateItems } from "@/lib/pagination";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
   defaultEmailTemplateConfig,
@@ -208,7 +208,7 @@ const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const getAuditLogDescription = useCallback((log: any) => {
+  const getAuditLogDescription = useCallback((log: AuditLog) => {
     const metadata = log.metadata || {};
     const title = metadata.title || "";
     const jobId = metadata.jobId || String(log.targetId || "");
@@ -336,7 +336,8 @@ const AdminDashboard: React.FC = () => {
   const [jobDateFilter, setJobDateFilter] = useState("");
   const [userPage, setUserPage] = useState(1);
   const [userPageSize, setUserPageSize] = useState(10);
-  const [jobPage, setJobPage] = useState(1);
+  const [activeJobPage, setActiveJobPage] = useState(1);
+  const [trashedJobPage, setTrashedJobPage] = useState(1);
   const [jobPageSize, setJobPageSize] = useState(10);
   const [userSort, setUserSort] = useState<{ key: UserSortKey; direction: SortDirection }>({
     key: "email",
@@ -358,7 +359,10 @@ const AdminDashboard: React.FC = () => {
 
   const setAuditUrlPage = (page: number) => setUrlPage("auditPage", page);
 
-  const resetAuditUrlPage = () => setAuditUrlPage(1);
+  const resetAuditPage = () => {
+    setAuditPage(0);
+    setAuditUrlPage(1);
+  };
   const [managedConfig, setManagedConfig] = useState<ManagedSiteConfig>(defaultManagedSiteConfig);
   const [emailTemplate, setEmailTemplate] = useState<EmailTemplateConfig>(defaultEmailTemplateConfig);
   const [savingEmailTemplate, setSavingEmailTemplate] = useState(false);
@@ -453,12 +457,12 @@ const AdminDashboard: React.FC = () => {
     [sortedUsers, userPage, userPageSize],
   );
   const paginatedActiveJobs = useMemo(
-    () => paginateItems(sortedActiveJobs, jobPage, jobPageSize),
-    [jobPage, jobPageSize, sortedActiveJobs],
+    () => paginateItems(sortedActiveJobs, activeJobPage, jobPageSize),
+    [activeJobPage, jobPageSize, sortedActiveJobs],
   );
   const paginatedTrashedJobs = useMemo(
-    () => paginateItems(sortedTrashedJobs, jobPage, jobPageSize),
-    [jobPage, jobPageSize, sortedTrashedJobs],
+    () => paginateItems(sortedTrashedJobs, trashedJobPage, jobPageSize),
+    [jobPageSize, sortedTrashedJobs, trashedJobPage],
   );
   const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
   const formatAdminDate = useCallback((value?: string | null) => formatDate(value, dateLocale), [dateLocale]);
@@ -526,6 +530,8 @@ const AdminDashboard: React.FC = () => {
     if (requestedSection && adminSections.includes(requestedSection)) {
       setActiveSection(requestedSection);
     }
+
+    setAuditPage(getSafePage(searchParams.get("auditPage")) - 1);
   }, [searchParams]);
 
   const openSection = (section: AdminSection) => {
@@ -552,7 +558,7 @@ const AdminDashboard: React.FC = () => {
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, t("admin.auditLogs.loadError")));
     }
-  }, [auditAction, auditActorEmail, auditPage, auditTargetType, token, t]);
+  }, [auditAction, auditActorEmail, auditPage, auditPageSize, auditTargetType, token, t]);
 
   const loadEmailTemplateConfig = useCallback(async () => {
     try {
@@ -562,7 +568,7 @@ const AdminDashboard: React.FC = () => {
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, t("admin.emailFormat.loadError", { defaultValue: "Could not load email format." })));
     }
-  }, [token, t]);
+  }, [t]);
 
   useEffect(() => {
     if (activeSection === "email-format") {
@@ -639,7 +645,8 @@ const AdminDashboard: React.FC = () => {
   }, [userRoleFilter, userSort.direction, userSort.key, userStatusFilter]);
 
   useEffect(() => {
-    setJobPage(1);
+    setActiveJobPage(1);
+    setTrashedJobPage(1);
   }, [jobDateFilter, jobHiddenFilter, jobSort.direction, jobSort.key, jobStatusFilter]);
 
   const requireConfirm = (message: string) => window.confirm(message);
@@ -1043,7 +1050,7 @@ const AdminDashboard: React.FC = () => {
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t("admin.stats.categoriesTitle")}</CardTitle>
-              <Settings2 className="h-5 w-5 text-primary" />
+              <Settings2 className="h-5 w-5 text-amber-600" />
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">{t("admin.stats.categoriesDescription")}</p>
@@ -1056,7 +1063,7 @@ const AdminDashboard: React.FC = () => {
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t("admin.stats.auditLogsTitle")}</CardTitle>
-              <ClipboardList className="h-5 w-5 text-primary" />
+              <ClipboardList className="h-5 w-5 text-red-600" />
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{auditTotal}</div>
@@ -1072,7 +1079,7 @@ const AdminDashboard: React.FC = () => {
               <CardTitle className="text-sm font-medium">
                 {t("admin.stats.emailFormatTitle", { defaultValue: "Email format" })}
               </CardTitle>
-              <Mail className="h-5 w-5 text-primary" />
+              <Mail className="h-5 w-5 text-emerald-600" />
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
@@ -1087,7 +1094,7 @@ const AdminDashboard: React.FC = () => {
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t("admin.stats.loginBrandingTitle")}</CardTitle>
-              <Palette className="h-5 w-5 text-primary" />
+              <Palette className="h-5 w-5 text-amber-600" />
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">{t("admin.stats.loginBrandingDescription")}</p>
@@ -1147,7 +1154,7 @@ const AdminDashboard: React.FC = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {paginatedUsers.map((account) => {
+                      {paginatedUsers.items.map((account) => {
                         const restricted = isRestrictedUser(account);
                         const pendingRequest = pendingRequestByApplicantId.get(String(account.id));
 
@@ -1217,10 +1224,10 @@ const AdminDashboard: React.FC = () => {
                     </TableBody>
                   </Table>
                   <PaginationControls
-                    page={userPage}
-                    pageSize={userPageSize}
-                    totalItems={sortedUsers.length}
+                    page={paginatedUsers.page}
+                    totalPages={paginatedUsers.totalPages}
                     onPageChange={setUserPage}
+                    pageSize={userPageSize}
                     onPageSizeChange={setUserPageSize}
                   />
                 </CardContent>
@@ -1277,7 +1284,7 @@ const AdminDashboard: React.FC = () => {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {paginatedTrashedJobs.map((job) => (
+                          {paginatedTrashedJobs.items.map((job) => (
                             <TableRow key={job.id}>
                               <TableCell className="font-medium">{job.title}</TableCell>
                               <TableCell>{job.company || "-"}</TableCell>
@@ -1305,10 +1312,10 @@ const AdminDashboard: React.FC = () => {
                         </TableBody>
                       </Table>
                       <PaginationControls
-                        page={jobPage}
+                        page={paginatedTrashedJobs.page}
+                        totalPages={paginatedTrashedJobs.totalPages}
+                        onPageChange={setTrashedJobPage}
                         pageSize={jobPageSize}
-                        totalItems={sortedTrashedJobs.length}
-                        onPageChange={setJobPage}
                         onPageSizeChange={setJobPageSize}
                       />
                     </>
@@ -1331,7 +1338,7 @@ const AdminDashboard: React.FC = () => {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {paginatedActiveJobs.map((job) => {
+                          {paginatedActiveJobs.items.map((job) => {
                             const jobStatus = normalizeJobStatus(job.status);
 
                             return (
@@ -1388,10 +1395,10 @@ const AdminDashboard: React.FC = () => {
                         </TableBody>
                       </Table>
                       <PaginationControls
-                        page={jobPage}
+                        page={paginatedActiveJobs.page}
+                        totalPages={paginatedActiveJobs.totalPages}
+                        onPageChange={setActiveJobPage}
                         pageSize={jobPageSize}
-                        totalItems={sortedActiveJobs.length}
-                        onPageChange={setJobPage}
                         onPageSizeChange={setJobPageSize}
                       />
                     </>
@@ -1589,14 +1596,14 @@ const AdminDashboard: React.FC = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid gap-3 md:grid-cols-4">
-                    <Select value={auditAction || "all"} onValueChange={(value) => { resetAuditUrlPage(); setAuditAction(value === "all" ? "" : value as AuditAction); }}>
+                    <Select value={auditAction || "all"} onValueChange={(value) => { resetAuditPage(); setAuditAction(value === "all" ? "" : value as AuditAction); }}>
                       <SelectTrigger><SelectValue placeholder={t("admin.auditLogs.action")} /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">{t("admin.auditLogs.allActions")}</SelectItem>
                         {auditActions.map((action) => <SelectItem key={action} value={action}>{t(`admin.auditLogs.actions.${action}`, { defaultValue: action })}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                    <Select value={auditTargetType || "all"} onValueChange={(value) => { resetAuditUrlPage(); setAuditTargetType(value === "all" ? "" : value as AuditTargetType); }}>
+                    <Select value={auditTargetType || "all"} onValueChange={(value) => { resetAuditPage(); setAuditTargetType(value === "all" ? "" : value as AuditTargetType); }}>
                       <SelectTrigger><SelectValue placeholder={t("admin.auditLogs.targetType")} /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">{t("admin.auditLogs.allTargets")}</SelectItem>
@@ -1606,7 +1613,7 @@ const AdminDashboard: React.FC = () => {
                     <input
                       className="rounded-md border px-3 py-2 text-sm"
                       value={auditActorEmail}
-                      onChange={(event) => { resetAuditUrlPage(); setAuditActorEmail(event.target.value); }}
+                      onChange={(event) => { resetAuditPage(); setAuditActorEmail(event.target.value); }}
                       placeholder={t("admin.auditLogs.actorPlaceholder")}
                     />
                     <Button variant="outline" onClick={loadAuditLogs}>
@@ -1649,9 +1656,12 @@ const AdminDashboard: React.FC = () => {
                   </div>
                   <PaginationControls
                     page={auditPage + 1}
+                    totalPages={Math.max(1, Math.ceil(auditTotal / auditPageSize))}
+                    onPageChange={(page) => {
+                      setAuditPage(page - 1);
+                      setAuditUrlPage(page);
+                    }}
                     pageSize={auditPageSize}
-                    totalItems={auditTotal}
-                    onPageChange={(page) => setAuditPage(page - 1)}
                     onPageSizeChange={(pageSize) => {
                       setAuditPageSize(pageSize);
                       setAuditPage(0);
