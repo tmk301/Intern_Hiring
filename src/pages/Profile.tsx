@@ -1139,7 +1139,7 @@ const Profile = () => {
       </div>
 
       <Dialog open={isCvManagerOpen} onOpenChange={setIsCvManagerOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>{t("profile.manageCv")}</DialogTitle>
             <DialogDescription>{t("profile.manageCvDescription", { count: MAX_CVS })}</DialogDescription>

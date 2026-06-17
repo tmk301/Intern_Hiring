@@ -642,6 +642,9 @@ export const recruiterApi = {
 export const companyApi = {
   getCompanyProfile: (id: string | number) =>
     apiRequest<CompanyProfile>(`/api/companies/${encodeURIComponent(String(id))}`),
+
+  getCompanyProfileByRecruiter: (recruiterId: string | number) =>
+    apiRequest<CompanyProfile>(`/api/companies/recruiter/${encodeURIComponent(String(recruiterId))}`),
 };
 
 export type ModeratorJobPost = {

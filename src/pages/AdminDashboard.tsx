@@ -1342,7 +1342,7 @@ const AdminDashboard: React.FC = () => {
                             const jobStatus = normalizeJobStatus(job.status);
 
                             return (
-                              <TableRow key={job.id} className="cursor-pointer" onClick={() => setSelectedJob(job)}>
+                              <TableRow key={job.id} className="cursor-pointer" onClick={() => navigate(`/jobs/${job.id}`)}>
                                 <TableCell className="font-medium">{job.title}</TableCell>
                                 <TableCell>{job.company || "-"}</TableCell>
                                 <TableCell>{job.employerEmail || job.employerName || "-"}</TableCell>

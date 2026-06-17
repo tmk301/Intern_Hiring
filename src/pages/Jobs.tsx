@@ -374,12 +374,12 @@ const Jobs: React.FC = () => {
   // MỚI THÊM: Hàm xử lý mở popup nộp đơn
   const handleOpenApplyModal = (jobId: string | number) => {
     if (!user || !token) {
-      toast({ description: "Vui lòng đăng nhập để nộp đơn", variant: "default" });
+      toast({ description: t("jobs.apply.loginRequired", { defaultValue: "Vui lòng đăng nhập để nộp đơn" }), variant: "default" });
       navigate("/login");
       return;
     }
     if (user.role !== "CANDIDATE") {
-      toast({ description: "Chỉ tài khoản Ứng viên mới có thể nộp đơn", variant: "destructive" });
+      toast({ description: t("jobs.apply.candidateOnly", { defaultValue: "Chỉ tài khoản Ứng viên mới có thể nộp đơn" }), variant: "destructive" });
       return;
     }
     const defaultCv = user.cvList?.find((cv) => cv.isDefault) ?? user.cvList?.[0];
@@ -396,13 +396,13 @@ const Jobs: React.FC = () => {
       // Gọi xuống Backend với cvId (Theo đúng chuẩn bảo mật đã thiết kế)
       await candidateApi.applyJob(token, applyJobId, selectedCvId);
       
-      toast({ title: "Thành công!", description: "Đã nộp CV thành công cho công việc này." });
+      toast({ title: t("toast.success"), description: t("jobs.apply.success", { defaultValue: "Đã nộp CV thành công cho công việc này." }) });
       setApplyJobId(null);
       setSelectedCvId("");
     } catch (error: unknown) {
       toast({ 
-        title: "Không thể nộp đơn", 
-        description: getErrorMessage(error, "Bạn đã nộp đơn cho công việc này rồi hoặc có lỗi xảy ra."),
+        title: t("toast.error"), 
+        description: getErrorMessage(error, t("jobs.apply.error", { defaultValue: "Bạn đã nộp đơn cho công việc này rồi hoặc có lỗi xảy ra." })),
         variant: "destructive" 
       });
     } finally {
@@ -428,8 +428,9 @@ const Jobs: React.FC = () => {
         />
 
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-slate-950">{t("jobs.page.resultsTitle")}</h2>
-          <Badge variant="outline">{t("jobs.page.count", { count: filteredJobs.length })}</Badge>
+          <h2 className="text-xl font-semibold text-slate-950">
+            {t("jobs.page.resultsTitle")} ({filteredJobs.length})
+          </h2>
         </div>
 
         {loading ? (
@@ -454,59 +455,63 @@ const Jobs: React.FC = () => {
           <div className="grid gap-4">
             {filteredJobs.map((job) => (
               <Card key={job.id} className="overflow-hidden flex flex-col h-full hover:shadow-md transition-shadow">
-                <CardHeader className="space-y-3">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <CardTitle className="text-xl">{job.title || t("jobs.page.untitled")}</CardTitle>
-                      <p className="mt-1 text-sm font-medium text-slate-700">
-                        {job.company || job.employerName || t("jobs.page.notProvided")}
-                      </p>
+                <div
+                  className="cursor-pointer flex flex-col flex-1"
+                  onClick={() => navigate(`/jobs/${job.id}`)}
+                >
+                  <CardHeader className="space-y-3">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <CardTitle className="text-xl">{job.title || t("jobs.page.untitled")}</CardTitle>
+                        <p className="mt-1 text-sm font-medium text-slate-700">
+                          {job.company || job.employerName || t("jobs.page.notProvided")}
+                        </p>
+                      </div>
                     </div>
-                    {job.status && <Badge variant="secondary">{job.status}</Badge>}
-                  </div>
-                  <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-                    {job.location && (
-                      <span className="inline-flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        {job.location}
-                      </span>
+                    <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+                      {job.location && (
+                        <span className="inline-flex items-center gap-1">
+                          <MapPin className="h-4 w-4" />
+                          {job.location}
+                        </span>
+                      )}
+                      {job.createdAt && (
+                        <span className="inline-flex items-center gap-1">
+                          <CalendarDays className="h-4 w-4" />
+                          {new Date(job.createdAt).toLocaleDateString(dateLocale)}
+                        </span>
+                      )}
+                      {job.applicationDeadline && (
+                        <span className="inline-flex items-center gap-1">
+                          <CalendarDays className="h-4 w-4" />
+                          {t("jobs.page.applicationDeadline")}: {formatDateOnly(job.applicationDeadline, dateLocale)}
+                        </span>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4 flex-1">
+                    <div className="flex flex-wrap gap-2">
+                      {job.type && <Badge variant="outline">{JOB_TYPE_OPTIONS.find(o => o.value === job.type)?.labelKey ? t(JOB_TYPE_OPTIONS.find(o => o.value === job.type)!.labelKey!) : job.type}</Badge>}
+                      {job.salary && (
+                        <Badge variant="outline">
+                          {getSalaryRangeOption(job.salary)?.labelKey ? t(getSalaryRangeOption(job.salary)!.labelKey!) : job.salary} {job.currency ? (CURRENCY_OPTIONS.find(o => o.value === job.currency)?.labelKey ? t(CURRENCY_OPTIONS.find(o => o.value === job.currency)!.labelKey!) : job.currency) : ""}
+                        </Badge>
+                      )}
+                      {job.mode && <Badge variant="outline">{WORK_MODE_OPTIONS.find(o => o.value === job.mode)?.labelKey ? t(WORK_MODE_OPTIONS.find(o => o.value === job.mode)!.labelKey!) : job.mode}</Badge>}
+                      {job.experience && <Badge variant="outline">{defaultJobFilterOptions.experience.find(o => o.value === job.experience)?.labelKey ? t(defaultJobFilterOptions.experience.find(o => o.value === job.experience)!.labelKey!) : job.experience}</Badge>}
+                    </div>
+                    {job.description && (
+                      <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">
+                        {job.description}
+                      </p>
                     )}
-                    {job.createdAt && (
-                      <span className="inline-flex items-center gap-1">
-                        <CalendarDays className="h-4 w-4" />
-                        {new Date(job.createdAt).toLocaleDateString(dateLocale)}
-                      </span>
-                    )}
-                    {job.applicationDeadline && (
-                      <span className="inline-flex items-center gap-1">
-                        <CalendarDays className="h-4 w-4" />
-                        {t("jobs.page.applicationDeadline")}: {formatDateOnly(job.applicationDeadline, dateLocale)}
-                      </span>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4 flex-1">
-                  <div className="flex flex-wrap gap-2">
-                    {job.type && <Badge variant="outline">{JOB_TYPE_OPTIONS.find(o => o.value === job.type)?.labelKey ? t(JOB_TYPE_OPTIONS.find(o => o.value === job.type)!.labelKey!) : job.type}</Badge>}
-                    {job.salary && (
-                      <Badge variant="outline">
-                        {getSalaryRangeOption(job.salary)?.labelKey ? t(getSalaryRangeOption(job.salary)!.labelKey!) : job.salary} {job.currency ? (CURRENCY_OPTIONS.find(o => o.value === job.currency)?.labelKey ? t(CURRENCY_OPTIONS.find(o => o.value === job.currency)!.labelKey!) : job.currency) : ""}
-                      </Badge>
-                    )}
-                    {job.mode && <Badge variant="outline">{WORK_MODE_OPTIONS.find(o => o.value === job.mode)?.labelKey ? t(WORK_MODE_OPTIONS.find(o => o.value === job.mode)!.labelKey!) : job.mode}</Badge>}
-                    {job.experience && <Badge variant="outline">{defaultJobFilterOptions.experience.find(o => o.value === job.experience)?.labelKey ? t(defaultJobFilterOptions.experience.find(o => o.value === job.experience)!.labelKey!) : job.experience}</Badge>}
-                  </div>
-                  {job.description && (
-                    <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">
-                      {job.description}
-                    </p>
-                  )}
-                </CardContent>
+                  </CardContent>
+                </div>
                 
                 {/* MỚI THÊM: Nút nộp đơn */}
                 <CardFooter className="bg-slate-50/50 border-t p-4 flex justify-end">
                   <Button onClick={() => handleOpenApplyModal(job.id)}>
-                    Nộp đơn ứng tuyển
+                    {t("jobs.apply.button")}
                   </Button>
                 </CardFooter>
               </Card>
@@ -527,9 +532,9 @@ const Jobs: React.FC = () => {
       >
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Chọn CV ứng tuyển</DialogTitle>
+            <DialogTitle>{t("jobs.apply.dialogTitle")}</DialogTitle>
             <DialogDescription>
-              Vui lòng chọn 1 CV từ hồ sơ của bạn để nộp cho vị trí này.
+              {t("jobs.apply.dialogDescription")}
             </DialogDescription>
           </DialogHeader>
 
@@ -537,10 +542,10 @@ const Jobs: React.FC = () => {
             {!user?.cvList || user.cvList.length === 0 ? (
               <div className="text-center py-6 border-2 border-dashed rounded-lg bg-slate-50">
                 <FileText className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
-                <p className="text-sm font-medium text-slate-900">Bạn chưa có CV nào</p>
-                <p className="text-sm text-muted-foreground mt-1 mb-4">Vui lòng tải lên CV trước khi nộp đơn.</p>
+                <p className="text-sm font-medium text-slate-900">{t("jobs.apply.noCv")}</p>
+                <p className="text-sm text-muted-foreground mt-1 mb-4">{t("jobs.apply.noCvDesc")}</p>
                 <Button variant="outline" onClick={() => navigate("/profile")}>
-                  Đến trang cá nhân để tải lên CV
+                  {t("jobs.apply.goToProfile", { defaultValue: "Tải lên CV" })}
                 </Button>
               </div>
             ) : (
@@ -563,7 +568,7 @@ const Jobs: React.FC = () => {
                         {cv.name}
                       </p>
                       <p className="text-xs text-slate-500 mt-1">
-                        Ngày tải lên: {new Date(cv.uploadedAt).toLocaleDateString('vi-VN')}
+                        {t("profile.cv_upload_time")}: {new Date(cv.uploadedAt).toLocaleDateString(dateLocale)}
                         {cv.isDefault && <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">Default</span>}
                       </p>
                     </div>
@@ -579,13 +584,13 @@ const Jobs: React.FC = () => {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setApplyJobId(null)}>Hủy bỏ</Button>
+            <Button variant="outline" onClick={() => setApplyJobId(null)}>{t("common.cancel")}</Button>
             <Button 
               onClick={submitApplication} 
               disabled={!selectedCvId || isApplying || !user?.cvList?.length}
             >
               {isApplying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Gửi hồ sơ
+              {t("jobs.apply.submit")}
             </Button>
           </DialogFooter>
         </DialogContent>

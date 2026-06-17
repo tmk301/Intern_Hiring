@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Navigate, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowDown,
   ArrowUp,
@@ -65,6 +65,8 @@ type RecruiterJob = {
   employer_name: string | null;
   location: string | null;
   salary: string | null;
+  currency: string | null;
+  mode: string | null;
   experience: string | null;
   status: string | null;
   hidden: boolean;
@@ -260,6 +262,7 @@ const compareApplications = (
 
 const RecruiterDashboard: React.FC = () => {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const { user, token, isAuthenticated, isLoading } = useAuth();
   const [jobs, setJobs] = useState<RecruiterJob[]>([]);
   const [formValue, setFormValue] = useState<JobFormValue>(emptyJobFormValue);
@@ -453,7 +456,7 @@ const RecruiterDashboard: React.FC = () => {
 
       setApplications(allApplications);
     } catch (error: unknown) {
-      toast.error("Không thể tải danh sách ứng viên");
+      toast.error(t("recruiter.toast.loadApplicationsError"));
     } finally {
       setLoadingApps(false);
     }
@@ -469,10 +472,10 @@ const RecruiterDashboard: React.FC = () => {
     setActionId(appId);
     try {
       await recruiterApi.updateApplicationStatus(token, jobId, appId, newStatus);
-      toast.success("Đã cập nhật trạng thái hồ sơ");
+      toast.success(t("recruiter.toast.updateApplicationStatusSuccess"));
       await loadApplications();
     } catch (error: unknown) {
-      toast.error("Lỗi khi cập nhật trạng thái");
+      toast.error(t("recruiter.toast.updateApplicationStatusError"));
     } finally {
       setActionId(null);
     }
@@ -570,7 +573,7 @@ const RecruiterDashboard: React.FC = () => {
     try {
       setJobHistory(await recruiterApi.listJobChangeLogs(token, job.id));
     } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : "Không thể tải lịch sử thay đổi");
+      toast.error(error instanceof Error ? error.message : t("recruiter.toast.loadHistoryError"));
       setJobHistory([]);
     } finally {
       setLoadingHistory(false);
@@ -595,14 +598,14 @@ const RecruiterDashboard: React.FC = () => {
     return [
       {
         id: "current",
-        label: "Current",
+        label: t("recruiter.history.currentVersion"),
         data: currentData,
         changedFields: jobHistory[0]?.changedFields || [],
         createdAt: historyJob.updated_at || undefined,
       },
       ...jobHistory.map((log, index) => ({
         id: String(log.id),
-        label: `Version ${index + 1}`,
+        label: t("recruiter.history.versionLabel", { number: index + 1 }),
         data: log.previousData,
         changedFields: jobHistory[index + 1]?.changedFields || log.changedFields,
         createdAt: log.createdAt,
@@ -624,7 +627,7 @@ const RecruiterDashboard: React.FC = () => {
     try {
       if (editingJob) {
         await recruiterApi.updateJob(token, editingJob.id, buildJobPayload());
-        toast.success("Đã cập nhật bài viết");
+        toast.success(t("recruiter.toast.updateSuccess"));
         setEditingJob(null);
       } else {
         await recruiterApi.createJob(token, buildJobPayload());
@@ -841,7 +844,7 @@ const RecruiterDashboard: React.FC = () => {
             >
               <CardTitle className="flex items-center gap-2 text-xl">
                 <PlusCircle className="h-5 w-5 text-primary" />
-                {editingJob ? "Chỉnh sửa bài viết" : t("recruiter.form.title")}
+                {editingJob ? t("recruiter.form.editTitle") : t("recruiter.form.title")}
               </CardTitle>
               <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${isJobFormOpen ? "rotate-180" : ""}`} />
             </button>
@@ -1035,7 +1038,7 @@ const RecruiterDashboard: React.FC = () => {
                 )}
                 <Button type="submit" variant="cta" className="w-auto" disabled={submitting || loadingCompanyProfile || !companyProfile}>
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : editingJob ? <Pencil className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />}
-                  {editingJob ? "Lưu thay đổi" : t("recruiter.form.submit")}
+                  {editingJob ? t("recruiter.form.saveChanges") : t("recruiter.form.submit")}
                 </Button>
               </div>
             </form>
@@ -1086,7 +1089,7 @@ const RecruiterDashboard: React.FC = () => {
                     const hidden = isHiddenJob(job);
 
                     return (
-                      <TableRow key={job.id}>
+                      <TableRow key={job.id} className="cursor-pointer hover:bg-slate-50/50" onClick={() => navigate(`/jobs/${job.id}`)}>
                         <TableCell className="min-w-56 font-medium">{job.title || "-"}</TableCell>
                         <TableCell>{job.company || "-"}</TableCell>
                         <TableCell>{job.type || "-"}</TableCell>
@@ -1105,7 +1108,7 @@ const RecruiterDashboard: React.FC = () => {
                                 label={t("recruiter.jobs.show")}
                                 variantStyle="show"
                                 disabled={actionId === job.id}
-                                onClick={() => updateJobHidden(job, false)}
+                                onClick={(e) => { e.stopPropagation(); updateJobHidden(job, false); }}
                               />
                             ) : (
                               <ActionIconButton
@@ -1113,7 +1116,7 @@ const RecruiterDashboard: React.FC = () => {
                                 label={t("recruiter.jobs.hide")}
                                 variantStyle="hide"
                                 disabled={actionId === job.id}
-                                onClick={() => updateJobHidden(job, true)}
+                                onClick={(e) => { e.stopPropagation(); updateJobHidden(job, true); }}
                               />
                             )}
                             <ActionIconButton
@@ -1121,21 +1124,21 @@ const RecruiterDashboard: React.FC = () => {
                               label={t("recruiter.jobs.edit")}
                               variantStyle="show"
                               disabled={actionId === job.id}
-                              onClick={() => startEditJob(job)}
+                              onClick={(e) => { e.stopPropagation(); startEditJob(job); }}
                             />
                             <ActionIconButton
                               icon={History}
                               label={t("recruiter.jobs.history")}
                               variantStyle="hide"
                               disabled={actionId === job.id}
-                              onClick={() => openJobHistory(job)}
+                              onClick={(e) => { e.stopPropagation(); openJobHistory(job); }}
                             />
                             <ActionIconButton
                               icon={Trash2}
                               label={t("recruiter.jobs.delete")}
                               variantStyle="delete"
                               disabled={actionId === job.id}
-                              onClick={() => setJobPendingDelete(job)}
+                              onClick={(e) => { e.stopPropagation(); setJobPendingDelete(job); }}
                             />
                           </div>
                         </TableCell>
@@ -1187,7 +1190,7 @@ const RecruiterDashboard: React.FC = () => {
                   <TableRow>
                     {renderApplicationSortableHeader("applicant", t("recruiter.applications.applicant"))}
                     {renderApplicationSortableHeader("jobTitle", t("recruiter.applications.jobTitle"))}
-                    <TableHead>CV</TableHead>
+                    <TableHead>{t("profile.cv_title")}</TableHead>
                     {renderApplicationSortableHeader("status", t("common.status"))}
                     {renderApplicationSortableHeader("appliedAt", t("recruiter.applications.appliedAt"))}
                     <TableHead className="text-center">{t("common.actions")}</TableHead>
@@ -1247,9 +1250,9 @@ const RecruiterDashboard: React.FC = () => {
       <AlertDialog open={Boolean(historyJob)} onOpenChange={(open) => !open && setHistoryJob(null)}>
         <AlertDialogContent className="max-w-5xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Lịch sử thay đổi bài viết</AlertDialogTitle>
+            <AlertDialogTitle>{t("recruiter.history.dialogTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {historyJob?.title || "-"} — các ô màu cam là phần thay đổi so với phiên bản ngay trước đó.
+              {historyJob?.title || "-"} {t("recruiter.history.dialogDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {loadingHistory ? (
@@ -1258,7 +1261,7 @@ const RecruiterDashboard: React.FC = () => {
             </div>
           ) : jobHistory.length === 0 ? (
             <p className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
-              Chưa có thay đổi nào được ghi nhận.
+              {t("recruiter.history.empty")}
             </p>
           ) : (
             <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-2">
@@ -1289,7 +1292,7 @@ const RecruiterDashboard: React.FC = () => {
             </div>
           )}
           <AlertDialogFooter>
-            <AlertDialogCancel>Đóng</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.close")}</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

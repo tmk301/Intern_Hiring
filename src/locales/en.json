@@ -287,10 +287,10 @@
           "from10To15": "From 10 to 15 million",
           "from15To20": "From 15 to 20 million",
           "from20To30": "From 20 to 30 million",
-          "from30": "From 30 million",
+          "from30": "Over 30 million",
           "usdUnder": "Under {{amount}}",
           "usdBetween": "{{min}} - {{max}}",
-          "usdFrom": "From {{amount}}"
+          "usdFrom": "Over {{amount}}"
         },
         "experience": {
           "noExperience": "No experience",
@@ -301,6 +301,19 @@
           "overThreeYears": "Over 3 years"
         }
       }
+    },
+    "apply": {
+      "button": "Apply Now",
+      "dialogTitle": "Select CV to Apply",
+      "dialogDescription": "Please select a CV from your profile to apply for this position.",
+      "noCv": "You don't have any CVs",
+      "noCvDesc": "Please upload a CV before applying.",
+      "goToProfile": "Upload CV",
+      "submit": "Submit Application",
+      "loginRequired": "Please log in to apply",
+      "candidateOnly": "Only Candidate accounts can apply",
+      "success": "CV submitted successfully for this job.",
+      "error": "You have already applied for this job or an error occurred."
     }
   },
   "recruiter": {

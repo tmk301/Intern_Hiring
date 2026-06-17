@@ -293,10 +293,10 @@
           "from10To15": "Từ 10 đến 15 triệu",
           "from15To20": "Từ 15 đến 20 triệu",
           "from20To30": "Từ 20 đến 30 triệu",
-          "from30": "Từ 30 triệu trở lên",
+          "from30": "Trên 30 triệu",
           "usdUnder": "Dưới {{amount}}",
           "usdBetween": "{{min}} - {{max}}",
-          "usdFrom": "Từ {{amount}} trở lên"
+          "usdFrom": "Trên {{amount}}"
         },
         "experience": {
           "noExperience": "Chưa có kinh nghiệm",
@@ -312,6 +312,19 @@
           "thuDuc": "Thành phố Thủ Đức"
         }
       }
+    },
+    "apply": {
+      "button": "Nộp đơn ứng tuyển",
+      "dialogTitle": "Chọn CV ứng tuyển",
+      "dialogDescription": "Vui lòng chọn 1 CV từ hồ sơ của bạn để nộp cho vị trí này.",
+      "noCv": "Bạn chưa có CV nào",
+      "noCvDesc": "Vui lòng tải lên CV trước khi nộp đơn.",
+      "goToProfile": "Tải lên CV",
+      "submit": "Gửi hồ sơ",
+      "loginRequired": "Vui lòng đăng nhập để nộp đơn",
+      "candidateOnly": "Chỉ tài khoản Ứng viên mới có thể nộp đơn",
+      "success": "Đã nộp CV thành công cho công việc này.",
+      "error": "Bạn đã nộp đơn cho công việc này rồi hoặc có lỗi xảy ra."
     }
   },
   "recruiter": {
@@ -369,7 +382,9 @@
       "submit": "Đăng việc",
       "branchPlaceholder": "Chọn chi nhánh đã đăng ký",
       "companyLockedHint": "Tên công ty, tên nhà tuyển dụng và địa chỉ làm việc được lấy từ hồ sơ công ty đã duyệt.",
-      "companyProfileRequired": "Bạn cần có hồ sơ công ty đã được duyệt trước khi đăng việc."
+      "companyProfileRequired": "Bạn cần có hồ sơ công ty đã được duyệt trước khi đăng việc.",
+      "editTitle": "Chỉnh sửa bài viết",
+      "saveChanges": "Lưu thay đổi"
     },
     "types": {
       "Internship": "Internship",
@@ -431,7 +446,19 @@
       "statusError": "Không thể cập nhật trạng thái bài đăng.",
       "deleteSuccess": "Đã xóa vĩnh viễn bài đăng.",
       "deleteError": "Không thể xóa bài đăng.",
-      "companyProfileLoadError": "Không thể tải hồ sơ công ty của bạn."
+      "companyProfileLoadError": "Không thể tải hồ sơ công ty của bạn.",
+      "loadApplicationsError": "Không thể tải danh sách ứng viên.",
+      "updateApplicationStatusSuccess": "Đã cập nhật trạng thái hồ sơ.",
+      "updateApplicationStatusError": "Lỗi khi cập nhật trạng thái.",
+      "loadHistoryError": "Không thể tải lịch sử thay đổi.",
+      "updateSuccess": "Đã cập nhật bài viết."
+    },
+    "history": {
+      "dialogTitle": "Lịch sử thay đổi bài viết",
+      "dialogDescription": "— các ô màu cam là phần thay đổi so với phiên bản ngay trước đó.",
+      "empty": "Chưa có thay đổi nào được ghi nhận.",
+      "currentVersion": "Hiện tại",
+      "versionLabel": "Phiên bản {{number}}"
     }
   },
   "profile": {
