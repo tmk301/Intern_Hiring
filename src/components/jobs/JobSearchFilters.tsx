@@ -21,10 +21,13 @@ import {
   type JobFilterOption,
   type JobFilterValue,
 } from "./jobFilterConfig";
+import { type PublicJobPost } from "@/lib/api";
 
 type JobSearchFiltersProps = {
   options?: Partial<JobFilterOptions>;
   value?: JobFilterValue;
+  jobs?: PublicJobPost[];
+  mapCenterPosition?: { lat: number; lng: number } | null; // <--- THÊM PROP ĐỂ NHẬN TỌA ĐỘ ĐỘNG
   onChange?: (value: JobFilterValue) => void;
   onReset?: () => void;
 };
@@ -115,6 +118,8 @@ function SelectFilter({
 export function JobSearchFilters({
   options,
   value,
+  jobs = [],
+  mapCenterPosition, // <--- DETRUCTURE ĐỂ SỬ DỤNG
   onChange,
   onReset,
 }: JobSearchFiltersProps) {
@@ -124,8 +129,10 @@ export function JobSearchFilters({
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const filterValue = value ?? internalValue;
   const filterOptions = { ...defaultJobFilterOptions, ...options };
+
   const selectedAreaQuery = [
     getOptionLabel(filterOptions.wards, filterValue.ward, t),
+    getOptionLabel(filterOptions.districts, filterValue.district, t),
     getOptionLabel(filterOptions.cities, filterValue.city, t),
   ]
     .filter(Boolean)
@@ -176,8 +183,13 @@ export function JobSearchFilters({
     onReset?.();
   };
 
-  const wardDisabled = !filterValue.city || filterOptions.wards.length === 0;
-  const wardPlaceholder = filterValue.city
+  const districtDisabled = !filterValue.city || filterOptions.districts.length === 0;
+  const districtPlaceholder = filterValue.city
+    ? t("jobs.filters.districtSelectPlaceholder") || "Chọn quận/huyện"
+    : t("jobs.filters.districtPlaceholder") || "Vui lòng chọn tỉnh thành trước";
+
+  const wardDisabled = !filterValue.district || filterOptions.wards.length === 0;
+  const wardPlaceholder = filterValue.district
     ? t("jobs.filters.wardSelectPlaceholder")
     : t("jobs.filters.wardPlaceholder");
 
@@ -275,6 +287,15 @@ export function JobSearchFilters({
               />
 
               <SelectFilter
+                label={t("jobs.filters.district") || "Quận/Huyện"}
+                value={filterValue.district}
+                options={filterOptions.districts}
+                placeholder={districtPlaceholder}
+                disabled={districtDisabled}
+                onChange={(nextValue) => updateValue("district", nextValue)}
+              />
+
+              <SelectFilter
                 label={t("jobs.filters.ward")}
                 value={filterValue.ward}
                 options={filterOptions.wards}
@@ -283,10 +304,14 @@ export function JobSearchFilters({
                 onChange={(nextValue) => updateValue("ward", nextValue)}
               />
 
+              <div className="md:col-span-1 xl:col-span-1"></div>
+
               <div className="md:col-span-2 xl:col-span-4">
                 <GoogleMapsEmbedLocationFilter
                   value={filterValue.location}
+                  jobs={jobs}
                   areaQuery={selectedAreaQuery}
+                  centerPosition={mapCenterPosition} // <--- TRUYỀN TỌA ĐỘ TRUNG TÂM ĐỘNG XUỐNG ĐÂY
                   onChange={(nextValue) => updateValue("location", nextValue)}
                 />
               </div>

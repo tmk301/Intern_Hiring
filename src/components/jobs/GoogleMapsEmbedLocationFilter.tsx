@@ -4,37 +4,86 @@ import { MapPin, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { type PublicJobPost } from "@/lib/api";
 
 type GoogleMapsEmbedLocationFilterProps = {
   value: string;
   areaQuery?: string;
+  jobs?: PublicJobPost[];
   onChange: (value: string) => void;
 };
 
 const DEFAULT_QUERY = "Ho Chi Minh City, Vietnam";
 
-const buildGoogleMapsEmbedUrl = (query: string) => {
+// Hàm hỗ trợ chuẩn hóa chuỗi tiếng Việt phục vụ so khớp nội bộ
+const internalNormalize = (text: string) =>
+  text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\u0111/g, "d")
+    .replace(/[^a-zA-Z0-9]+/g, " ")
+    .trim()
+    .toLowerCase();
+
+// Hàm trích xuất số từ chuỗi
+const extractNumbers = (text: string) => text.match(/\d+/g) ?? [];
+
+// Kiểm tra xem một chuỗi địa chỉ công việc có chứa chính xác số quận/huyện mục tiêu hay không
+const hasJobInDistrict = (jobsList: PublicJobPost[], districtNum: string) => {
+  return jobsList.some((job) => {
+    const address = internalNormalize(job.location || "");
+    const districtRegex = new RegExp(`(?<!\\b(phuong|p|xa)\\s*\\.?\\s*)\\b(quan|q|huyen|h|dist|district)\\s*\\.?\\s*${districtNum}\\b`, "i");
+    return districtRegex.test(address);
+  });
+};
+
+const buildGoogleMapsEmbedUrl = (query: string, jobsList: PublicJobPost[]) => {
   const currentQuery = query.trim();
-  const normalizedQuery = currentQuery 
-    ? `${currentQuery}, Ho Chi Minh City, Vietnam` 
-    : DEFAULT_QUERY;
-  return `https://maps.google.com/maps?q=${encodeURIComponent(normalizedQuery)}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
+  
+  // Khi không nhập gì, quay về bản đồ TP.HCM mặc định (Sử dụng đúng cấu trúc URL gốc của bạn)
+  if (!currentQuery) {
+    return `https://maps.google.com/maps?q=${encodeURIComponent(DEFAULT_QUERY)}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
+  }
+
+  const checkText = internalNormalize(currentQuery);
+  const numbers = extractNumbers(checkText);
+
+  if (numbers.length === 1 && (checkText.includes("quan") || checkText.includes("q ") || /^q\d+$/.test(checkText) || checkText.includes("district"))) {
+    const targetDistrictNum = numbers[0];
+    const exist = hasJobInDistrict(jobsList, targetDistrictNum);
+    if (!exist) {
+      return `https://maps.google.com/maps?q=${encodeURIComponent(DEFAULT_QUERY)}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
+    }
+  }
+
+  let finalQuery = currentQuery;
+  if (/^q(uan)?\s*8$/.test(checkText) || checkText.includes("quan 8") || checkText.includes("q 8")) {
+    finalQuery = "District 8, Ho Chi Minh City, Vietnam";
+  } else if (/^q(uan)?\s*3$/.test(checkText) || checkText.includes("quan 3") || checkText.includes("q 3")) {
+    finalQuery = "District 3, Ho Chi Minh City, Vietnam";
+  } else {
+    if (!checkText.includes("ho chi minh") && !checkText.includes("hcm")) {
+      finalQuery = `${currentQuery}, Ho Chi Minh City, Vietnam`;
+    }
+  }
+
+  return `https://maps.google.com/maps?q=${encodeURIComponent(finalQuery)}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
 };
 
 export function GoogleMapsEmbedLocationFilter({
   value,
+  jobs = [],
   areaQuery = "",
   onChange,
 }: GoogleMapsEmbedLocationFilterProps) {
   const { t } = useTranslation();
   const selectedAreaQuery = areaQuery.trim();
   const [draftLocation, setDraftLocation] = useState(value);
-  const [embedQuery, setEmbedQuery] = useState(value || selectedAreaQuery || DEFAULT_QUERY);
-  const embedUrl = useMemo(() => buildGoogleMapsEmbedUrl(embedQuery), [embedQuery]);
+  const [embedQuery, setEmbedQuery] = useState(value || selectedAreaQuery || "");
 
   useEffect(() => {
     setDraftLocation(value);
-    if (!selectedAreaQuery) setEmbedQuery(value || DEFAULT_QUERY);
+    if (!selectedAreaQuery) setEmbedQuery(value);
   }, [selectedAreaQuery, value]);
 
   useEffect(() => {
@@ -44,14 +93,38 @@ export function GoogleMapsEmbedLocationFilter({
   const applyLocation = () => {
     const nextLocation = draftLocation.trim();
     onChange(nextLocation);
-    setEmbedQuery(nextLocation || DEFAULT_QUERY);
+    setEmbedQuery(nextLocation);
   };
 
   const clearLocation = () => {
     setDraftLocation("");
     onChange("");
-    setEmbedQuery(selectedAreaQuery || DEFAULT_QUERY);
+    setEmbedQuery(selectedAreaQuery || "");
   };
+
+  const embedUrl = useMemo(() => {
+    // 🎯 ĐÚNG Ý BẠN: Nếu ô tìm kiếm trống rỗng, trả thẳng về bản đồ TP.HCM gốc rộng (z=11)
+    if (!embedQuery.trim()) {
+      return buildGoogleMapsEmbedUrl("", jobs);
+    }
+
+    // Nếu có nhập từ khóa (như "quận 7") và danh sách trả về có jobs hợp lệ
+    if (jobs && jobs.length > 0) {
+      const firstValidJob = jobs.find(
+        (j) => j.latitude !== null && j.longitude !== null && j.latitude !== undefined && j.longitude !== undefined
+      );
+
+      // Lấy thằng đầu tiên trong danh sách để ghim marker đỏ và mở khung InfoWindow
+      if (firstValidJob) {
+        const lat = firstValidJob.latitude;
+        const lng = firstValidJob.longitude;
+        return `https://maps.google.com/maps?q=${lat},${lng}&t=&z=16&ie=UTF8&iwloc=&output=embed`;
+      }
+    }
+
+    // Trường hợp có chữ nhưng danh sách jobs rỗng
+    return buildGoogleMapsEmbedUrl(embedQuery, jobs);
+  }, [embedQuery, jobs]);
 
   return (
     <div className="space-y-3 rounded-md border bg-muted/20 p-4">

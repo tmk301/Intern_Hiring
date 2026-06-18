@@ -516,6 +516,8 @@ export type PublicJobPost = {
     description: string | null;
     status: string;
     hidden: boolean;
+    latitude?: number | null;
+    longitude?: number | null;
     recruiterId: string | number | null;
     createdAt: string;
     updatedAt: string | null;

@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom"; // MỚI THÊM: useNavigate
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Briefcase, CalendarDays, Loader2, MapPin, FileText } from "lucide-react"; // MỚI THÊM: FileText
+import { Briefcase, CalendarDays, Loader2, MapPin, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"; // MỚI THÊM: CardFooter
-import { Button } from "@/components/ui/button"; // MỚI THÊM
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -12,9 +12,9 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@/components/ui/dialog"; // MỚI THÊM
+} from "@/components/ui/dialog";
 import { JobSearchFilters } from "@/components/jobs/JobSearchFilters";
-import { jobApi, PublicJobPost, candidateApi } from "@/lib/api"; // MỚI THÊM: candidateApi
+import { jobApi, PublicJobPost, candidateApi } from "@/lib/api";
 import {
   defaultManagedSiteConfig,
   loadManagedSiteConfig,
@@ -27,8 +27,8 @@ import {
   type JobFilterValue,
 } from "@/components/jobs/jobFilterConfig";
 import { getVietnamProvinceOptions, getVietnamWardOptions } from "@/lib/vietnamProvinces";
-import { useAuth } from "@/context/AuthContext"; // MỚI THÊM
-import { useToast } from "@/hooks/use-toast"; // MỚI THÊM
+import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const normalizeText = (value?: string | number | null) =>
   String(value ?? "")
@@ -39,6 +39,10 @@ const normalizeText = (value?: string | number | null) =>
     .replace(/[^a-zA-Z0-9]+/g, " ")
     .trim()
     .toLowerCase();
+
+const extractNumbers = (text: string) => {
+  return text.match(/\d+/g) ?? [];
+};
 
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
@@ -59,7 +63,6 @@ const parseNumberToken = (token: string) => {
   if (/^\d{1,3}([.,]\d{3})+$/.test(token)) {
     return Number(token.replace(/[.,]/g, ""));
   }
-
   return Number(token.replace(",", "."));
 };
 
@@ -73,7 +76,6 @@ const getSalaryNumbers = (value?: string | null) => {
       ?.match(/\d+(?:[.,]\d+)*/g)
       ?.map((item) => {
         const parsedValue = parseNumberToken(item);
-
         if (!Number.isFinite(parsedValue)) return null;
         if (hasMillionUnit && parsedValue < 1_000) return parsedValue * 1_000_000;
         if (hasThousandUnit && parsedValue < 100_000) return parsedValue * 1_000;
@@ -85,22 +87,17 @@ const getSalaryNumbers = (value?: string | null) => {
 
 const matchesText = (source: string | null, selectedValue: string) => {
   if (!selectedValue) return true;
-
   const normalizedSource = normalizeText(source);
   const normalizedSelected = normalizeText(selectedValue);
-
   return Boolean(normalizedSelected && normalizedSource.includes(normalizedSelected));
 };
 
 const matchesSalaryRange = (source: string | null, minSalary: number, maxSalary: number, isActive: boolean) => {
   if (!isActive) return true;
-
   const salaryNumbers = getSalaryNumbers(source);
   if (salaryNumbers.length === 0) return false;
-
   const jobMinSalary = Math.min(...salaryNumbers);
   const jobMaxSalary = Math.max(...salaryNumbers);
-
   return jobMaxSalary >= minSalary && jobMinSalary <= maxSalary;
 };
 
@@ -109,7 +106,6 @@ const hasAnyPhrase = (source: string, phrases: string[]) =>
 
 const matchesExperience = (source: string | null, selectedValue: string) => {
   if (!selectedValue) return true;
-
   const normalizedSource = normalizeText(source);
   if (!normalizedSource) return false;
 
@@ -154,42 +150,86 @@ const matchesExperience = (source: string | null, selectedValue: string) => {
   }
 };
 
-const matchesOption = (
-  source: string | null,
-  selectedValue: string,
-  options: JobFilterOption[],
-  translate: (key: string) => string,
-) => {
+const getCandidateTexts = (selectedValue: string, options: JobFilterOption[], translate: (key: string) => string) => {
+  const option = options.find((item) => item.value === selectedValue || item.label === selectedValue);
+  return option
+    ? [option.label, option.value, option.labelKey ? translate(option.labelKey) : undefined, ...(option.aliases ?? [])].filter(Boolean) as string[]
+    : [selectedValue];
+};
+
+const matchesCity = (source: string | null, selectedValue: string, options: JobFilterOption[], translate: (key: string) => string) => {
   if (!selectedValue) return true;
+  if (!source) return false;
+  const normalizedSource = normalizeText(source);
+  const candidates = getCandidateTexts(selectedValue, options, translate);
+  return candidates.some((candidate) => normalizedSource.includes(normalizeText(candidate)));
+};
+
+const matchesDistrict = (source: string | null, selectedValue: string, options: JobFilterOption[], translate: (key: string) => string) => {
+  if (!selectedValue) return true;
+  if (!source) return false;
 
   const normalizedSource = normalizeText(source);
-  const option = options.find((item) => item.value === selectedValue);
-  const candidates = option
-    ? [
-        option.label,
-        option.labelKey ? translate(option.labelKey) : undefined,
-        ...(option.aliases ?? []),
-      ]
-    : [selectedValue];
+  const candidates = getCandidateTexts(selectedValue, options, translate);
 
   return candidates.some((candidate) => {
     const normalizedCandidate = normalizeText(candidate);
-    return Boolean(normalizedCandidate && normalizedSource.includes(normalizedCandidate));
+    const numbers = extractNumbers(normalizedCandidate);
+
+    if (numbers.length === 1) {
+      const targetNum = numbers[0];
+      const districtRegex = new RegExp(`(?<!\\b(phuong|p|xa)\\s*\\.?\\s*)\\b(quan|q|huyen|h|tx|dist|district)\\s*\\.?\\s*${targetNum}\\b`, "i");
+      return districtRegex.test(normalizedSource);
+    }
+
+    return normalizedSource.includes(normalizedCandidate);
+  });
+};
+
+const matchesWard = (source: string | null, selectedValue: string, options: JobFilterOption[], translate: (key: string) => string) => {
+  if (!selectedValue) return true;
+  if (!source) return false;
+
+  const normalizedSource = normalizeText(source);
+  const candidates = getCandidateTexts(selectedValue, options, translate);
+
+  return candidates.some((candidate) => {
+    const normalizedCandidate = normalizeText(candidate);
+    const numbers = extractNumbers(normalizedCandidate);
+
+    if (numbers.length === 1) {
+      const targetNum = numbers[0];
+      const wardRegex = new RegExp(`(?<!\\b(quan|q|huyen|h|tx|dist|district)\\s*\\.?\\s*)\\b(phuong|p|xa|ward)\\s*\\.?\\s*${targetNum}\\b`, "i");
+      return wardRegex.test(normalizedSource);
+    }
+
+    return normalizedSource.includes(normalizedCandidate);
   });
 };
 
 const matchesLocationText = (source: string | null, selectedLocation: string) => {
   if (!selectedLocation) return true;
+  if (!source) return false;
 
   const normalizedSource = normalizeText(source);
   const normalizedSelected = normalizeText(selectedLocation);
-  const selectedTokens = normalizedSelected.split(" ").filter((token) => token.length >= 3);
+  const numbers = extractNumbers(normalizedSelected);
 
-  return (
-    normalizedSource.includes(normalizedSelected) ||
-    normalizedSelected.includes(normalizedSource) ||
-    selectedTokens.some((token) => normalizedSource.includes(token))
-  );
+  if (numbers.length === 1) {
+    const targetNum = numbers[0];
+
+    if (normalizedSelected.includes("quan") || normalizedSelected.includes("q ") || /^q\d+$/.test(normalizedSelected) || normalizedSelected.includes("district")) {
+      const strictDistrictRegex = new RegExp(`(?<!\\b(phuong|p|xa)\\s*\\.?\\s*)\\b(quan|q|huyen|h|dist|district)\\s*\\.?\\s*${targetNum}\\b`, "i");
+      return strictDistrictRegex.test(normalizedSource);
+    }
+
+    if (normalizedSelected.includes("phuong") || normalizedSelected.includes("p ") || /^p\d+$/.test(normalizedSelected) || normalizedSelected.includes("ward")) {
+      const strictWardRegex = new RegExp(`(?<!\\b(quan|q|huyen|h|dist|district)\\s*\\.?\\s*)\\b(phuong|p|xa|ward)\\s*\\.?\\s*${targetNum}\\b`, "i");
+      return strictWardRegex.test(normalizedSource);
+    }
+  }
+
+  return normalizedSource.includes(normalizedSelected);
 };
 
 const filterJobs = (
@@ -209,9 +249,9 @@ const filterJobs = (
 
     return (
       (!value.keyword || searchText.includes(normalizeText(value.keyword))) &&
-      matchesOption(job.location, value.city, options.cities, translate) &&
-      matchesOption(job.location, value.district, options.districts, translate) &&
-      matchesOption(job.location, value.ward, options.wards, translate) &&
+      matchesCity(job.location, value.city, options.cities, translate) &&
+      matchesDistrict(job.location, value.district, options.districts, translate) &&
+      matchesWard(job.location, value.ward, options.wards, translate) &&
       matchesLocationText(job.location, value.location) &&
       matchesText(`${job.type ?? ""} ${job.description ?? ""}`, value.workMode) &&
       matchesText(job.type, value.jobType) &&
@@ -237,7 +277,6 @@ const Jobs: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // MỚI THÊM: Các state và hook cho phần nộp đơn
   const { user, token } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -288,6 +327,180 @@ const Jobs: React.FC = () => {
     };
   }, [filterValue.city, provinceOptions]);
 
+  const MOCK_JOBS: PublicJobPost[] = useMemo(() => [
+    {
+      id: "mock-1",
+      title: "Frontend Developer Intern",
+      company: "MSC Center",
+      employerName: "MSC Admin",
+      employerEmail: "contact@msc.vn",
+      location: "268 Lý Thường Kiệt, Quận 10, TP. Hồ Chí Minh",
+      type: "Internship",
+      salary: "5000000",
+      description: "Tham gia phát triển các dự án web sử dụng ReactJS và Tailwind CSS.",
+      status: "APPROVED",
+      hidden: false,
+      latitude: 10.7728442,
+      longitude: 106.6599026,
+      recruiterId: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: null,
+      deletedAt: null,
+    },
+    {
+      id: "mock-2",
+      title: "Java Backend Developer",
+      company: "Techcom Tower Branch",
+      employerName: "Nguyen Van A",
+      employerEmail: "recruitment@techcom.vn",
+      location: "23 Lê Duẩn, Bến Nghé, Quận 1, TP. Hồ Chí Minh",
+      type: "Full-time",
+      salary: "15000000",
+      description: "Lập trình hệ thống Core Banking sử dụng Java Spring Boot và cơ sở dữ liệu PostgreSQL.",
+      status: "APPROVED",
+      hidden: false,
+      latitude: 10.782252,
+      longitude: 106.700514,
+      recruiterId: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: null,
+      deletedAt: null,
+    },
+    {
+      id: "mock-3",
+      title: "Mobile App Developer (React Native)",
+      company: "Sài Gòn Software",
+      employerName: "Tran Thi B",
+      employerEmail: "hr@saigonsoft.com",
+      location: "280 An Dương Vương, Phường 4, Quận 5, TP. Hồ Chí Minh",
+      type: "Full-time",
+      salary: "18000000",
+      description: "Xây dựng và tối ưu hóa ứng dụng di động trên hai nền tảng iOS và Android.",
+      status: "APPROVED",
+      hidden: false,
+      latitude: 10.759904,
+      longitude: 106.668503,
+      recruiterId: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: null,
+      deletedAt: null,
+    },
+    {
+      id: "mock-4",
+      title: "UI/UX Designer",
+      company: "InnoTech Studio",
+      employerName: "Le Hoang C",
+      employerEmail: "design@innotech.com",
+      location: "Block A, Khu Công nghệ Phần mềm ĐHQG, Linh Trung, Thủ Đức, TP. Hồ Chí Minh",
+      type: "Part-time",
+      salary: "8000000",
+      description: "Thiết kế Wireframe, Prototype cho các sản phẩm Web/Mobile của công ty bằng Figma.",
+      status: "APPROVED",
+      hidden: false,
+      latitude: 10.865063,
+      longitude: 106.801644,
+      recruiterId: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: null,
+      deletedAt: null,
+    },
+    {
+      id: "mock-5",
+      title: "DevOps Engineer",
+      company: "VNG Campus",
+      employerName: "Pham Minh D",
+      employerEmail: "careers@vng.com.vn",
+      location: "Đường số 13, Khu chế xuất Tân Thuận, Quận 7, TP. Hồ Chí Minh",
+      type: "Full-time",
+      salary: "25000000",
+      description: "Triển khai hệ thống CI/CD, quản lý hạ tầng Cloud trên nền tảng AWS và Kubernetes.",
+      status: "APPROVED",
+      hidden: false,
+      latitude: 10.744158,
+      longitude: 106.725178,
+      recruiterId: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: null,
+      deletedAt: null,
+    },
+    {
+    id: "mock-4",
+    title: "Fullstack Web Developer Intern",
+    company: "Tiki Corporation",
+    employerName: "Tiki Careers",
+    employerEmail: "jobs@tiki.vn",
+    location: "52 Út Tịch, Quận 10, TP. Hồ Chí Minh", // Khu vực cư xá Bắc Hải giáp Q10
+    type: "Internship",
+    salary: "5500000",
+    description: "Phát triển các tính năng E-commerce sử dụng Next.js (React) và Node.js Express.",
+    status: "APPROVED",
+    hidden: false,
+    latitude: 10.7925012,
+    longitude: 106.6601445,
+    recruiterId: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: null,
+    deletedAt: null,
+  },
+  {
+    id: "mock-5",
+    title: "Mobile App Developer Intern (React Native)",
+    company: "ZaloPay Team",
+    employerName: "Zalo HR",
+    employerEmail: "contact@zalopay.vn",
+    location: "M7 Tòa nhà IPC, 1489 Nguyễn Văn Linh, Quận 7, TP. Hồ Chí Minh",
+    type: "Internship",
+    salary: "6500000",
+    description: "Xây dựng các module tính năng giao diện trên ứng dụng ví điện tử ZaloPay (iOS & Android).",
+    status: "APPROVED",
+    hidden: false,
+    latitude: 10.7303023,
+    longitude: 106.7094251,
+    recruiterId: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: null,
+    deletedAt: null,
+  },
+  {
+    id: "mock-6",
+    title: "Embedded Systems Intern",
+    company: "PTIT Lab",
+    employerName: "Admin Lab",
+    employerEmail: "lab@ptit.edu.vn",
+    location: "Thành Thái, Phường 14, Quận 10, TP. Hồ Chí Minh",
+    type: "Internship",
+    salary: "4500000",
+    description: "Nghiên cứu lập trình nhúng vi điều khiển, kết nối cảm biến và các giao thức truyền thông IoT.",
+    status: "APPROVED",
+    hidden: false,
+    latitude: 10.7711413,
+    longitude: 106.6631835,
+    recruiterId: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: null,
+    deletedAt: null,
+  },
+  {
+    id: "mock-7",
+    title: "AI & Data Science Intern",
+    company: "HCMUS Tech",
+    employerName: "AI Center",
+    employerEmail: "aiedu@hcmus.edu.vn",
+    location: "227 Nguyễn Văn Cừ, Quận 5, TP. Hồ Chí Minh",
+    type: "Internship",
+    salary: "7000000",
+    description: "Tham gia tiền xử lý dữ liệu lớn, xây dựng và huấn luyện mô hình Machine Learning/Deep Learning.",
+    status: "APPROVED",
+    hidden: false,
+    latitude: 10.7628876,
+    longitude: 106.6823123,
+    recruiterId: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: null,
+    deletedAt: null,
+  }
+  ], []);
+
   useEffect(() => {
     let mounted = true;
     const loadData = async () => {
@@ -300,7 +513,7 @@ const Jobs: React.FC = () => {
         ]);
         if (!mounted) return;
         setManagedConfig(config);
-        setJobs(jobsResult || []);
+        setJobs([...(jobsResult || []), ...MOCK_JOBS]);
       } catch (error: unknown) {
         if (!mounted) return;
         setErrorMessage(getErrorMessage(error, t("jobs.page.loadError")));
@@ -315,25 +528,62 @@ const Jobs: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, [t]);
+  }, [t, MOCK_JOBS]);
 
   const filterOptions = useMemo<JobFilterOptions>(() => {
     if (provinceOptions.length === 0) return managedConfig.filters;
     return {
       ...managedConfig.filters,
       cities: provinceOptions,
-      districts: [],
+      districts: managedConfig.filters.districts || [],
       wards: wardOptions,
     };
   }, [managedConfig.filters, provinceOptions, wardOptions]);
 
-  const filteredJobs = useMemo(
-    () => filterJobs(jobs, filterValue, filterOptions, t),
-    [jobs, filterValue, filterOptions, t],
-  );
+  const filteredJobs = useMemo(() => {
+    const baseFiltered = filterJobs(jobs, filterValue, filterOptions, t);
+    const activeWard = filterValue.ward;
+    const activeDistrict = filterValue.district;
+
+    if (activeWard) {
+      return [...baseFiltered].sort((a, b) => {
+        const aMatch = matchesWard(a.location, activeWard, filterOptions.wards, t);
+        const bMatch = matchesWard(b.location, activeWard, filterOptions.wards, t);
+        if (aMatch && !bMatch) return -1;
+        if (!aMatch && bMatch) return 1;
+        return 0;
+      });
+    }
+
+    if (activeDistrict) {
+      return [...baseFiltered].sort((a, b) => {
+        const aMatch = matchesDistrict(a.location, activeDistrict, filterOptions.districts, t);
+        const bMatch = matchesDistrict(b.location, activeDistrict, filterOptions.districts, t);
+        if (aMatch && !bMatch) return -1;
+        if (!aMatch && bMatch) return 1;
+        return 0;
+      });
+    }
+
+    return baseFiltered;
+  }, [jobs, filterValue, filterOptions, t]);
+
+  // 🎯 ĐÃ THÊM: Tính toán tọa độ tâm bản đồ từ công việc đầu tiên trong danh sách kết quả sau lọc
+  const mapCenterPosition = useMemo(() => {
+    if (filteredJobs.length > 0) {
+      const firstJob = filteredJobs[0];
+      if (firstJob.latitude && firstJob.longitude) {
+        return {
+          lat: Number(firstJob.latitude),
+          lng: Number(firstJob.longitude),
+        };
+      }
+    }
+    return null;
+  }, [filteredJobs]);
+
   const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
 
-  // MỚI THÊM: Hàm xử lý mở popup nộp đơn
   const handleOpenApplyModal = (jobId: string | number) => {
     if (!user || !token) {
       toast({ description: "Vui lòng đăng nhập để nộp đơn", variant: "default" });
@@ -349,15 +599,11 @@ const Jobs: React.FC = () => {
     setApplyJobId(jobId);
   };
 
-  // MỚI THÊM: Hàm gọi API nộp đơn
   const submitApplication = async () => {
     if (!applyJobId || !selectedCvId || !token) return;
-    
     setIsApplying(true);
     try {
-      // Gọi xuống Backend với cvId (Theo đúng chuẩn bảo mật đã thiết kế)
       await candidateApi.applyJob(token, applyJobId, selectedCvId);
-      
       toast({ title: "Thành công!", description: "Đã nộp CV thành công cho công việc này." });
       setApplyJobId(null);
       setSelectedCvId("");
@@ -385,6 +631,8 @@ const Jobs: React.FC = () => {
         <JobSearchFilters
           options={filterOptions}
           value={filterValue}
+          jobs={filteredJobs}
+          mapCenterPosition={mapCenterPosition} // <--- ĐÃ TRUYỀN TỌA ĐỘ ĐỘNG XUỐNG BỘ LỌC
           onChange={setFilterValue}
           onReset={() => setFilterValue(emptyJobFilterValue)}
         />
@@ -452,8 +700,6 @@ const Jobs: React.FC = () => {
                     </p>
                   )}
                 </CardContent>
-                
-                {/* MỚI THÊM: Nút nộp đơn */}
                 <CardFooter className="bg-slate-50/50 border-t p-4 flex justify-end">
                   <Button onClick={() => handleOpenApplyModal(job.id)}>
                     Nộp đơn ứng tuyển
@@ -465,7 +711,6 @@ const Jobs: React.FC = () => {
         )}
       </section>
 
-      {/* MỚI THÊM: Giao diện Modal Chọn CV nộp đơn */}
       <Dialog 
         open={!!applyJobId} 
         onOpenChange={(open) => {
