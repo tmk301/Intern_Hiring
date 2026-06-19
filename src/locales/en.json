@@ -398,7 +398,8 @@
       "show": "Show",
       "delete": "Delete",
       "edit": "Edit",
-      "history": "History"
+      "history": "History",
+      "allStatuses": "All statuses"
     },
     "applications": {
       "approve": "Approve",
@@ -409,6 +410,7 @@
       "jobTitle": "Applied position",
       "appliedAt": "Applied date",
       "viewCv": "View CV",
+      "allStatuses": "All statuses",
       "statuses": {
         "PENDING": "Pending",
         "APPROVED": "Approved",
@@ -525,16 +527,46 @@
     "submit": "Crop & Update"
   },
   "moderator": {
-    "badge": "MODERATOR",
-    "title": "Job post review",
-    "description": "Review, approve, or reject job posts submitted by recruiters.",
+    "badge": "Moderator",
+    "title": "Moderator Dashboard",
+    "description": "Manage and approve job posts and company verification requests across the system.",
     "stats": {
       "pendingTitle": "Pending job posts",
-      "pendingDescription": "Job posts currently in PENDING status"
+      "pendingDescription": "Job posts currently in PENDING status",
+      "jobsTitle": "Job Posts Statistics",
+      "companiesTitle": "Companies Statistics",
+      "totalJobs": "Total jobs",
+      "visibleJobs": "Visible",
+      "hiddenJobs": "Hidden",
+      "totalCompanies": "Total companies",
+      "approvedCompanies": "Approved",
+      "rejectedCompanies": "Rejected"
+    },
+    "tabs": {
+      "jobs": "Job Posts",
+      "companies": "Companies"
     },
     "jobs": {
-      "title": "Pending job posts",
-      "empty": "There are no job posts waiting for review."
+      "title": "Manage Job Posts",
+      "empty": "No job posts found.",
+      "allStatuses": "All statuses",
+      "allVisibility": "All visibility",
+      "visibleOnly": "Visible Only",
+      "hiddenOnly": "Hidden Only",
+      "searchPlaceholder": "Search title, company..."
+    },
+    "companies": {
+      "title": "Company Verification Requests",
+      "empty": "No company verification requests found.",
+      "searchPlaceholder": "Search email, company name...",
+      "allStatuses": "All statuses",
+      "applicant": "Applicant",
+      "companyName": "Company Name",
+      "taxCode": "Tax Code",
+      "submittedDate": "Submitted Date",
+      "dialogTitle": "Company Profile Details",
+      "reviewNote": "Review Note",
+      "reviewNotePlaceholder": "Enter reason if rejecting the request..."
     }
   },
   "candidateDashboard": {
@@ -843,7 +875,9 @@
       "imageInvalid": "Please choose a valid image file.",
       "imageTooLarge": "Image must be 2MB or smaller.",
       "imageUploadSuccess": "Header image uploaded.",
-      "imageUploadError": "Could not upload image."
+      "imageUploadError": "Could not upload image.",
+      "dragDropText": "Drag & drop header image here, or click to select",
+      "imageHint": "PNG, JPG, JPEG (max 2MB)"
     }
   },
   "notFound": {

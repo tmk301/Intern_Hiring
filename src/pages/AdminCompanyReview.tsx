@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import { useAuth } from "@/context/AuthContext";
 import { recruiterApi, RecruiterApplication } from "@/lib/api";
-import { isAdminRole } from "@/lib/roles";
+import { isAdminRole, isModeratorRole } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -65,7 +65,11 @@ const AdminCompanyReview: React.FC = () => {
     try {
       await recruiterApi.reviewApplication(token, application.id, approved, reviewNote.trim());
       toast.success(approved ? t("admin.approveRecruiterSuccess") : t("admin.rejectRequestSuccess"));
-      navigate("/admin");
+      if (isModeratorRole(user?.role)) {
+        navigate("/moderator");
+      } else {
+        navigate("/admin");
+      }
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : t("admin.reviewRequestError"));
     } finally {
@@ -82,7 +86,7 @@ const AdminCompanyReview: React.FC = () => {
   }
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (!isAdminRole(user?.role)) return <Navigate to="/" replace />;
+  if (!isAdminRole(user?.role) && !isModeratorRole(user?.role)) return <Navigate to="/" replace />;
 
   if (loadingApplication) {
     return (
@@ -92,7 +96,9 @@ const AdminCompanyReview: React.FC = () => {
     );
   }
 
-  if (!application) return <Navigate to="/admin" replace />;
+  if (!application) {
+    return <Navigate to={isModeratorRole(user?.role) ? "/moderator" : "/admin"} replace />;
+  }
 
   const formData = application.formData || {};
   const addresses = parseJsonArray<CompanyAddress>(formData.addresses);
@@ -101,26 +107,38 @@ const AdminCompanyReview: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <section className="border-b bg-white">
-        <div className="container mx-auto px-4 py-6">
-          <Button variant="ghost" className="mb-4" onClick={() => navigate("/admin")}>
+      <section className="hero-gradient text-white py-8 shadow-sm">
+        <div className="container mx-auto px-4">
+          <Button
+            variant="ghost"
+            className="mb-6 text-white hover:bg-white/10 hover:text-white/80"
+            onClick={() => {
+              if (isModeratorRole(user?.role)) {
+                navigate("/moderator");
+              } else {
+                navigate("/admin");
+              }
+            }}
+          >
             <ArrowLeft className="h-4 w-4" />
             {t("common.back")}
           </Button>
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-slate-950">{formData.companyDisplayName || formData.companyFullName}</h1>
-              <p className="mt-1 text-sm text-muted-foreground">{application.applicantEmail}</p>
+              <h1 className="text-3xl font-extrabold tracking-tight text-white md:text-4xl">
+                {formData.companyDisplayName || formData.companyFullName}
+              </h1>
+              <p className="mt-2 text-sm font-medium text-blue-100/90">{application.applicantEmail}</p>
             </div>
             {pending && (
               <div className="flex gap-2">
-                <Button variant="outline" className="border-red-200 text-red-700 hover:bg-red-50" disabled={actionId === application.id} onClick={() => handleReview(false)}>
+                <Button variant="outline" className="border-white/30 bg-white/95 text-red-700 hover:bg-white hover:text-red-800" disabled={actionId === application.id} onClick={() => handleReview(false)}>
                   <XCircle className="h-4 w-4" />
                   {t("admin.requests.reject")}
                 </Button>
                 <Button
                   variant="outline"
-                  className="border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                  className="border-white/30 bg-white/95 text-emerald-700 hover:bg-white hover:text-emerald-800"
                   disabled={actionId === application.id}
                   onClick={() => handleReview(true)}
                 >

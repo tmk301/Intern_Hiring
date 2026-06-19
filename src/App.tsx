@@ -74,6 +74,28 @@ const ModeratorRoute = ({ children }: { children: JSX.Element }) => {
   return children;
 };
 
+const AdminOrModeratorRoute = ({ children }: { children: JSX.Element }) => {
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!isAdminRole(user?.role) && !isModeratorRole(user?.role)) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+};
+
 const RecruiterRoute = ({ children }: { children: JSX.Element }) => {
   const { user, isAuthenticated, isLoading } = useAuth();
 
@@ -188,7 +210,7 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/admin/users/:userId" element={<AdminRoute><AdminUserProfile /></AdminRoute>} />
-            <Route path="/admin/company-reviews/:applicationId" element={<AdminRoute><AdminCompanyReview /></AdminRoute>} />
+            <Route path="/admin/company-reviews/:applicationId" element={<AdminOrModeratorRoute><AdminCompanyReview /></AdminOrModeratorRoute>} />
             <Route path="/recruiter" element={<RecruiterRoute><RecruiterDashboard /></RecruiterRoute>} />
             <Route path="/recruiter-verification" element={<CandidateOrRecruiterRoute><RecruiterVerification /></CandidateOrRecruiterRoute>} />
             <Route path="/moderator" element={<ModeratorRoute><ModeratorDashboard /></ModeratorRoute>} />

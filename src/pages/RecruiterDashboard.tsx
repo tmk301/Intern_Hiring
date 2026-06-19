@@ -37,7 +37,7 @@ import {
 } from "@/components/jobs/jobFilterConfig";
 import { isRecruiterRole } from "@/lib/roles";
 import { recruiterApi, CandidateApplication, CompanyProfile, isApiError, type RecruiterJobChangeLog, type RecruiterJobSnapshot } from "@/lib/api";
-import { getReviewStatusBadgeClassName, getReviewStatusTranslationKey, getRoleBadgeClassName, normalizeRoleName } from "@/lib/dashboardStyles";
+import { getReviewStatusBadgeClassName, getReviewStatusTranslationKey, getRoleBadgeClassName, getRoleBadgeDarkClassName, normalizeRoleName } from "@/lib/dashboardStyles";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { PaginationControls } from "@/components/ui/pagination-controls";
@@ -829,17 +829,17 @@ const RecruiterDashboard: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <section className="border-b bg-white">
-        <div className="container mx-auto px-4 py-8">
+      <section className="hero-gradient text-white py-8 shadow-sm">
+        <div className="container mx-auto px-4 max-w-6xl">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <Badge variant="outline" className={`mb-3 px-5 py-2 text-sm ${getRoleBadgeClassName(user?.role)}`}>
+              <Badge variant="outline" className={`mb-3 px-5 py-2 text-sm ${getRoleBadgeDarkClassName(user?.role)}`}>
                 {t(`role.${normalizeRoleName(user?.role)}`, { defaultValue: t("recruiter.badge") })}
               </Badge>
-              <h1 className="text-3xl font-bold text-slate-950">{t("recruiter.title")}</h1>
-              <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{t("recruiter.description")}</p>
+              <h1 className="text-3xl font-bold text-white">{t("recruiter.title")}</h1>
+              <p className="mt-2 max-w-3xl text-sm text-blue-100/90">{t("recruiter.description")}</p>
             </div>
-            <Button type="button" variant="outline" className="w-auto" onClick={loadJobs} disabled={loadingJobs}>
+            <Button type="button" variant="outline" className="bg-white text-slate-900 hover:bg-slate-50 border-transparent shadow-sm w-auto" onClick={loadJobs} disabled={loadingJobs}>
               {loadingJobs ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               {t("common.refresh")}
             </Button>
@@ -847,7 +847,7 @@ const RecruiterDashboard: React.FC = () => {
         </div>
       </section>
 
-      <section className="container mx-auto space-y-6 px-4 py-8">
+      <section className="container mx-auto space-y-6 px-4 py-8 max-w-6xl">
         {/* Thống kê */}
         <div className="space-y-3">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t("recruiter.stats.jobStatsTitle")}</h2>
@@ -1171,43 +1171,36 @@ const RecruiterDashboard: React.FC = () => {
             ) : (
               <>
                 {jobs.length > 0 && (
-                  <div className="mb-4 flex flex-wrap items-end gap-4 border-b pb-4">
-                    <div className="w-full min-w-[200px] flex-1 sm:w-auto space-y-1.5">
-                      <Label htmlFor="job-filter-status">{t("recruiter.jobs.status")}</Label>
-                      <Select value={jobFilterStatus} onValueChange={setJobFilterStatus}>
-                        <SelectTrigger id="job-filter-status" className="h-10 bg-white">
-                          <SelectValue placeholder={t("recruiter.jobs.status")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ALL">{t("jobs.filters.all")}</SelectItem>
-                          <SelectItem value="VISIBLE">{t("recruiter.stats.visible")}</SelectItem>
-                          <SelectItem value="HIDDEN">{t("recruiter.status.HIDDEN")}</SelectItem>
-                          <SelectItem value="PENDING">{t("recruiter.status.PENDING")}</SelectItem>
-                          <SelectItem value="APPROVED">{t("recruiter.status.APPROVED")}</SelectItem>
-                          <SelectItem value="REJECTED">{t("recruiter.status.REJECTED")}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="w-full min-w-[200px] flex-1 sm:w-auto space-y-1.5">
-                      <Label htmlFor="job-filter-created-at">{t("recruiter.jobs.createdAt")}</Label>
-                      <Input
-                        id="job-filter-created-at"
-                        type="date"
-                        value={jobFilterCreatedAt}
-                        onChange={(e) => setJobFilterCreatedAt(e.target.value)}
-                        className="h-10 bg-white"
-                      />
-                    </div>
-                    <div className="w-full min-w-[200px] flex-1 sm:w-auto space-y-1.5">
-                      <Label htmlFor="job-filter-deadline">{t("recruiter.jobs.applicationDeadline")}</Label>
-                      <Input
-                        id="job-filter-deadline"
-                        type="date"
-                        value={jobFilterDeadline}
-                        onChange={(e) => setJobFilterDeadline(e.target.value)}
-                        className="h-10 bg-white"
-                      />
-                    </div>
+                  <div className="mb-4 flex flex-wrap items-center justify-end gap-2 border-b pb-4">
+                    <Select value={jobFilterStatus} onValueChange={setJobFilterStatus}>
+                      <SelectTrigger id="job-filter-status" className="w-full sm:w-40 h-10 bg-white">
+                        <SelectValue placeholder={t("recruiter.jobs.status")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL">{t("recruiter.jobs.allStatuses")}</SelectItem>
+                        <SelectItem value="VISIBLE">{t("recruiter.stats.visible")}</SelectItem>
+                        <SelectItem value="HIDDEN">{t("recruiter.status.HIDDEN")}</SelectItem>
+                        <SelectItem value="PENDING">{t("recruiter.status.PENDING")}</SelectItem>
+                        <SelectItem value="APPROVED">{t("recruiter.status.APPROVED")}</SelectItem>
+                        <SelectItem value="REJECTED">{t("recruiter.status.REJECTED")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      id="job-filter-created-at"
+                      type="date"
+                      value={jobFilterCreatedAt}
+                      onChange={(e) => setJobFilterCreatedAt(e.target.value)}
+                      className="w-full sm:w-40 h-10 bg-white"
+                      aria-label={t("recruiter.jobs.createdAt")}
+                    />
+                    <Input
+                      id="job-filter-deadline"
+                      type="date"
+                      value={jobFilterDeadline}
+                      onChange={(e) => setJobFilterDeadline(e.target.value)}
+                      className="w-full sm:w-40 h-10 bg-white"
+                      aria-label={t("recruiter.jobs.applicationDeadline")}
+                    />
                     <Button
                       type="button"
                       variant="outline"
@@ -1234,9 +1227,8 @@ const RecruiterDashboard: React.FC = () => {
                 <TableHeader>
                   <TableRow>
                     {renderJobSortableHeader("title", t("recruiter.form.jobTitle"))}
-                    {renderJobSortableHeader("company", t("recruiter.form.company"))}
                     {renderJobSortableHeader("type", t("recruiter.form.type"))}
-                    {renderJobSortableHeader("applicationDeadline", t("recruiter.jobs.applicationDeadline"))}
+                    {renderJobSortableHeader("applicationDeadline", t("recruiter.jobs.applicationDeadline"), "text-center")}
                     {renderJobSortableHeader("status", t("recruiter.jobs.status"))}
                     {renderJobSortableHeader("createdAt", t("recruiter.jobs.createdAt"))}
                     <TableHead className="text-center">{t("common.actions")}</TableHead>
@@ -1250,9 +1242,8 @@ const RecruiterDashboard: React.FC = () => {
                     return (
                       <TableRow key={job.id} className="cursor-pointer hover:bg-slate-50/50" onClick={() => navigate(`/jobs/${job.id}`)}>
                         <TableCell className="min-w-56 font-medium">{job.title || "-"}</TableCell>
-                        <TableCell>{job.company || "-"}</TableCell>
                         <TableCell>{job.type || "-"}</TableCell>
-                        <TableCell>{formatDateOnly(job.applicationDeadline, dateLocale)}</TableCell>
+                        <TableCell className="text-center">{formatDateOnly(job.applicationDeadline, dateLocale)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={getReviewStatusBadgeClassName(job.status)}>
                             {t(`recruiter.status.${status}`, { defaultValue: status })}
@@ -1347,31 +1338,26 @@ const RecruiterDashboard: React.FC = () => {
             ) : (
               <>
                 {applications.length > 0 && (
-                  <div className="mb-4 flex flex-wrap items-end gap-4 border-b pb-4">
-                    <div className="w-full min-w-[200px] flex-1 sm:w-auto space-y-1.5">
-                      <Label htmlFor="app-filter-status">{t("common.status")}</Label>
-                      <Select value={appFilterStatus} onValueChange={setAppFilterStatus}>
-                        <SelectTrigger id="app-filter-status" className="h-10 bg-white">
-                          <SelectValue placeholder={t("common.status")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ALL">{t("jobs.filters.all")}</SelectItem>
-                          <SelectItem value="PENDING">{t("recruiter.applications.statuses.PENDING")}</SelectItem>
-                          <SelectItem value="ACCEPTED">{t("recruiter.applications.statuses.APPROVED")}</SelectItem>
-                          <SelectItem value="REJECTED">{t("recruiter.applications.statuses.REJECTED")}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="w-full min-w-[200px] flex-1 sm:w-auto space-y-1.5">
-                      <Label htmlFor="app-filter-applied-at">{t("recruiter.applications.appliedAt")}</Label>
-                      <Input
-                        id="app-filter-applied-at"
-                        type="date"
-                        value={appFilterAppliedAt}
-                        onChange={(e) => setAppFilterAppliedAt(e.target.value)}
-                        className="h-10 bg-white"
-                      />
-                    </div>
+                  <div className="mb-4 flex flex-wrap items-center justify-end gap-2 border-b pb-4">
+                    <Select value={appFilterStatus} onValueChange={setAppFilterStatus}>
+                      <SelectTrigger id="app-filter-status" className="w-full sm:w-40 h-10 bg-white">
+                        <SelectValue placeholder={t("common.status")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL">{t("recruiter.applications.allStatuses")}</SelectItem>
+                        <SelectItem value="PENDING">{t("recruiter.applications.statuses.PENDING")}</SelectItem>
+                        <SelectItem value="ACCEPTED">{t("recruiter.applications.statuses.APPROVED")}</SelectItem>
+                        <SelectItem value="REJECTED">{t("recruiter.applications.statuses.REJECTED")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      id="app-filter-applied-at"
+                      type="date"
+                      value={appFilterAppliedAt}
+                      onChange={(e) => setAppFilterAppliedAt(e.target.value)}
+                      className="w-full sm:w-40 h-10 bg-white"
+                      aria-label={t("recruiter.applications.appliedAt")}
+                    />
                     <Button
                       type="button"
                       variant="outline"

@@ -411,7 +411,8 @@
       "show": "Hiện",
       "delete": "Xóa",
       "edit": "Sửa",
-      "history": "Lịch sử"
+      "history": "Lịch sử",
+      "allStatuses": "Tất cả trạng thái"
     },
     "applications": {
       "approve": "Duyệt",
@@ -422,6 +423,7 @@
       "jobTitle": "Vị trí ứng tuyển",
       "appliedAt": "Ngày nộp",
       "viewCv": "Xem CV",
+      "allStatuses": "Tất cả trạng thái",
       "statuses": {
         "PENDING": "Chờ",
         "APPROVED": "Duyệt",
@@ -550,16 +552,46 @@
     "submit": "Cắt & Cập nhật"
   },
   "moderator": {
-    "badge": "MODERATOR",
-    "title": "Duyệt tin tuyển dụng",
-    "description": "Duyệt hoặc từ chối các tin tuyển dụng do nhà tuyển dụng đăng lên.",
+    "badge": "Kiểm duyệt viên",
+    "title": "Bảng kiểm duyệt",
+    "description": "Quản lý và duyệt các tin tuyển dụng và yêu cầu xác thực doanh nghiệp trên toàn hệ thống.",
     "stats": {
       "pendingTitle": "Tin chờ duyệt",
-      "pendingDescription": "Các tin tuyển dụng đang ở trạng thái chờ duyệt"
+      "pendingDescription": "Các tin tuyển dụng đang ở trạng thái chờ duyệt",
+      "jobsTitle": "Thống kê Bài đăng",
+      "companiesTitle": "Thống kê Công ty",
+      "totalJobs": "Tổng số bài đăng",
+      "visibleJobs": "Đang hiển thị",
+      "hiddenJobs": "Đã ẩn",
+      "totalCompanies": "Tổng số công ty",
+      "approvedCompanies": "Đã duyệt",
+      "rejectedCompanies": "Đã từ chối"
+    },
+    "tabs": {
+      "jobs": "Bài đăng",
+      "companies": "Công ty"
     },
     "jobs": {
-      "title": "Tin tuyển dụng chờ duyệt",
-      "empty": "Hiện không có tin tuyển dụng nào đang chờ duyệt."
+      "title": "Quản lý tin tuyển dụng",
+      "empty": "Không có bài đăng tuyển dụng nào.",
+      "allStatuses": "Tất cả trạng thái",
+      "allVisibility": "Tất cả hiển thị",
+      "visibleOnly": "Đang hiển thị",
+      "hiddenOnly": "Đã ẩn",
+      "searchPlaceholder": "Tìm kiếm tiêu đề, công ty..."
+    },
+    "companies": {
+      "title": "Yêu cầu xác thực công ty",
+      "empty": "Không có yêu cầu xác thực công ty nào.",
+      "searchPlaceholder": "Tìm kiếm email, tên công ty...",
+      "allStatuses": "Tất cả trạng thái",
+      "applicant": "Người yêu cầu",
+      "companyName": "Tên doanh nghiệp",
+      "taxCode": "Mã số thuế",
+      "submittedDate": "Ngày gửi",
+      "dialogTitle": "Chi tiết hồ sơ xác thực công ty",
+      "reviewNote": "Ghi chú duyệt",
+      "reviewNotePlaceholder": "Nhập lý do nếu từ chối yêu cầu..."
     }
   },
   "candidateDashboard": {
@@ -866,7 +898,9 @@
       "imageInvalid": "Vui lòng chọn một file ảnh hợp lệ.",
       "imageTooLarge": "Kích thước ảnh không được vượt quá 2MB.",
       "imageUploadSuccess": "Đã tải ảnh tiêu đề lên thành công.",
-      "imageUploadError": "Không thể tải ảnh tiêu đề lên."
+      "imageUploadError": "Không thể tải ảnh tiêu đề lên.",
+      "dragDropText": "Kéo thả ảnh vào đây hoặc click để tải lên",
+      "imageHint": "PNG, JPG, JPEG (tối đa 2MB)"
     }
   },
   "notFound": {

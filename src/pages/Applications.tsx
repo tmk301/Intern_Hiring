@@ -21,6 +21,7 @@ import {
   getReviewStatusBadgeClassName,
   getReviewStatusTranslationKey,
   getRoleBadgeClassName,
+  getRoleBadgeDarkClassName,
 } from "@/lib/dashboardStyles";
 import { isCandidateRole, USER_ROLES } from "@/lib/roles";
 import { CURRENCY_OPTIONS, defaultJobFilterOptions, getSalaryRangeOption, JOB_TYPE_OPTIONS, WORK_MODE_OPTIONS } from "@/components/jobs/jobFilterConfig";
@@ -326,24 +327,25 @@ const Applications = () => {
       case "submitted":
       default:
         return t("candidateDashboard.submittedListTitle");
+
     }
   };
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <section className="border-b bg-white">
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <section className="hero-gradient text-white py-8 shadow-sm">
+        <div className="container mx-auto px-4 max-w-6xl">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <Badge variant="outline" className={`mb-3 px-5 py-2 text-sm ${getRoleBadgeClassName(USER_ROLES.CANDIDATE)}`}>
+              <Badge variant="outline" className={`mb-3 px-5 py-2 text-sm ${getRoleBadgeDarkClassName(USER_ROLES.CANDIDATE)}`}>
                 {t("role.CANDIDATE")}
               </Badge>
-              <h1 className="text-3xl font-bold text-slate-950">{t("candidateDashboard.title")}</h1>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <h1 className="text-3xl font-bold text-white">{t("candidateDashboard.title")}</h1>
+              <p className="mt-2 text-sm text-blue-100/90">
                 {t("candidateDashboard.description")}
               </p>
             </div>
-            <Button variant="outline" onClick={() => { refetch(); refetchFavorites(); }} disabled={isLoading || isFavoritesLoading}>
+            <Button variant="outline" className="bg-white text-slate-900 hover:bg-slate-50 border-transparent shadow-sm w-auto" onClick={() => { refetch(); refetchFavorites(); }} disabled={isLoading || isFavoritesLoading}>
               {isLoading || isFavoritesLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               {t("common.refresh")}
             </Button>

@@ -672,6 +672,11 @@ export type ModeratorJobPost = {
 };
 
 export const moderatorApi = {
+  listAllJobs: (token: string) =>
+    apiRequest<ModeratorJobPost[]>("/api/moderator/jobs", {
+      headers: authHeaders(token),
+    }),
+
   listPendingJobs: (token: string) =>
     apiRequest<ModeratorJobPost[]>("/api/moderator/jobs/pending", {
       headers: authHeaders(token),
@@ -690,6 +695,19 @@ export const moderatorApi = {
 
   rejectJob: (token: string, jobId: string | number) =>
     apiRequest<ModeratorJobPost>(`/api/moderator/jobs/${encodeURIComponent(String(jobId))}/reject`, {
+      method: "PATCH",
+      headers: authHeaders(token),
+    }),
+
+  toggleJobHidden: (token: string, jobId: string | number, hidden: boolean) =>
+    apiRequest<ModeratorJobPost>(`/api/moderator/jobs/${encodeURIComponent(String(jobId))}/hidden`, {
+      method: "PATCH",
+      headers: authHeaders(token),
+      body: JSON.stringify({ hidden }),
+    }),
+
+  trashJob: (token: string, jobId: string | number) =>
+    apiRequest<ModeratorJobPost>(`/api/moderator/jobs/${encodeURIComponent(String(jobId))}/trash`, {
       method: "PATCH",
       headers: authHeaders(token),
     }),
