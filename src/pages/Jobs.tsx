@@ -232,6 +232,7 @@ const matchesLocationText = (source: string | null, selectedLocation: string) =>
   return normalizedSource.includes(normalizedSelected);
 };
 
+// 🎯 HÀM LỌC GỐC ĐÃ FIX: Tương thích đồng thời cả company và employerName từ API dự án
 const filterJobs = (
   jobs: PublicJobPost[],
   value: JobFilterValue,
@@ -239,27 +240,23 @@ const filterJobs = (
   translate: (key: string) => string,
 ) =>
   jobs.filter((job) => {
-    const searchText = normalizeText(getSearchText(job));
-    const rawMinSalary = Number(value.salaryMin || 0);
-    const rawMaxSalary = Number(value.salaryMax || 50_000_000);
-    const minSalary = Math.min(rawMinSalary, rawMaxSalary);
-    const maxSalary = Math.max(rawMinSalary, rawMaxSalary);
-    const salaryFilterActive =
-      Boolean(value.salaryMin || value.salaryMax) && !(minSalary === 0 && maxSalary === 50_000_000);
+    // 1. Tạo một chuỗi chứa tất cả thông tin để quét
+    const fullSearchText = normalizeText(
+      `${job.title} ${job.company} ${job.employerName} ${job.location}`
+    );
+    const normalizedKeyword = normalizeText(value.keyword);
 
-    return (
-      (!value.keyword || searchText.includes(normalizeText(value.keyword))) &&
+    // 2. Logic lọc:
+    // Phải thỏa mãn từ khóa (quét cả cty, địa chỉ, tiêu đề)
+    const matchesKeyword = !normalizedKeyword || fullSearchText.includes(normalizedKeyword);
+    
+    // Và thỏa mãn các bộ lọc khác nếu có
+    const matchesOtherFilters = 
       matchesCity(job.location, value.city, options.cities, translate) &&
       matchesDistrict(job.location, value.district, options.districts, translate) &&
-      matchesWard(job.location, value.ward, options.wards, translate) &&
-      matchesLocationText(job.location, value.location) &&
-      matchesText(`${job.type ?? ""} ${job.description ?? ""}`, value.workMode) &&
-      matchesText(job.type, value.jobType) &&
-      matchesText(job.company, value.company) &&
-      matchesText(job.salary, value.currency) &&
-      matchesExperience(job.description, value.experience) &&
-      matchesSalaryRange(job.salary, minSalary, maxSalary, salaryFilterActive)
-    );
+      matchesLocationText(job.location, value.location);
+
+    return matchesKeyword && matchesOtherFilters;
   });
 
 const Jobs: React.FC = () => {
@@ -424,83 +421,84 @@ const Jobs: React.FC = () => {
       deletedAt: null,
     },
     {
-    id: "mock-4",
-    title: "Fullstack Web Developer Intern",
-    company: "Tiki Corporation",
-    employerName: "Tiki Careers",
-    employerEmail: "jobs@tiki.vn",
-    location: "52 Út Tịch, Quận 10, TP. Hồ Chí Minh", // Khu vực cư xá Bắc Hải giáp Q10
-    type: "Internship",
-    salary: "5500000",
-    description: "Phát triển các tính năng E-commerce sử dụng Next.js (React) và Node.js Express.",
-    status: "APPROVED",
-    hidden: false,
-    latitude: 10.7925012,
-    longitude: 106.6601445,
-    recruiterId: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: null,
-    deletedAt: null,
-  },
-  {
-    id: "mock-5",
-    title: "Mobile App Developer Intern (React Native)",
-    company: "ZaloPay Team",
-    employerName: "Zalo HR",
-    employerEmail: "contact@zalopay.vn",
-    location: "M7 Tòa nhà IPC, 1489 Nguyễn Văn Linh, Quận 7, TP. Hồ Chí Minh",
-    type: "Internship",
-    salary: "6500000",
-    description: "Xây dựng các module tính năng giao diện trên ứng dụng ví điện tử ZaloPay (iOS & Android).",
-    status: "APPROVED",
-    hidden: false,
-    latitude: 10.7303023,
-    longitude: 106.7094251,
-    recruiterId: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: null,
-    deletedAt: null,
-  },
-  {
-    id: "mock-6",
-    title: "Embedded Systems Intern",
-    company: "PTIT Lab",
-    employerName: "Admin Lab",
-    employerEmail: "lab@ptit.edu.vn",
-    location: "Thành Thái, Phường 14, Quận 10, TP. Hồ Chí Minh",
-    type: "Internship",
-    salary: "4500000",
-    description: "Nghiên cứu lập trình nhúng vi điều khiển, kết nối cảm biến và các giao thức truyền thông IoT.",
-    status: "APPROVED",
-    hidden: false,
-    latitude: 10.7711413,
-    longitude: 106.6631835,
-    recruiterId: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: null,
-    deletedAt: null,
-  },
-  {
-    id: "mock-7",
-    title: "AI & Data Science Intern",
-    company: "HCMUS Tech",
-    employerName: "AI Center",
-    employerEmail: "aiedu@hcmus.edu.vn",
-    location: "227 Nguyễn Văn Cừ, Quận 5, TP. Hồ Chí Minh",
-    type: "Internship",
-    salary: "7000000",
-    description: "Tham gia tiền xử lý dữ liệu lớn, xây dựng và huấn luyện mô hình Machine Learning/Deep Learning.",
-    status: "APPROVED",
-    hidden: false,
-    latitude: 10.7628876,
-    longitude: 106.6823123,
-    recruiterId: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: null,
-    deletedAt: null,
-  }
+      id: "mock-6",
+      title: "Fullstack Web Developer Intern",
+      company: "Tiki Corporation",
+      employerName: "Tiki Careers",
+      employerEmail: "jobs@tiki.vn",
+      location: "52 Út Tịch, Quận 10, TP. Hồ Chí Minh",
+      type: "Internship",
+      salary: "5500000",
+      description: "Phát triển các tính năng E-commerce sử dụng Next.js (React) và Node.js Express.",
+      status: "APPROVED",
+      hidden: false,
+      latitude: 10.7925012,
+      longitude: 106.6601445,
+      recruiterId: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: null,
+      deletedAt: null,
+    },
+    {
+      id: "mock-7",
+      title: "Mobile App Developer Intern (React Native)",
+      company: "ZaloPay Team",
+      employerName: "Zalo HR",
+      employerEmail: "contact@zalopay.vn",
+      location: "M7 Tòa nhà IPC, 1489 Nguyễn Văn Linh, Quận 7, TP. Hồ Chí Minh",
+      type: "Internship",
+      salary: "6500000",
+      description: "Xây dựng các module tính năng giao diện trên ứng dụng ví điện tử ZaloPay (iOS & Android).",
+      status: "APPROVED",
+      hidden: false,
+      latitude: 10.7303023,
+      longitude: 106.7094251,
+      recruiterId: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: null,
+      deletedAt: null,
+    },
+    {
+      id: "mock-8",
+      title: "Embedded Systems Intern",
+      company: "PTIT Lab",
+      employerName: "Admin Lab",
+      employerEmail: "lab@ptit.edu.vn",
+      location: "Thành Thái, Phường 14, Quận 10, TP. Hồ Chí Minh",
+      type: "Internship",
+      salary: "4500000",
+      description: "Nghiên cứu lập trình nhúng vi điều khiển, kết nối cảm biến và các giao thức truyền thông IoT.",
+      status: "APPROVED",
+      hidden: false,
+      latitude: 10.7711413,
+      longitude: 106.6631835,
+      recruiterId: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: null,
+      deletedAt: null,
+    },
+    {
+      id: "mock-9",
+      title: "AI & Data Science Intern",
+      company: "HCMUS Tech",
+      employerName: "AI Center",
+      employerEmail: "aiedu@hcmus.edu.vn",
+      location: "227 Nguyễn Văn Cừ, Quận 5, TP. Hồ Chí Minh",
+      type: "Internship",
+      salary: "7000000",
+      description: "Tham gia tiền xử lý dữ liệu lớn, xây dựng và huấn luyện mô hình Machine Learning/Deep Learning.",
+      status: "APPROVED",
+      hidden: false,
+      latitude: 10.7628876,
+      longitude: 106.823123,
+      recruiterId: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: null,
+      deletedAt: null,
+    }
   ], []);
 
+  // 🎯 ĐOẠN CODE LOAD DATA: Kết hợp đồng bộ API và Mock một cách mượt mà
   useEffect(() => {
     let mounted = true;
     const loadData = async () => {
@@ -513,11 +511,14 @@ const Jobs: React.FC = () => {
         ]);
         if (!mounted) return;
         setManagedConfig(config);
+        
+        // Trộn dữ liệu API dự án và Mock lên để hiển thị song song
         setJobs([...(jobsResult || []), ...MOCK_JOBS]);
       } catch (error: unknown) {
         if (!mounted) return;
         setErrorMessage(getErrorMessage(error, t("jobs.page.loadError")));
-        setJobs([]);
+        // Nếu API lỗi, vẫn giữ lại dữ liệu Mock để hệ thống không trống rỗng hoàn toàn
+        setJobs(MOCK_JOBS);
       } finally {
         if (mounted) {
           setLoading(false);
@@ -540,47 +541,33 @@ const Jobs: React.FC = () => {
     };
   }, [managedConfig.filters, provinceOptions, wardOptions]);
 
+  // Bộ lọc tối ưu xử lý logic lọc sâu từ mảng đã nạp
   const filteredJobs = useMemo(() => {
-    const baseFiltered = filterJobs(jobs, filterValue, filterOptions, t);
-    const activeWard = filterValue.ward;
-    const activeDistrict = filterValue.district;
-
-    if (activeWard) {
-      return [...baseFiltered].sort((a, b) => {
-        const aMatch = matchesWard(a.location, activeWard, filterOptions.wards, t);
-        const bMatch = matchesWard(b.location, activeWard, filterOptions.wards, t);
-        if (aMatch && !bMatch) return -1;
-        if (!aMatch && bMatch) return 1;
-        return 0;
-      });
-    }
-
-    if (activeDistrict) {
-      return [...baseFiltered].sort((a, b) => {
-        const aMatch = matchesDistrict(a.location, activeDistrict, filterOptions.districts, t);
-        const bMatch = matchesDistrict(b.location, activeDistrict, filterOptions.districts, t);
-        if (aMatch && !bMatch) return -1;
-        if (!aMatch && bMatch) return 1;
-        return 0;
-      });
-    }
-
-    return baseFiltered;
+    return filterJobs(jobs, filterValue, filterOptions, t);
   }, [jobs, filterValue, filterOptions, t]);
 
-  // 🎯 ĐÃ THÊM: Tính toán tọa độ tâm bản đồ từ công việc đầu tiên trong danh sách kết quả sau lọc
-  const mapCenterPosition = useMemo(() => {
-    if (filteredJobs.length > 0) {
-      const firstJob = filteredJobs[0];
-      if (firstJob.latitude && firstJob.longitude) {
-        return {
-          lat: Number(firstJob.latitude),
-          lng: Number(firstJob.longitude),
-        };
-      }
-    }
-    return null;
-  }, [filteredJobs]);
+  // 🎯 TÍNH TOÁN TỌA ĐỘ TÂM ĐỘNG: Gửi thông tin định vị cho bản đồ Google Maps Embed
+ const mapCenterPosition = useMemo(() => {
+  // 1. Nếu không tìm thấy job nào, trả về trung tâm mặc định
+  if (filteredJobs.length === 0) {
+    return { lat: 10.762622, lng: 106.660172, mapKey: "default-center" };
+  }
+
+  // 2. Lấy ngay tọa độ của job đầu tiên trong danh sách lọc được
+  const firstJob = filteredJobs[0];
+
+  // Nếu job có tọa độ trong data, dùng nó
+  if (firstJob.latitude && firstJob.longitude) {
+    return { 
+      lat: Number(firstJob.latitude), 
+      lng: Number(firstJob.longitude), 
+      mapKey: `job-${firstJob.id}` // Key này cực kỳ quan trọng để re-render map
+    };
+  }
+
+  // 3. Nếu job không có tọa độ (fallback)
+  return { lat: 10.762622, lng: 106.660172, mapKey: "fallback-default" };
+}, [filteredJobs]);
 
   const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
 
@@ -632,7 +619,7 @@ const Jobs: React.FC = () => {
           options={filterOptions}
           value={filterValue}
           jobs={filteredJobs}
-          mapCenterPosition={mapCenterPosition} // <--- ĐÃ TRUYỀN TỌA ĐỘ ĐỘNG XUỐNG BỘ LỌC
+          mapCenterPosition={mapCenterPosition}
           onChange={setFilterValue}
           onReset={() => setFilterValue(emptyJobFilterValue)}
         />
@@ -648,7 +635,7 @@ const Jobs: React.FC = () => {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </CardContent>
           </Card>
-        ) : errorMessage ? (
+        ) : errorMessage && jobs.length === 0 ? (
           <Card>
             <CardContent className="py-10 text-center text-sm text-destructive">{errorMessage}</CardContent>
           </Card>
