@@ -711,6 +711,8 @@ export type PublicJobPost = {
     latitude?: number | null;
     longitude?: number | null;
     recruiterId: string | number | null;
+    viewCount: number;
+    favoriteCount: number;
     createdAt: string;
     updatedAt: string | null;
     deletedAt: string | null;
@@ -719,6 +721,11 @@ export type PublicJobPost = {
 export const jobApi = {
     listJobs: () =>
         apiRequest<PublicJobPost[]>("/api/jobs", {
+            method: "GET",
+        }),
+
+    listFeaturedJobs: () =>
+        apiRequest<PublicJobPost[]>("/api/jobs/featured", {
             method: "GET",
         }),
 
@@ -740,5 +747,22 @@ export const candidateApi = {
     apiRequest<CandidateApplication[]>("/api/candidates/applications", {
       headers: authHeaders(token),
       params: { status },
+    }),
+
+  listFavoriteJobs: (token: string) =>
+    apiRequest<PublicJobPost[]>("/api/candidates/favorites", {
+      headers: authHeaders(token),
+    }),
+
+  addFavoriteJob: (token: string, jobId: string | number) =>
+    apiRequest<PublicJobPost>(`/api/candidates/jobs/${encodeURIComponent(String(jobId))}/favorite`, {
+      method: "POST",
+      headers: authHeaders(token),
+    }),
+
+  removeFavoriteJob: (token: string, jobId: string | number) =>
+    apiRequest<PublicJobPost>(`/api/candidates/jobs/${encodeURIComponent(String(jobId))}/favorite`, {
+      method: "DELETE",
+      headers: authHeaders(token),
     }),
 };

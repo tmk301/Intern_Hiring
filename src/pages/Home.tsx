@@ -2,13 +2,26 @@ import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import { motion } from "framer-motion";
-import { ArrowRight, Briefcase, Users, Award } from "lucide-react";
+import { ArrowRight, Briefcase, Users, Award, Eye, MapPin } from "lucide-react";
 import mscBackground from "@/assets/msc.jpg";
 import { useAuth } from "@/context/AuthContext";
 import { isCandidateRole } from "@/lib/roles";
 import { toast } from "sonner";
+import { jobApi, type PublicJobPost } from "@/lib/api";
+import { candidateApi } from "@/lib/api";
+import { paginateItems } from "@/lib/pagination";
+import {
+    CURRENCY_OPTIONS,
+    defaultJobFilterOptions,
+    getSalaryRangeOption,
+    JOB_TYPE_OPTIONS,
+    WORK_MODE_OPTIONS,
+} from "@/components/jobs/jobFilterConfig";
+import { FavoriteJobButton } from "@/components/jobs/FavoriteJobButton";
 import {
     defaultManagedSiteConfig,
     loadManagedSiteConfig,
@@ -40,14 +53,30 @@ const corporatePartners = [
     { id: 22, name: "YESCO", logo: "/carousel/YESCO.webp" },
 ];
 
+const getOptionLabel = (
+    options: Array<{ value: string; labelKey?: string }>,
+    value: string | null | undefined,
+    translate: (key: string) => string,
+) => {
+    if (!value) return "";
+    const option = options.find((item) => item.value === value);
+    return option?.labelKey ? translate(option.labelKey) : value;
+};
+
 const Home: React.FC = () => {
     const navigate = useNavigate();
-    const { t } = useTranslation();
-    const { user, isAuthenticated } = useAuth();
+    const { t, i18n } = useTranslation();
+    const { user, token, isAuthenticated } = useAuth();
     const [managedConfig, setManagedConfig] = useState<ManagedSiteConfig>(defaultManagedSiteConfig);
+    const [featuredJobs, setFeaturedJobs] = useState<PublicJobPost[]>([]);
+    const [favoriteJobIds, setFavoriteJobIds] = useState<Set<string | number>>(new Set());
+    const [featuredJobPage, setFeaturedJobPage] = useState(1);
+    const [featuredJobPageSize, setFeaturedJobPageSize] = useState(5);
     const [searchKeyword, setSearchKeyword] = useState("");
     const partnerList = managedConfig.partners.length > 0 ? managedConfig.partners : corporatePartners;
     const canRequestRecruiterVerification = !isAuthenticated || isCandidateRole(user?.role);
+    const numberFormatter = new Intl.NumberFormat(i18n.language?.startsWith("vi") ? "vi-VN" : "en-US");
+    const paginatedFeaturedJobs = paginateItems(featuredJobs, featuredJobPage, featuredJobPageSize);
     // split partners into multiple horizontal rows to increase vertical height
     const rowsCount = 4;
     const itemsPerRow = Math.max(1, Math.ceil(partnerList.length / rowsCount));
@@ -66,6 +95,14 @@ const Home: React.FC = () => {
             if (mounted) setManagedConfig(config);
         });
 
+        jobApi.listFeaturedJobs()
+            .then((jobs) => {
+                if (mounted) setFeaturedJobs(jobs);
+            })
+            .catch(() => {
+                if (mounted) setFeaturedJobs([]);
+            });
+
         const handleConfigUpdate = (event: Event) => {
             const nextConfig = (event as CustomEvent<ManagedSiteConfig>).detail;
             if (nextConfig) setManagedConfig(nextConfig);
@@ -78,6 +115,40 @@ const Home: React.FC = () => {
             window.removeEventListener("managed-site-config-updated", handleConfigUpdate);
         };
     }, []);
+
+    useEffect(() => {
+        if (!token || user?.role !== "CANDIDATE") {
+            setFavoriteJobIds(new Set());
+            return;
+        }
+
+        let mounted = true;
+        candidateApi.listFavoriteJobs(token)
+            .then((jobs) => {
+                if (mounted) setFavoriteJobIds(new Set(jobs.map((job) => job.id)));
+            })
+            .catch(() => {
+                if (mounted) setFavoriteJobIds(new Set());
+            });
+
+        return () => {
+            mounted = false;
+        };
+    }, [token, user?.role]);
+
+    const handleFavoriteChange = (updatedJob: PublicJobPost, isFavorited: boolean) => {
+        setFavoriteJobIds((current) => {
+            const next = new Set(current);
+            if (isFavorited) next.add(updatedJob.id);
+            else next.delete(updatedJob.id);
+            return next;
+        });
+        setFeaturedJobs((current) =>
+            current
+                .map((job) => (String(job.id) === String(updatedJob.id) ? updatedJob : job))
+                .filter((job) => (job.viewCount ?? 0) > 10 || (job.favoriteCount ?? 0) > 5),
+        );
+    };
 
     const openEmployerRequestPage = () => {
         if (!isAuthenticated) {
@@ -184,11 +255,92 @@ const Home: React.FC = () => {
                         <h2 className="text-2xl font-bold">{t("home.featuredJobsTitle")}</h2>
                         <Button variant="cta" size="lg" className="flex items-center gap-2" onClick={() => navigate("/jobs")}>{t("home.viewAll")} <ArrowRight className="ml-1 h-4 w-4" /></Button>
                     </div>
-                    <Card>
-                        <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                            {t("home.featuredJobsEmpty")}
-                        </CardContent>
-                    </Card>
+                    {featuredJobs.length > 0 ? (
+                        <>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                            {paginatedFeaturedJobs.items.map((job) => {
+                                const company = job.company || job.employerName || t("jobs.page.notProvided");
+                                const viewCount = numberFormatter.format(job.viewCount ?? 0);
+                                const jobTypeLabel = getOptionLabel(JOB_TYPE_OPTIONS, job.type, t);
+                                const workModeLabel = getOptionLabel(WORK_MODE_OPTIONS, job.mode, t);
+                                const salaryRange = job.salary ? getSalaryRangeOption(job.salary) : undefined;
+                                const salaryLabel = job.salary
+                                    ? `${salaryRange?.labelKey ? t(salaryRange.labelKey) : job.salary}${
+                                        job.currency
+                                            ? ` ${getOptionLabel(CURRENCY_OPTIONS, job.currency, t)}`
+                                            : ""
+                                    }`
+                                    : "";
+                                const experienceLabel = getOptionLabel(defaultJobFilterOptions.experience, job.experience, t);
+
+                                return (
+                                    <Card
+                                        key={job.id}
+                                        role="button"
+                                        tabIndex={0}
+                                        className="relative h-full cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md"
+                                        onClick={() => navigate(`/jobs/${job.id}`)}
+                                        onKeyDown={(event) => {
+                                            if (event.key === "Enter" || event.key === " ") {
+                                                event.preventDefault();
+                                                navigate(`/jobs/${job.id}`);
+                                            }
+                                        }}
+                                    >
+                                        <FavoriteJobButton
+                                            jobId={job.id}
+                                            isFavorited={favoriteJobIds.has(job.id)}
+                                            onFavoriteChange={handleFavoriteChange}
+                                            className="absolute right-4 top-4 z-10"
+                                        />
+                                        <CardContent className="flex h-full flex-col gap-4 p-5">
+                                            <div className="space-y-2">
+                                                <div className="flex flex-wrap items-center gap-2 pr-10">
+                                                    {jobTypeLabel && <Badge variant="outline">{jobTypeLabel}</Badge>}
+                                                    {salaryLabel && <Badge variant="outline">{salaryLabel}</Badge>}
+                                                    {workModeLabel && <Badge variant="outline">{workModeLabel}</Badge>}
+                                                    {experienceLabel && <Badge variant="outline">{experienceLabel}</Badge>}
+                                                </div>
+                                                <h3 className="line-clamp-2 text-lg font-semibold leading-snug text-foreground">
+                                                    {job.title}
+                                                </h3>
+                                                <p className="line-clamp-1 text-sm font-medium text-muted-foreground">
+                                                    {company}
+                                                </p>
+                                            </div>
+
+                                            <div className="mt-auto space-y-2 text-sm text-muted-foreground">
+                                                {job.location && (
+                                                    <div className="flex items-center gap-2">
+                                                        <MapPin className="h-4 w-4 shrink-0 text-primary" />
+                                                        <span className="line-clamp-1">{job.location}</span>
+                                                    </div>
+                                                )}
+                                                <div className="flex items-center gap-2">
+                                                    <Eye className="h-4 w-4 shrink-0 text-primary" />
+                                                    <span>{t("home.featuredJobViews", { views: viewCount })}</span>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })}
+                        </div>
+                        <PaginationControls
+                            page={paginatedFeaturedJobs.page}
+                            totalPages={paginatedFeaturedJobs.totalPages}
+                            onPageChange={setFeaturedJobPage}
+                            pageSize={featuredJobPageSize}
+                            onPageSizeChange={setFeaturedJobPageSize}
+                        />
+                        </>
+                    ) : (
+                        <Card>
+                            <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                                {t("home.featuredJobsEmpty")}
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             </section>
 

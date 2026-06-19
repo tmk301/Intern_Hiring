@@ -195,7 +195,8 @@
     "aboutValuesTitle": "Giá trị cốt lõi",
     "aboutValues": "Tiếp cận, hợp tác và hiệu quả thực tế — thiết kế hướng tới sinh viên và doanh nghiệp, ưu tiên tính hữu dụng và trải nghiệm thực tế.",
     "featuredJobsTitle": "Việc làm nổi bật",
-    "featuredJobsEmpty": "Việc làm nổi bật sẽ được lấy từ dữ liệu lượt xem trong bản cập nhật sau.",
+    "featuredJobsEmpty": "Chưa có việc làm nào có hơn 10 lượt xem.",
+    "featuredJobViews": "{{views}} lượt xem",
     "viewAll": "Xem tất cả",
     "apply": "Nộp hồ sơ",
     "partnersTitle": "Đối tác & Tập đoàn",
@@ -325,6 +326,14 @@
       "candidateOnly": "Chỉ tài khoản Ứng viên mới có thể nộp đơn",
       "success": "Đã nộp CV thành công cho công việc này.",
       "error": "Bạn đã nộp đơn cho công việc này rồi hoặc có lỗi xảy ra."
+    },
+    "favorite": {
+      "addAria": "Lưu việc làm",
+      "removeAria": "Bỏ lưu việc làm",
+      "loginRequired": "Vui lòng đăng nhập bằng tài khoản ứng viên để lưu việc làm.",
+      "added": "Đã lưu việc làm.",
+      "removed": "Đã bỏ việc làm khỏi danh sách yêu thích.",
+      "error": "Không thể cập nhật trạng thái yêu thích."
     }
   },
   "recruiter": {
@@ -555,9 +564,11 @@
     "submitted": "Đã gửi",
     "accepted": "Được duyệt",
     "rejected": "Bị từ chối",
+    "favorites": "Yêu thích",
     "submittedDesc": "Hồ sơ chờ kết quả",
     "acceptedDesc": "Hồ sơ đã được duyệt",
     "rejectedDesc": "Hồ sơ bị từ chối",
+    "favoritesDesc": "Việc làm bạn đã lưu",
     "jobPosition": "Vị trí ứng tuyển",
     "recruitingCompany": "Công ty đang tuyển",
     "appliedDate": "Gửi ngày {{date}}",
@@ -566,6 +577,8 @@
     "submittedListTitle": "Hồ sơ đã gửi",
     "acceptedListTitle": "Danh sách hồ sơ được duyệt",
     "rejectedListTitle": "Danh sách hồ sơ bị từ chối",
+    "favoritesListTitle": "Việc làm yêu thích",
+    "favoriteCount": "{{count}} lượt yêu thích",
     "loadError": "Không tải được danh sách ứng tuyển.",
     "tryAgain": "Thử lại",
     "emptySubmittedTitle": "Bạn chưa gửi hồ sơ nào",
@@ -574,6 +587,8 @@
     "emptyAcceptedDesc": "Khi công ty chấp nhận CV, hồ sơ sẽ xuất hiện ở đây để bạn theo dõi bước tiếp theo.",
     "emptyRejectedTitle": "Chưa có hồ sơ bị từ chối",
     "emptyRejectedDesc": "Khi công ty từ chối CV, hồ sơ sẽ xuất hiện ở đây để bạn theo dõi.",
+    "emptyFavoritesTitle": "Chưa có việc làm yêu thích",
+    "emptyFavoritesDesc": "Lưu các việc làm bạn muốn xem lại sau.",
     "findJobNow": "Tìm việc ngay"
   },
   "admin": {

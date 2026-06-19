@@ -195,7 +195,8 @@
     "aboutValuesTitle": "Our Values",
     "aboutValues": "Accessibility, collaboration, and practical impact — we design with students and employers in mind, prioritizing usability and real-world usefulness.",
     "featuredJobsTitle": "Featured jobs",
-    "featuredJobsEmpty": "Featured jobs will be populated from job view analytics in a future update.",
+    "featuredJobsEmpty": "No job has more than 10 views yet.",
+    "featuredJobViews": "{{views}} views",
     "viewAll": "View all",
     "apply": "Apply",
     "partnersTitle": "Partners & Corporations",
@@ -314,6 +315,14 @@
       "candidateOnly": "Only Candidate accounts can apply",
       "success": "CV submitted successfully for this job.",
       "error": "You have already applied for this job or an error occurred."
+    },
+    "favorite": {
+      "addAria": "Save job",
+      "removeAria": "Remove saved job",
+      "loginRequired": "Please log in with a candidate account to save jobs.",
+      "added": "Job saved.",
+      "removed": "Job removed from favorites.",
+      "error": "Could not update favorite status."
     }
   },
   "recruiter": {
@@ -534,9 +543,11 @@
     "submitted": "Submitted",
     "accepted": "Approved",
     "rejected": "Rejected",
+    "favorites": "Favorites",
     "submittedDesc": "Profiles pending decision",
     "acceptedDesc": "Approved application profiles",
     "rejectedDesc": "Rejected application profiles",
+    "favoritesDesc": "Jobs you saved",
     "jobPosition": "Job Position",
     "recruitingCompany": "Recruiting Company",
     "appliedDate": "Applied on {{date}}",
@@ -545,6 +556,8 @@
     "submittedListTitle": "Submitted Applications",
     "acceptedListTitle": "Approved applications list",
     "rejectedListTitle": "Rejected applications list",
+    "favoritesListTitle": "Favorite jobs",
+    "favoriteCount": "{{count}} favorites",
     "loadError": "Could not load applications list.",
     "tryAgain": "Try again",
     "emptySubmittedTitle": "You have not submitted any applications",
@@ -553,6 +566,8 @@
     "emptyAcceptedDesc": "When a company accepts your CV, the application will show up here for you to track the next steps.",
     "emptyRejectedTitle": "No rejected applications yet",
     "emptyRejectedDesc": "When a company rejects your CV, the application will show up here.",
+    "emptyFavoritesTitle": "No favorite jobs yet",
+    "emptyFavoritesDesc": "Save jobs you want to revisit later.",
     "findJobNow": "Find jobs now"
   },
   "admin": {
