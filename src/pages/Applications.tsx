@@ -32,11 +32,32 @@ import { paginateItems } from "@/lib/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+const getOptionLabel = (
+  options: Array<{ value: string; labelKey?: string }>,
+  value: string | null | undefined,
+  translate: (key: string) => string,
+) => {
+  if (!value) return "";
+  const option = options.find((item) => item.value === value);
+  return option?.labelKey ? translate(option.labelKey) : value;
+};
+
 const formatDate = (value: string) =>
   new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(value));
 
 const ApplicationCard = ({ application }: { application: CandidateApplication }) => {
   const { t } = useTranslation();
+
+  const jobTypeLabel = getOptionLabel(JOB_TYPE_OPTIONS, application.jobType, t);
+  const workModeLabel = getOptionLabel(WORK_MODE_OPTIONS, application.mode, t);
+  const salaryRange = application.salary ? getSalaryRangeOption(application.salary) : undefined;
+  const salaryLabel = application.salary
+    ? `${salaryRange?.labelKey ? t(salaryRange.labelKey) : application.salary}${
+        application.currency ? ` ${getOptionLabel(CURRENCY_OPTIONS, application.currency, t)}` : ""
+      }`
+    : "";
+  const experienceLabel = getOptionLabel(defaultJobFilterOptions.experience, application.experience, t);
+
   return (
     <article className="group relative overflow-hidden rounded-xl border bg-card p-5 shadow-soft transition-smooth hover:-translate-y-1 hover:shadow-medium">
       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary-light to-accent" />
@@ -47,7 +68,10 @@ const ApplicationCard = ({ application }: { application: CandidateApplication })
             <Badge variant="outline" className={getReviewStatusBadgeClassName(application.status)}>
               {t(`recruiter.applications.statuses.${getReviewStatusTranslationKey(application.status)}`)}
             </Badge>
-            {application.jobType && <Badge variant="secondary" className="rounded-full px-3 py-1">{JOB_TYPE_OPTIONS.find(o => o.value === application.jobType)?.labelKey ? t(JOB_TYPE_OPTIONS.find(o => o.value === application.jobType)!.labelKey!) : application.jobType}</Badge>}
+            {jobTypeLabel && <Badge variant="secondary" className="rounded-full px-3 py-1">{jobTypeLabel}</Badge>}
+            {salaryLabel && <Badge variant="secondary" className="rounded-full px-3 py-1">{salaryLabel}</Badge>}
+            {workModeLabel && <Badge variant="secondary" className="rounded-full px-3 py-1">{workModeLabel}</Badge>}
+            {experienceLabel && <Badge variant="secondary" className="rounded-full px-3 py-1">{experienceLabel}</Badge>}
           </div>
           <div>
             <h2 className="text-xl font-bold tracking-tight text-foreground">{application.jobTitle || t("candidateDashboard.jobPosition")}</h2>
@@ -65,16 +89,6 @@ const ApplicationCard = ({ application }: { application: CandidateApplication })
       </div>
     </article>
   );
-};
-
-const getOptionLabel = (
-  options: Array<{ value: string; labelKey?: string }>,
-  value: string | null | undefined,
-  translate: (key: string) => string,
-) => {
-  if (!value) return "";
-  const option = options.find((item) => item.value === value);
-  return option?.labelKey ? translate(option.labelKey) : value;
 };
 
 const FavoriteJobCard = ({

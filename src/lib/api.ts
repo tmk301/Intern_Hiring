@@ -266,7 +266,10 @@ export type CandidateApplication = {
   company?: string | null;
   location?: string | null;
   salary?: string | null;
+  currency?: string | null;
+  mode?: string | null;
   jobType?: string | null;
+  experience?: string | null;
   applicantId: string | number;
   applicantName: string;
   applicantEmail: string;
