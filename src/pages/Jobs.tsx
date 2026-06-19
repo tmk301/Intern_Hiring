@@ -465,6 +465,8 @@ const Jobs: React.FC = () => {
       setApplyJobId(null);
       setSelectedCvId("");
     } catch (error: unknown) {
+
+
       toast({ 
         title: t("toast.error"), 
         description: getErrorMessage(error, t("jobs.apply.error", { defaultValue: "Bạn đã nộp đơn cho công việc này rồi hoặc có lỗi xảy ra." })),
@@ -477,10 +479,10 @@ const Jobs: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <section className="border-b bg-white">
-        <div className="container mx-auto px-4 py-8">
-          <h1 className="text-3xl font-bold text-slate-950">{t("jobs.page.title")}</h1>
-          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{t("jobs.page.description")}</p>
+      <section className="hero-gradient text-white py-8 shadow-sm">
+        <div className="container mx-auto px-4">
+          <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl text-white">{t("jobs.page.title")}</h1>
+          <p className="mt-2 max-w-3xl text-sm text-blue-100/90">{t("jobs.page.description")}</p>
         </div>
       </section>
 
@@ -519,9 +521,11 @@ const Jobs: React.FC = () => {
         ) : (
           <div className="grid gap-4">
             {paginatedJobs.items.map((job) => (
-              <Card key={job.id} className="overflow-hidden flex flex-col h-full hover:shadow-md transition-shadow">
+              <Card key={job.id} className="group relative overflow-hidden flex flex-col h-full hover:shadow-medium shadow-soft border bg-card transition-smooth hover:-translate-y-1">
+                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-primary-light" />
+                <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary/10 transition-smooth group-hover:scale-125" />
                 <div
-                  className="cursor-pointer flex flex-col flex-1"
+                  className="relative cursor-pointer flex flex-col flex-1"
                   onClick={() => navigate(`/jobs/${job.id}`)}
                 >
                   <CardHeader className="space-y-3">
@@ -536,25 +540,25 @@ const Jobs: React.FC = () => {
                         jobId={job.id}
                         isFavorited={favoriteJobIds.has(job.id)}
                         onFavoriteChange={handleFavoriteChange}
-                        className="self-start"
+                        className="self-start relative z-10"
                       />
                     </div>
-                    <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+                    <div className="flex flex-wrap gap-2.5 text-sm text-muted-foreground">
                       {job.location && (
-                        <span className="inline-flex items-center gap-1">
-                          <MapPin className="h-4 w-4" />
+                        <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
+                          <MapPin className="h-4 w-4 text-primary" />
                           {job.location}
                         </span>
                       )}
                       {job.createdAt && (
-                        <span className="inline-flex items-center gap-1">
-                          <CalendarDays className="h-4 w-4" />
+                        <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
+                          <CalendarDays className="h-4 w-4 text-primary" />
                           {new Date(job.createdAt).toLocaleDateString(dateLocale)}
                         </span>
                       )}
                       {job.applicationDeadline && (
-                        <span className="inline-flex items-center gap-1">
-                          <CalendarDays className="h-4 w-4" />
+                        <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
+                          <CalendarDays className="h-4 w-4 text-primary" />
                           {t("jobs.page.applicationDeadline")}: {formatDateOnly(job.applicationDeadline, dateLocale)}
                         </span>
                       )}
@@ -562,14 +566,14 @@ const Jobs: React.FC = () => {
                   </CardHeader>
                   <CardContent className="space-y-4 flex-1">
                     <div className="flex flex-wrap gap-2">
-                      {job.type && <Badge variant="outline">{JOB_TYPE_OPTIONS.find(o => o.value === job.type)?.labelKey ? t(JOB_TYPE_OPTIONS.find(o => o.value === job.type)!.labelKey!) : job.type}</Badge>}
+                      {job.type && <Badge variant="secondary" className="rounded-full px-3 py-1">{JOB_TYPE_OPTIONS.find(o => o.value === job.type)?.labelKey ? t(JOB_TYPE_OPTIONS.find(o => o.value === job.type)!.labelKey!) : job.type}</Badge>}
                       {job.salary && (
-                        <Badge variant="outline">
+                        <Badge variant="secondary" className="rounded-full px-3 py-1">
                           {getSalaryRangeOption(job.salary)?.labelKey ? t(getSalaryRangeOption(job.salary)!.labelKey!) : job.salary} {job.currency ? (CURRENCY_OPTIONS.find(o => o.value === job.currency)?.labelKey ? t(CURRENCY_OPTIONS.find(o => o.value === job.currency)!.labelKey!) : job.currency) : ""}
                         </Badge>
                       )}
-                      {job.mode && <Badge variant="outline">{WORK_MODE_OPTIONS.find(o => o.value === job.mode)?.labelKey ? t(WORK_MODE_OPTIONS.find(o => o.value === job.mode)!.labelKey!) : job.mode}</Badge>}
-                      {job.experience && <Badge variant="outline">{defaultJobFilterOptions.experience.find(o => o.value === job.experience)?.labelKey ? t(defaultJobFilterOptions.experience.find(o => o.value === job.experience)!.labelKey!) : job.experience}</Badge>}
+                      {job.mode && <Badge variant="secondary" className="rounded-full px-3 py-1">{WORK_MODE_OPTIONS.find(o => o.value === job.mode)?.labelKey ? t(WORK_MODE_OPTIONS.find(o => o.value === job.mode)!.labelKey!) : job.mode}</Badge>}
+                      {job.experience && <Badge variant="secondary" className="rounded-full px-3 py-1">{defaultJobFilterOptions.experience.find(o => o.value === job.experience)?.labelKey ? t(defaultJobFilterOptions.experience.find(o => o.value === job.experience)!.labelKey!) : job.experience}</Badge>}
                     </div>
                     {job.description && (
                       <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">
@@ -580,8 +584,8 @@ const Jobs: React.FC = () => {
                 </div>
                 
                 {/* MỚI THÊM: Nút nộp đơn */}
-                <CardFooter className="bg-slate-50/50 border-t p-4 flex justify-end">
-                  <Button onClick={() => handleOpenApplyModal(job.id)}>
+                <CardFooter className="relative bg-slate-50/50 border-t p-4 flex justify-end z-10">
+                  <Button variant="cta" className="bg-primary text-primary-foreground hover:bg-primary-dark w-auto px-5" onClick={() => handleOpenApplyModal(job.id)}>
                     {t("jobs.apply.button")}
                   </Button>
                 </CardFooter>

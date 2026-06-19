@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import {
   BriefcaseBusiness,
   CalendarDays,
@@ -47,6 +47,7 @@ const formatDate = (value: string) =>
 
 const ApplicationCard = ({ application }: { application: CandidateApplication }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   const jobTypeLabel = getOptionLabel(JOB_TYPE_OPTIONS, application.jobType, t);
   const workModeLabel = getOptionLabel(WORK_MODE_OPTIONS, application.mode, t);
@@ -59,8 +60,19 @@ const ApplicationCard = ({ application }: { application: CandidateApplication })
   const experienceLabel = getOptionLabel(defaultJobFilterOptions.experience, application.experience, t);
 
   return (
-    <article className="group relative overflow-hidden rounded-xl border bg-card p-5 shadow-soft transition-smooth hover:-translate-y-1 hover:shadow-medium">
-      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary-light to-accent" />
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={() => navigate(`/jobs/${application.jobId}`)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          navigate(`/jobs/${application.jobId}`);
+        }
+      }}
+      className="group relative overflow-hidden rounded-xl border bg-card p-5 shadow-soft transition-smooth hover:-translate-y-1 hover:shadow-medium cursor-pointer"
+    >
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-primary-light" />
       <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary/10 transition-smooth group-hover:scale-125" />
       <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-4">
@@ -82,9 +94,8 @@ const ApplicationCard = ({ application }: { application: CandidateApplication })
             <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1"><CalendarDays className="h-4 w-4 text-primary" />{t("candidateDashboard.appliedDate", { date: formatDate(application.appliedAt) })}</span>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 lg:justify-end">
+        <div className="flex flex-wrap gap-2 lg:justify-end relative z-10" onClick={(e) => e.stopPropagation()}>
           <Button asChild variant="outline" className="border-primary text-primary hover:bg-primary/10 hover:text-primary"><a href={application.appliedCvUrl} target="_blank" rel="noreferrer"><FileText className="mr-2 h-4 w-4" />{t("candidateDashboard.sentCv")}</a></Button>
-          <Button asChild variant="cta" className="bg-primary text-primary-foreground hover:bg-primary-dark"><Link to={`/jobs?jobId=${application.jobId}`}><ExternalLink className="mr-2 h-4 w-4" />{t("candidateDashboard.viewJob")}</Link></Button>
         </div>
       </div>
     </article>
@@ -99,6 +110,7 @@ const FavoriteJobCard = ({
   onFavoriteChange: (job: PublicJobPost, isFavorited: boolean) => void;
 }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const jobTypeLabel = getOptionLabel(JOB_TYPE_OPTIONS, job.type, t);
   const workModeLabel = getOptionLabel(WORK_MODE_OPTIONS, job.mode, t);
   const salaryRange = job.salary ? getSalaryRangeOption(job.salary) : undefined;
@@ -110,19 +122,33 @@ const FavoriteJobCard = ({
   const experienceLabel = getOptionLabel(defaultJobFilterOptions.experience, job.experience, t);
 
   return (
-    <article className="relative overflow-hidden rounded-xl border bg-card p-5 shadow-soft transition-smooth hover:-translate-y-1 hover:shadow-medium">
-      <FavoriteJobButton
-        jobId={job.id}
-        isFavorited
-        onFavoriteChange={onFavoriteChange}
-        className="absolute right-4 top-4"
-      />
-      <div className="space-y-4 pr-12">
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={() => navigate(`/jobs/${job.id}`)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          navigate(`/jobs/${job.id}`);
+        }
+      }}
+      className="group relative overflow-hidden rounded-xl border bg-card p-5 shadow-soft transition-smooth hover:-translate-y-1 hover:shadow-medium cursor-pointer"
+    >
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-primary-light" />
+      <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary/10 transition-smooth group-hover:scale-125" />
+      <div onClick={(e) => e.stopPropagation()} className="absolute right-4 top-4 z-10">
+        <FavoriteJobButton
+          jobId={job.id}
+          isFavorited
+          onFavoriteChange={onFavoriteChange}
+        />
+      </div>
+      <div className="relative space-y-4 pr-12">
         <div className="flex flex-wrap gap-2">
-          {jobTypeLabel && <Badge variant="outline">{jobTypeLabel}</Badge>}
-          {salaryLabel && <Badge variant="outline">{salaryLabel}</Badge>}
-          {workModeLabel && <Badge variant="outline">{workModeLabel}</Badge>}
-          {experienceLabel && <Badge variant="outline">{experienceLabel}</Badge>}
+          {jobTypeLabel && <Badge variant="secondary" className="rounded-full px-3 py-1">{jobTypeLabel}</Badge>}
+          {salaryLabel && <Badge variant="secondary" className="rounded-full px-3 py-1">{salaryLabel}</Badge>}
+          {workModeLabel && <Badge variant="secondary" className="rounded-full px-3 py-1">{workModeLabel}</Badge>}
+          {experienceLabel && <Badge variant="secondary" className="rounded-full px-3 py-1">{experienceLabel}</Badge>}
         </div>
         <div>
           <h2 className="text-xl font-bold tracking-tight text-foreground">{job.title || t("jobs.page.untitled")}</h2>
@@ -143,12 +169,6 @@ const FavoriteJobCard = ({
             {t("candidateDashboard.favoriteCount", { count: job.favoriteCount ?? 0 })}
           </span>
         </div>
-        <Button asChild variant="cta" className="bg-primary text-primary-foreground hover:bg-primary-dark">
-          <Link to={`/jobs/${job.id}`}>
-            <ExternalLink className="mr-2 h-4 w-4" />
-            {t("candidateDashboard.viewJob")}
-          </Link>
-        </Button>
       </div>
     </article>
   );
@@ -332,9 +352,9 @@ const Applications = () => {
       </section>
 
       <section className="container mx-auto space-y-6 px-4 py-8 max-w-6xl">
-        <div className="grid gap-4 md:grid-cols-4 xl:grid-cols-6">
+        <div className="flex flex-wrap gap-4">
           <Card
-            className={`cursor-pointer transition hover:shadow-md ${activeTab === "submitted" ? "border-primary" : ""}`}
+            className={`flex-1 min-w-[240px] cursor-pointer transition hover:shadow-md ${activeTab === "submitted" ? "border-primary" : ""}`}
             onClick={() => setActiveTab("submitted")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -348,7 +368,7 @@ const Applications = () => {
           </Card>
 
           <Card
-            className={`cursor-pointer transition hover:shadow-md ${activeTab === "accepted" ? "border-primary" : ""}`}
+            className={`flex-1 min-w-[240px] cursor-pointer transition hover:shadow-md ${activeTab === "accepted" ? "border-primary" : ""}`}
             onClick={() => setActiveTab("accepted")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -362,7 +382,7 @@ const Applications = () => {
           </Card>
 
           <Card
-            className={`cursor-pointer transition hover:shadow-md ${activeTab === "rejected" ? "border-primary" : ""}`}
+            className={`flex-1 min-w-[240px] cursor-pointer transition hover:shadow-md ${activeTab === "rejected" ? "border-primary" : ""}`}
             onClick={() => setActiveTab("rejected")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -376,7 +396,7 @@ const Applications = () => {
           </Card>
 
           <Card
-            className={`cursor-pointer transition hover:shadow-md ${activeTab === "favorites" ? "border-primary" : ""}`}
+            className={`flex-1 min-w-[240px] cursor-pointer transition hover:shadow-md ${activeTab === "favorites" ? "border-primary" : ""}`}
             onClick={() => setActiveTab("favorites")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

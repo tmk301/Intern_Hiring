@@ -278,7 +278,7 @@ const Home: React.FC = () => {
                                         key={job.id}
                                         role="button"
                                         tabIndex={0}
-                                        className="relative h-full cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md"
+                                        className="group relative h-full overflow-hidden cursor-pointer transition-smooth hover:-translate-y-1 hover:shadow-medium border bg-card shadow-soft"
                                         onClick={() => navigate(`/jobs/${job.id}`)}
                                         onKeyDown={(event) => {
                                             if (event.key === "Enter" || event.key === " ") {
@@ -287,19 +287,21 @@ const Home: React.FC = () => {
                                             }
                                         }}
                                     >
+                                        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-primary-light" />
+                                        <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary/10 transition-smooth group-hover:scale-125" />
                                         <FavoriteJobButton
                                             jobId={job.id}
                                             isFavorited={favoriteJobIds.has(job.id)}
                                             onFavoriteChange={handleFavoriteChange}
                                             className="absolute right-4 top-4 z-10"
                                         />
-                                        <CardContent className="flex h-full flex-col gap-4 p-5">
+                                        <CardContent className="relative flex h-full flex-col gap-4 p-5">
                                             <div className="space-y-2">
                                                 <div className="flex flex-wrap items-center gap-2 pr-10">
-                                                    {jobTypeLabel && <Badge variant="outline">{jobTypeLabel}</Badge>}
-                                                    {salaryLabel && <Badge variant="outline">{salaryLabel}</Badge>}
-                                                    {workModeLabel && <Badge variant="outline">{workModeLabel}</Badge>}
-                                                    {experienceLabel && <Badge variant="outline">{experienceLabel}</Badge>}
+                                                    {jobTypeLabel && <Badge variant="secondary" className="rounded-full px-3 py-1">{jobTypeLabel}</Badge>}
+                                                    {salaryLabel && <Badge variant="secondary" className="rounded-full px-3 py-1">{salaryLabel}</Badge>}
+                                                    {workModeLabel && <Badge variant="secondary" className="rounded-full px-3 py-1">{workModeLabel}</Badge>}
+                                                    {experienceLabel && <Badge variant="secondary" className="rounded-full px-3 py-1">{experienceLabel}</Badge>}
                                                 </div>
                                                 <h3 className="line-clamp-2 text-lg font-semibold leading-snug text-foreground">
                                                     {job.title}
@@ -309,17 +311,17 @@ const Home: React.FC = () => {
                                                 </p>
                                             </div>
 
-                                            <div className="mt-auto space-y-2 text-sm text-muted-foreground">
+                                            <div className="mt-auto flex flex-wrap gap-2 text-sm text-muted-foreground">
                                                 {job.location && (
-                                                    <div className="flex items-center gap-2">
+                                                    <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
                                                         <MapPin className="h-4 w-4 shrink-0 text-primary" />
                                                         <span className="line-clamp-1">{job.location}</span>
-                                                    </div>
+                                                    </span>
                                                 )}
-                                                <div className="flex items-center gap-2">
+                                                <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
                                                     <Eye className="h-4 w-4 shrink-0 text-primary" />
                                                     <span>{t("home.featuredJobViews", { views: viewCount })}</span>
-                                                </div>
+                                                </span>
                                             </div>
                                         </CardContent>
                                     </Card>

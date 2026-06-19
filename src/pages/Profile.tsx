@@ -617,29 +617,29 @@ const Profile = () => {
                     className="relative h-28 transition-colors duration-300"
                     style={{ background: `linear-gradient(135deg, ${profileThemeColor}cc, ${profileThemeColor})` }}
                   >
-                    <div className="absolute right-3 top-3 flex items-center gap-2 rounded-full bg-white/95 p-1 shadow">
-                      <button
-                        type="button"
-                        onClick={handleMatchAvatarColor}
-                        disabled={isSavingTheme}
-                        className="flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-colors hover:bg-slate-100 disabled:opacity-50"
-                        style={{ color: profileThemeColor }}
-                        aria-label={t("profile.matchAvatarColor")}
-                        title={t("profile.matchAvatarColor")}
-                      >
-                        {isSavingTheme ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-                        {t("profile.matchAvatarColorShort")}
-                      </button>
+                    <div className="absolute right-3 top-3 group flex flex-row-reverse items-center gap-0 overflow-hidden rounded-full bg-white/95 p-1 shadow transition-all duration-300 max-w-[36px] hover:max-w-[160px] hover:gap-2">
                       <button
                         type="button"
                         onClick={() => themeColorInputRef.current?.click()}
                         disabled={isSavingTheme}
-                        className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-slate-100 disabled:opacity-50"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-slate-100 disabled:opacity-50"
                         style={{ color: profileThemeColor }}
                         aria-label={t("profile.changeThemeColor")}
                         title={profileThemeColor}
                       >
                         <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleMatchAvatarColor}
+                        disabled={isSavingTheme}
+                        className="flex h-8 items-center gap-1.5 rounded-full text-xs font-semibold transition-all duration-300 hover:bg-slate-100 disabled:opacity-50 w-0 opacity-0 scale-90 px-0 overflow-hidden pointer-events-none group-hover:w-[105px] group-hover:opacity-100 group-hover:scale-100 group-hover:px-3 group-hover:pointer-events-auto"
+                        style={{ color: profileThemeColor }}
+                        aria-label={t("profile.matchAvatarColor")}
+                        title={t("profile.matchAvatarColor")}
+                      >
+                        {isSavingTheme ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                        <span className="whitespace-nowrap">{t("profile.matchAvatarColorShort")}</span>
                       </button>
                     </div>
                     <input

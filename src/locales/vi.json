@@ -538,7 +538,11 @@
     "companyProfileLoadError": "Không thể tải hồ sơ công ty",
     "companyTaxCode": "Mã số thuế",
     "companyPhone": "Điện thoại",
-    "companyAddress": "Địa chỉ"
+    "companyAddress": "Địa chỉ",
+    "emailNotifications": "Thông báo qua email",
+    "emailNotificationsDescription": "Nhận cập nhật quan trọng về tài khoản và hồ sơ qua email.",
+    "emailNotificationsSaved": "Đã lưu tùy chọn thông báo qua email.",
+    "emailNotificationsSaveError": "Không thể lưu tùy chọn thông báo qua email."
   },
   "avatarCrop": {
     "title": "Cắt ảnh đại diện",
