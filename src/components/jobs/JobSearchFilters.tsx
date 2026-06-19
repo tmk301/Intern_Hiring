@@ -300,6 +300,8 @@ export function JobSearchFilters({
               <div className="md:col-span-2 xl:col-span-4">
                 <GoogleMapsEmbedLocationFilter
                   value={filterValue.location}
+                  company={filterValue.company}
+                  keyword={filterValue.keyword}
                   jobs={jobs}
                   areaQuery={selectedAreaQuery}
                   centerPosition={mapCenterPosition} // <--- TRUYỀN TỌA ĐỘ TRUNG TÂM ĐỘNG XUỐNG ĐÂY

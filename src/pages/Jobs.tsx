@@ -70,7 +70,6 @@ const getSalaryNumbers = (value?: string | null) => {
   const normalizedValue = normalizeText(value);
   const hasMillionUnit = /\b(trieu|million|m)\b/.test(normalizedValue);
   const hasThousandUnit = /\b(k|nghin|thousand)\b/.test(normalizedValue);
-
   return (
     value
       ?.match(/\d+(?:[.,]\d+)*/g)
@@ -108,7 +107,6 @@ const matchesExperience = (source: string | null, selectedValue: string) => {
   if (!selectedValue) return true;
   const normalizedSource = normalizeText(source);
   if (!normalizedSource) return false;
-
   switch (selectedValue) {
     case "no-experience":
       return hasAnyPhrase(normalizedSource, [
@@ -168,20 +166,16 @@ const matchesCity = (source: string | null, selectedValue: string, options: JobF
 const matchesDistrict = (source: string | null, selectedValue: string, options: JobFilterOption[], translate: (key: string) => string) => {
   if (!selectedValue) return true;
   if (!source) return false;
-
   const normalizedSource = normalizeText(source);
   const candidates = getCandidateTexts(selectedValue, options, translate);
-
   return candidates.some((candidate) => {
     const normalizedCandidate = normalizeText(candidate);
     const numbers = extractNumbers(normalizedCandidate);
-
     if (numbers.length === 1) {
       const targetNum = numbers[0];
       const districtRegex = new RegExp(`(?<!\\b(phuong|p|xa)\\s*\\.?\\s*)\\b(quan|q|huyen|h|tx|dist|district)\\s*\\.?\\s*${targetNum}\\b`, "i");
       return districtRegex.test(normalizedSource);
     }
-
     return normalizedSource.includes(normalizedCandidate);
   });
 };
@@ -189,20 +183,16 @@ const matchesDistrict = (source: string | null, selectedValue: string, options: 
 const matchesWard = (source: string | null, selectedValue: string, options: JobFilterOption[], translate: (key: string) => string) => {
   if (!selectedValue) return true;
   if (!source) return false;
-
   const normalizedSource = normalizeText(source);
   const candidates = getCandidateTexts(selectedValue, options, translate);
-
   return candidates.some((candidate) => {
     const normalizedCandidate = normalizeText(candidate);
     const numbers = extractNumbers(normalizedCandidate);
-
     if (numbers.length === 1) {
       const targetNum = numbers[0];
       const wardRegex = new RegExp(`(?<!\\b(quan|q|huyen|h|tx|dist|district)\\s*\\.?\\s*)\\b(phuong|p|xa|ward)\\s*\\.?\\s*${targetNum}\\b`, "i");
       return wardRegex.test(normalizedSource);
     }
-
     return normalizedSource.includes(normalizedCandidate);
   });
 };
@@ -210,29 +200,23 @@ const matchesWard = (source: string | null, selectedValue: string, options: JobF
 const matchesLocationText = (source: string | null, selectedLocation: string) => {
   if (!selectedLocation) return true;
   if (!source) return false;
-
   const normalizedSource = normalizeText(source);
   const normalizedSelected = normalizeText(selectedLocation);
   const numbers = extractNumbers(normalizedSelected);
-
   if (numbers.length === 1) {
     const targetNum = numbers[0];
-
     if (normalizedSelected.includes("quan") || normalizedSelected.includes("q ") || /^q\d+$/.test(normalizedSelected) || normalizedSelected.includes("district")) {
       const strictDistrictRegex = new RegExp(`(?<!\\b(phuong|p|xa)\\s*\\.?\\s*)\\b(quan|q|huyen|h|dist|district)\\s*\\.?\\s*${targetNum}\\b`, "i");
       return strictDistrictRegex.test(normalizedSource);
     }
-
     if (normalizedSelected.includes("phuong") || normalizedSelected.includes("p ") || /^p\d+$/.test(normalizedSelected) || normalizedSelected.includes("ward")) {
       const strictWardRegex = new RegExp(`(?<!\\b(quan|q|huyen|h|dist|district)\\s*\\.?\\s*)\\b(phuong|p|xa|ward)\\s*\\.?\\s*${targetNum}\\b`, "i");
       return strictWardRegex.test(normalizedSource);
     }
   }
-
   return normalizedSource.includes(normalizedSelected);
 };
 
-// 🎯 HÀM LỌC GỐC ĐÃ FIX: Tương thích đồng thời cả company và employerName từ API dự án
 const filterJobs = (
   jobs: PublicJobPost[],
   value: JobFilterValue,
@@ -240,23 +224,26 @@ const filterJobs = (
   translate: (key: string) => string,
 ) =>
   jobs.filter((job) => {
-    // 1. Tạo một chuỗi chứa tất cả thông tin để quét
-    const fullSearchText = normalizeText(
-      `${job.title} ${job.company} ${job.employerName} ${job.location}`
-    );
-    const normalizedKeyword = normalizeText(value.keyword);
-
-    // 2. Logic lọc:
-    // Phải thỏa mãn từ khóa (quét cả cty, địa chỉ, tiêu đề)
-    const matchesKeyword = !normalizedKeyword || fullSearchText.includes(normalizedKeyword);
-    
-    // Và thỏa mãn các bộ lọc khác nếu có
-    const matchesOtherFilters = 
+    const searchText = normalizeText(getSearchText(job));
+    const rawMinSalary = Number(value.salaryMin || 0);
+    const rawMaxSalary = Number(value.salaryMax || 50_000_000);
+    const minSalary = Math.min(rawMinSalary, rawMaxSalary);
+    const maxSalary = Math.max(rawMinSalary, rawMaxSalary);
+    const salaryFilterActive =
+      Boolean(value.salaryMin || value.salaryMax) && !(minSalary === 0 && maxSalary === 50_000_000);
+    return (
+      (!value.keyword || searchText.includes(normalizeText(value.keyword))) &&
       matchesCity(job.location, value.city, options.cities, translate) &&
       matchesDistrict(job.location, value.district, options.districts, translate) &&
-      matchesLocationText(job.location, value.location);
-
-    return matchesKeyword && matchesOtherFilters;
+      matchesWard(job.location, value.ward, options.wards, translate) &&
+      matchesLocationText(job.location, value.location) &&
+      matchesText(`${job.type ?? ""} ${job.description ?? ""}`, value.workMode) &&
+      matchesText(job.type, value.jobType) &&
+      matchesText(job.company, value.company) &&
+      matchesText(job.salary, value.currency) &&
+      matchesExperience(job.description, value.experience) &&
+      matchesSalaryRange(job.salary, minSalary, maxSalary, salaryFilterActive)
+    );
   });
 
 const Jobs: React.FC = () => {
@@ -273,7 +260,6 @@ const Jobs: React.FC = () => {
   });
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
   const { user, token } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -302,14 +288,12 @@ const Jobs: React.FC = () => {
   useEffect(() => {
     let mounted = true;
     const selectedProvince = provinceOptions.find((option) => option.value === filterValue.city);
-
     if (!selectedProvince) {
       setWardOptions([]);
       return () => {
         mounted = false;
       };
     }
-
     setWardOptions([]);
     getVietnamWardOptions(filterValue.city)
       .then((options) => {
@@ -318,187 +302,11 @@ const Jobs: React.FC = () => {
       .catch(() => {
         if (mounted) setWardOptions([]);
       });
-
     return () => {
       mounted = false;
     };
   }, [filterValue.city, provinceOptions]);
 
-  const MOCK_JOBS: PublicJobPost[] = useMemo(() => [
-    {
-      id: "mock-1",
-      title: "Frontend Developer Intern",
-      company: "MSC Center",
-      employerName: "MSC Admin",
-      employerEmail: "contact@msc.vn",
-      location: "268 Lý Thường Kiệt, Quận 10, TP. Hồ Chí Minh",
-      type: "Internship",
-      salary: "5000000",
-      description: "Tham gia phát triển các dự án web sử dụng ReactJS và Tailwind CSS.",
-      status: "APPROVED",
-      hidden: false,
-      latitude: 10.7728442,
-      longitude: 106.6599026,
-      recruiterId: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: null,
-      deletedAt: null,
-    },
-    {
-      id: "mock-2",
-      title: "Java Backend Developer",
-      company: "Techcom Tower Branch",
-      employerName: "Nguyen Van A",
-      employerEmail: "recruitment@techcom.vn",
-      location: "23 Lê Duẩn, Bến Nghé, Quận 1, TP. Hồ Chí Minh",
-      type: "Full-time",
-      salary: "15000000",
-      description: "Lập trình hệ thống Core Banking sử dụng Java Spring Boot và cơ sở dữ liệu PostgreSQL.",
-      status: "APPROVED",
-      hidden: false,
-      latitude: 10.782252,
-      longitude: 106.700514,
-      recruiterId: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: null,
-      deletedAt: null,
-    },
-    {
-      id: "mock-3",
-      title: "Mobile App Developer (React Native)",
-      company: "Sài Gòn Software",
-      employerName: "Tran Thi B",
-      employerEmail: "hr@saigonsoft.com",
-      location: "280 An Dương Vương, Phường 4, Quận 5, TP. Hồ Chí Minh",
-      type: "Full-time",
-      salary: "18000000",
-      description: "Xây dựng và tối ưu hóa ứng dụng di động trên hai nền tảng iOS và Android.",
-      status: "APPROVED",
-      hidden: false,
-      latitude: 10.759904,
-      longitude: 106.668503,
-      recruiterId: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: null,
-      deletedAt: null,
-    },
-    {
-      id: "mock-4",
-      title: "UI/UX Designer",
-      company: "InnoTech Studio",
-      employerName: "Le Hoang C",
-      employerEmail: "design@innotech.com",
-      location: "Block A, Khu Công nghệ Phần mềm ĐHQG, Linh Trung, Thủ Đức, TP. Hồ Chí Minh",
-      type: "Part-time",
-      salary: "8000000",
-      description: "Thiết kế Wireframe, Prototype cho các sản phẩm Web/Mobile của công ty bằng Figma.",
-      status: "APPROVED",
-      hidden: false,
-      latitude: 10.865063,
-      longitude: 106.801644,
-      recruiterId: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: null,
-      deletedAt: null,
-    },
-    {
-      id: "mock-5",
-      title: "DevOps Engineer",
-      company: "VNG Campus",
-      employerName: "Pham Minh D",
-      employerEmail: "careers@vng.com.vn",
-      location: "Đường số 13, Khu chế xuất Tân Thuận, Quận 7, TP. Hồ Chí Minh",
-      type: "Full-time",
-      salary: "25000000",
-      description: "Triển khai hệ thống CI/CD, quản lý hạ tầng Cloud trên nền tảng AWS và Kubernetes.",
-      status: "APPROVED",
-      hidden: false,
-      latitude: 10.744158,
-      longitude: 106.725178,
-      recruiterId: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: null,
-      deletedAt: null,
-    },
-    {
-      id: "mock-6",
-      title: "Fullstack Web Developer Intern",
-      company: "Tiki Corporation",
-      employerName: "Tiki Careers",
-      employerEmail: "jobs@tiki.vn",
-      location: "52 Út Tịch, Quận 10, TP. Hồ Chí Minh",
-      type: "Internship",
-      salary: "5500000",
-      description: "Phát triển các tính năng E-commerce sử dụng Next.js (React) và Node.js Express.",
-      status: "APPROVED",
-      hidden: false,
-      latitude: 10.7925012,
-      longitude: 106.6601445,
-      recruiterId: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: null,
-      deletedAt: null,
-    },
-    {
-      id: "mock-7",
-      title: "Mobile App Developer Intern (React Native)",
-      company: "ZaloPay Team",
-      employerName: "Zalo HR",
-      employerEmail: "contact@zalopay.vn",
-      location: "M7 Tòa nhà IPC, 1489 Nguyễn Văn Linh, Quận 7, TP. Hồ Chí Minh",
-      type: "Internship",
-      salary: "6500000",
-      description: "Xây dựng các module tính năng giao diện trên ứng dụng ví điện tử ZaloPay (iOS & Android).",
-      status: "APPROVED",
-      hidden: false,
-      latitude: 10.7303023,
-      longitude: 106.7094251,
-      recruiterId: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: null,
-      deletedAt: null,
-    },
-    {
-      id: "mock-8",
-      title: "Embedded Systems Intern",
-      company: "PTIT Lab",
-      employerName: "Admin Lab",
-      employerEmail: "lab@ptit.edu.vn",
-      location: "Thành Thái, Phường 14, Quận 10, TP. Hồ Chí Minh",
-      type: "Internship",
-      salary: "4500000",
-      description: "Nghiên cứu lập trình nhúng vi điều khiển, kết nối cảm biến và các giao thức truyền thông IoT.",
-      status: "APPROVED",
-      hidden: false,
-      latitude: 10.7711413,
-      longitude: 106.6631835,
-      recruiterId: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: null,
-      deletedAt: null,
-    },
-    {
-      id: "mock-9",
-      title: "AI & Data Science Intern",
-      company: "HCMUS Tech",
-      employerName: "AI Center",
-      employerEmail: "aiedu@hcmus.edu.vn",
-      location: "227 Nguyễn Văn Cừ, Quận 5, TP. Hồ Chí Minh",
-      type: "Internship",
-      salary: "7000000",
-      description: "Tham gia tiền xử lý dữ liệu lớn, xây dựng và huấn luyện mô hình Machine Learning/Deep Learning.",
-      status: "APPROVED",
-      hidden: false,
-      latitude: 10.7628876,
-      longitude: 106.823123,
-      recruiterId: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: null,
-      deletedAt: null,
-    }
-  ], []);
-
-  // 🎯 ĐOẠN CODE LOAD DATA: Kết hợp đồng bộ API và Mock một cách mượt mà
   useEffect(() => {
     let mounted = true;
     const loadData = async () => {
@@ -512,13 +320,12 @@ const Jobs: React.FC = () => {
         if (!mounted) return;
         setManagedConfig(config);
         
-        // Trộn dữ liệu API dự án và Mock lên để hiển thị song song
-        setJobs([...(jobsResult || []), ...MOCK_JOBS]);
+        // 🎯 ĐÃ ĐẢM BẢO SẠCH: Chỉ nhận dữ liệu trực tiếp trả về từ API Backend thật
+        setJobs(jobsResult || []);
       } catch (error: unknown) {
         if (!mounted) return;
         setErrorMessage(getErrorMessage(error, t("jobs.page.loadError")));
-        // Nếu API lỗi, vẫn giữ lại dữ liệu Mock để hệ thống không trống rỗng hoàn toàn
-        setJobs(MOCK_JOBS);
+        setJobs([]);
       } finally {
         if (mounted) {
           setLoading(false);
@@ -529,7 +336,7 @@ const Jobs: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, [t, MOCK_JOBS]);
+  }, [t]);
 
   const filterOptions = useMemo<JobFilterOptions>(() => {
     if (provinceOptions.length === 0) return managedConfig.filters;
@@ -541,33 +348,43 @@ const Jobs: React.FC = () => {
     };
   }, [managedConfig.filters, provinceOptions, wardOptions]);
 
-  // Bộ lọc tối ưu xử lý logic lọc sâu từ mảng đã nạp
   const filteredJobs = useMemo(() => {
-    return filterJobs(jobs, filterValue, filterOptions, t);
+    const baseFiltered = filterJobs(jobs, filterValue, filterOptions, t);
+    const activeWard = filterValue.ward;
+    const activeDistrict = filterValue.district;
+    if (activeWard) {
+      return [...baseFiltered].sort((a, b) => {
+        const aMatch = matchesWard(a.location, activeWard, filterOptions.wards, t);
+        const bMatch = matchesWard(b.location, activeWard, filterOptions.wards, t);
+        if (aMatch && !bMatch) return -1;
+        if (!aMatch && bMatch) return 1;
+        return 0;
+      });
+    }
+    if (activeDistrict) {
+      return [...baseFiltered].sort((a, b) => {
+        const aMatch = matchesDistrict(a.location, activeDistrict, filterOptions.districts, t);
+        const bMatch = matchesDistrict(b.location, activeDistrict, filterOptions.districts, t);
+        if (aMatch && !bMatch) return -1;
+        if (!aMatch && bMatch) return 1;
+        return 0;
+      });
+    }
+    return baseFiltered;
   }, [jobs, filterValue, filterOptions, t]);
 
-  // 🎯 TÍNH TOÁN TỌA ĐỘ TÂM ĐỘNG: Gửi thông tin định vị cho bản đồ Google Maps Embed
- const mapCenterPosition = useMemo(() => {
-  // 1. Nếu không tìm thấy job nào, trả về trung tâm mặc định
-  if (filteredJobs.length === 0) {
-    return { lat: 10.762622, lng: 106.660172, mapKey: "default-center" };
-  }
-
-  // 2. Lấy ngay tọa độ của job đầu tiên trong danh sách lọc được
-  const firstJob = filteredJobs[0];
-
-  // Nếu job có tọa độ trong data, dùng nó
-  if (firstJob.latitude && firstJob.longitude) {
-    return { 
-      lat: Number(firstJob.latitude), 
-      lng: Number(firstJob.longitude), 
-      mapKey: `job-${firstJob.id}` // Key này cực kỳ quan trọng để re-render map
-    };
-  }
-
-  // 3. Nếu job không có tọa độ (fallback)
-  return { lat: 10.762622, lng: 106.660172, mapKey: "fallback-default" };
-}, [filteredJobs]);
+  const mapCenterPosition = useMemo(() => {
+    if (filteredJobs.length > 0) {
+      const firstJob = filteredJobs[0];
+      if (firstJob.latitude && firstJob.longitude) {
+        return {
+          lat: Number(firstJob.latitude),
+          lng: Number(firstJob.longitude),
+        };
+      }
+    }
+    return null;
+  }, [filteredJobs]);
 
   const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
 
@@ -595,10 +412,10 @@ const Jobs: React.FC = () => {
       setApplyJobId(null);
       setSelectedCvId("");
     } catch (error: unknown) {
-      toast({ 
-        title: "Không thể nộp đơn", 
+      toast({
+        title: "Không thể nộp đơn",
         description: getErrorMessage(error, "Bạn đã nộp đơn cho công việc này rồi hoặc có lỗi xảy ra."),
-        variant: "destructive" 
+        variant: "destructive"
       });
     } finally {
       setIsApplying(false);
@@ -613,29 +430,26 @@ const Jobs: React.FC = () => {
           <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{t("jobs.page.description")}</p>
         </div>
       </section>
-
       <section className="container mx-auto space-y-6 px-4 py-8">
         <JobSearchFilters
           options={filterOptions}
           value={filterValue}
-          jobs={filteredJobs}
+          jobs={jobs}
           mapCenterPosition={mapCenterPosition}
           onChange={setFilterValue}
           onReset={() => setFilterValue(emptyJobFilterValue)}
         />
-
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold text-slate-950">{t("jobs.page.resultsTitle")}</h2>
           <Badge variant="outline">{t("jobs.page.count", { count: filteredJobs.length })}</Badge>
         </div>
-
         {loading ? (
           <Card>
             <CardContent className="flex items-center justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </CardContent>
           </Card>
-        ) : errorMessage && jobs.length === 0 ? (
+        ) : errorMessage ? (
           <Card>
             <CardContent className="py-10 text-center text-sm text-destructive">{errorMessage}</CardContent>
           </Card>
@@ -697,9 +511,8 @@ const Jobs: React.FC = () => {
           </div>
         )}
       </section>
-
-      <Dialog 
-        open={!!applyJobId} 
+      <Dialog
+        open={!!applyJobId}
         onOpenChange={(open) => {
           if (!open) {
             setApplyJobId(null);
@@ -714,7 +527,6 @@ const Jobs: React.FC = () => {
               Vui lòng chọn 1 CV từ hồ sơ của bạn để nộp cho vị trí này.
             </DialogDescription>
           </DialogHeader>
-
           <div className="py-4">
             {!user?.cvList || user.cvList.length === 0 ? (
               <div className="text-center py-6 border-2 border-dashed rounded-lg bg-slate-50">
@@ -731,11 +543,10 @@ const Jobs: React.FC = () => {
                   <div
                     key={cv.id}
                     onClick={() => setSelectedCvId(cv.id)}
-                    className={`flex items-center gap-4 p-4 border rounded-xl cursor-pointer transition-all ${
-                      selectedCvId === cv.id 
-                        ? "border-primary bg-primary/5 shadow-sm" 
-                        : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
-                    }`}
+                    className={`flex items-center gap-4 p-4 border rounded-xl cursor-pointer transition-all ${selectedCvId === cv.id
+                      ? "border-primary bg-primary/5 shadow-sm"
+                      : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                      }`}
                   >
                     <div className={`p-2 rounded-lg ${selectedCvId === cv.id ? "bg-primary/10 text-primary" : "bg-slate-100 text-slate-500"}`}>
                       <FileText className="h-6 w-6" />
@@ -749,9 +560,8 @@ const Jobs: React.FC = () => {
                         {cv.isDefault && <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">Default</span>}
                       </p>
                     </div>
-                    <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                      selectedCvId === cv.id ? "border-primary" : "border-slate-300"
-                    }`}>
+                    <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 ${selectedCvId === cv.id ? "border-primary" : "border-slate-300"
+                      }`}>
                       {selectedCvId === cv.id && <div className="h-2.5 w-2.5 rounded-full bg-primary" />}
                     </div>
                   </div>
@@ -759,11 +569,10 @@ const Jobs: React.FC = () => {
               </div>
             )}
           </div>
-
           <DialogFooter>
             <Button variant="outline" onClick={() => setApplyJobId(null)}>Hủy bỏ</Button>
-            <Button 
-              onClick={submitApplication} 
+            <Button
+              onClick={submitApplication}
               disabled={!selectedCvId || isApplying || !user?.cvList?.length}
             >
               {isApplying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -775,5 +584,4 @@ const Jobs: React.FC = () => {
     </main>
   );
 };
-
 export default Jobs;
