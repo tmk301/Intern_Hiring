@@ -9,20 +9,22 @@ import {
   Clock3,
   ExternalLink,
   FileText,
+  Heart,
   Loader2,
   MapPin,
   RefreshCw,
   XCircle,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { candidateApi, type CandidateApplication } from "@/lib/api";
+import { candidateApi, type CandidateApplication, type PublicJobPost } from "@/lib/api";
 import {
   getReviewStatusBadgeClassName,
   getReviewStatusTranslationKey,
   getRoleBadgeClassName,
 } from "@/lib/dashboardStyles";
 import { isCandidateRole, USER_ROLES } from "@/lib/roles";
-import { JOB_TYPE_OPTIONS } from "@/components/jobs/jobFilterConfig";
+import { CURRENCY_OPTIONS, defaultJobFilterOptions, getSalaryRangeOption, JOB_TYPE_OPTIONS, WORK_MODE_OPTIONS } from "@/components/jobs/jobFilterConfig";
+import { FavoriteJobButton } from "@/components/jobs/FavoriteJobButton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PaginationControls } from "@/components/ui/pagination-controls";
@@ -65,7 +67,80 @@ const ApplicationCard = ({ application }: { application: CandidateApplication })
   );
 };
 
-const EmptyState = ({ type }: { type: "submitted" | "accepted" | "rejected" }) => {
+const getOptionLabel = (
+  options: Array<{ value: string; labelKey?: string }>,
+  value: string | null | undefined,
+  translate: (key: string) => string,
+) => {
+  if (!value) return "";
+  const option = options.find((item) => item.value === value);
+  return option?.labelKey ? translate(option.labelKey) : value;
+};
+
+const FavoriteJobCard = ({
+  job,
+  onFavoriteChange,
+}: {
+  job: PublicJobPost;
+  onFavoriteChange: (job: PublicJobPost, isFavorited: boolean) => void;
+}) => {
+  const { t } = useTranslation();
+  const jobTypeLabel = getOptionLabel(JOB_TYPE_OPTIONS, job.type, t);
+  const workModeLabel = getOptionLabel(WORK_MODE_OPTIONS, job.mode, t);
+  const salaryRange = job.salary ? getSalaryRangeOption(job.salary) : undefined;
+  const salaryLabel = job.salary
+    ? `${salaryRange?.labelKey ? t(salaryRange.labelKey) : job.salary}${
+        job.currency ? ` ${getOptionLabel(CURRENCY_OPTIONS, job.currency, t)}` : ""
+      }`
+    : "";
+  const experienceLabel = getOptionLabel(defaultJobFilterOptions.experience, job.experience, t);
+
+  return (
+    <article className="relative overflow-hidden rounded-xl border bg-card p-5 shadow-soft transition-smooth hover:-translate-y-1 hover:shadow-medium">
+      <FavoriteJobButton
+        jobId={job.id}
+        isFavorited
+        onFavoriteChange={onFavoriteChange}
+        className="absolute right-4 top-4"
+      />
+      <div className="space-y-4 pr-12">
+        <div className="flex flex-wrap gap-2">
+          {jobTypeLabel && <Badge variant="outline">{jobTypeLabel}</Badge>}
+          {salaryLabel && <Badge variant="outline">{salaryLabel}</Badge>}
+          {workModeLabel && <Badge variant="outline">{workModeLabel}</Badge>}
+          {experienceLabel && <Badge variant="outline">{experienceLabel}</Badge>}
+        </div>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight text-foreground">{job.title || t("jobs.page.untitled")}</h2>
+          <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+            <BriefcaseBusiness className="h-4 w-4 text-primary" />
+            {job.company || job.employerName || t("jobs.page.notProvided")}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+          {job.location && (
+            <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
+              <MapPin className="h-4 w-4 text-primary" />
+              {job.location}
+            </span>
+          )}
+          <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
+            <Heart className="h-4 w-4 text-rose-600" />
+            {t("candidateDashboard.favoriteCount", { count: job.favoriteCount ?? 0 })}
+          </span>
+        </div>
+        <Button asChild variant="cta" className="bg-primary text-primary-foreground hover:bg-primary-dark">
+          <Link to={`/jobs/${job.id}`}>
+            <ExternalLink className="mr-2 h-4 w-4" />
+            {t("candidateDashboard.viewJob")}
+          </Link>
+        </Button>
+      </div>
+    </article>
+  );
+};
+
+const EmptyState = ({ type }: { type: "submitted" | "accepted" | "rejected" | "favorites" }) => {
   const { t } = useTranslation();
 
   const getIcon = () => {
@@ -74,6 +149,8 @@ const EmptyState = ({ type }: { type: "submitted" | "accepted" | "rejected" }) =
         return <CheckCircle2 className="h-7 w-7" />;
       case "rejected":
         return <XCircle className="h-7 w-7 text-red-500" />;
+      case "favorites":
+        return <Heart className="h-7 w-7 text-rose-500" />;
       case "submitted":
       default:
         return <Clock3 className="h-7 w-7" />;
@@ -86,6 +163,8 @@ const EmptyState = ({ type }: { type: "submitted" | "accepted" | "rejected" }) =
         return t("candidateDashboard.emptyAcceptedTitle");
       case "rejected":
         return t("candidateDashboard.emptyRejectedTitle");
+      case "favorites":
+        return t("candidateDashboard.emptyFavoritesTitle");
       case "submitted":
       default:
         return t("candidateDashboard.emptySubmittedTitle");
@@ -98,6 +177,8 @@ const EmptyState = ({ type }: { type: "submitted" | "accepted" | "rejected" }) =
         return t("candidateDashboard.emptyAcceptedDesc");
       case "rejected":
         return t("candidateDashboard.emptyRejectedDesc");
+      case "favorites":
+        return t("candidateDashboard.emptyFavoritesDesc");
       case "submitted":
       default:
         return t("candidateDashboard.emptySubmittedDesc");
@@ -115,7 +196,7 @@ const EmptyState = ({ type }: { type: "submitted" | "accepted" | "rejected" }) =
       <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
         {getDesc()}
       </p>
-      {type === "submitted" && (
+      {(type === "submitted" || type === "favorites") && (
         <Button asChild variant="cta" className="mt-5 bg-primary text-primary-foreground hover:bg-primary-dark">
           <Link to="/jobs">{t("candidateDashboard.findJobNow")}</Link>
         </Button>
@@ -139,7 +220,7 @@ const LoadingState = () => (
 const Applications = () => {
   const { t } = useTranslation();
   const { token, user, isAuthenticated } = useAuth();
-  const [activeTab, setActiveTab] = useState<"submitted" | "accepted" | "rejected">("submitted");
+  const [activeTab, setActiveTab] = useState<"submitted" | "accepted" | "rejected" | "favorites">("submitted");
   
   const [submittedPage, setSubmittedPage] = useState(1);
   const [submittedPageSize, setSubmittedPageSize] = useState(10);
@@ -150,9 +231,23 @@ const Applications = () => {
   const [rejectedPage, setRejectedPage] = useState(1);
   const [rejectedPageSize, setRejectedPageSize] = useState(10);
 
+  const [favoritePage, setFavoritePage] = useState(1);
+  const [favoritePageSize, setFavoritePageSize] = useState(10);
+
   const { data = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["candidate-applications", token],
     queryFn: () => candidateApi.listApplications(token!),
+    enabled: Boolean(token),
+  });
+
+  const {
+    data: favoriteJobs = [],
+    isLoading: isFavoritesLoading,
+    isError: isFavoritesError,
+    refetch: refetchFavorites,
+  } = useQuery({
+    queryKey: ["candidate-favorite-jobs", token],
+    queryFn: () => candidateApi.listFavoriteJobs(token!),
     enabled: Boolean(token),
   });
 
@@ -178,6 +273,11 @@ const Applications = () => {
     [rejectedApplications, rejectedPage, rejectedPageSize],
   );
 
+  const paginatedFavoriteJobs = useMemo(
+    () => paginateItems(favoriteJobs, favoritePage, favoritePageSize),
+    [favoriteJobs, favoritePage, favoritePageSize],
+  );
+
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (!isCandidateRole(user?.role)) return <Navigate to="/" replace />;
 
@@ -187,6 +287,8 @@ const Applications = () => {
         return t("candidateDashboard.acceptedListTitle");
       case "rejected":
         return t("candidateDashboard.rejectedListTitle");
+      case "favorites":
+        return t("candidateDashboard.favoritesListTitle");
       case "submitted":
       default:
         return t("candidateDashboard.submittedListTitle");
@@ -207,8 +309,8 @@ const Applications = () => {
                 {t("candidateDashboard.description")}
               </p>
             </div>
-            <Button variant="outline" onClick={() => refetch()} disabled={isLoading}>
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            <Button variant="outline" onClick={() => { refetch(); refetchFavorites(); }} disabled={isLoading || isFavoritesLoading}>
+              {isLoading || isFavoritesLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               {t("common.refresh")}
             </Button>
           </div>
@@ -216,7 +318,7 @@ const Applications = () => {
       </section>
 
       <section className="container mx-auto space-y-6 px-4 py-8 max-w-6xl">
-        <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+        <div className="grid gap-4 md:grid-cols-4 xl:grid-cols-6">
           <Card
             className={`cursor-pointer transition hover:shadow-md ${activeTab === "submitted" ? "border-primary" : ""}`}
             onClick={() => setActiveTab("submitted")}
@@ -258,18 +360,32 @@ const Applications = () => {
               <p className="text-xs text-muted-foreground">{t("candidateDashboard.rejectedDesc")}</p>
             </CardContent>
           </Card>
+
+          <Card
+            className={`cursor-pointer transition hover:shadow-md ${activeTab === "favorites" ? "border-primary" : ""}`}
+            onClick={() => setActiveTab("favorites")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{t("candidateDashboard.favorites")}</CardTitle>
+              <Heart className="h-5 w-5 text-rose-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{favoriteJobs.length}</div>
+              <p className="text-xs text-muted-foreground">{t("candidateDashboard.favoritesDesc")}</p>
+            </CardContent>
+          </Card>
         </div>
 
-        {isLoading ? (
+        {isLoading || (activeTab === "favorites" && isFavoritesLoading) ? (
           <Card>
             <CardContent className="py-6">
               <LoadingState />
             </CardContent>
           </Card>
-        ) : isError ? (
+        ) : isError || (activeTab === "favorites" && isFavoritesError) ? (
           <div className="rounded-2xl border border-destructive/20 bg-destructive/10 p-6 text-destructive">
             <p className="font-semibold">{t("candidateDashboard.loadError")}</p>
-            <Button variant="outline" className="mt-4 border-destructive text-destructive hover:bg-destructive/10" onClick={() => refetch()}>
+            <Button variant="outline" className="mt-4 border-destructive text-destructive hover:bg-destructive/10" onClick={() => { refetch(); refetchFavorites(); }}>
               {t("candidateDashboard.tryAgain")}
             </Button>
           </div>
@@ -335,6 +451,31 @@ const Applications = () => {
                   </>
                 ) : (
                   <EmptyState type="rejected" />
+                )
+              )}
+
+              {activeTab === "favorites" && (
+                favoriteJobs.length ? (
+                  <>
+                    {paginatedFavoriteJobs.items.map((job) => (
+                      <FavoriteJobCard
+                        key={job.id}
+                        job={job}
+                        onFavoriteChange={() => {
+                          refetchFavorites();
+                        }}
+                      />
+                    ))}
+                    <PaginationControls
+                      page={paginatedFavoriteJobs.page}
+                      totalPages={paginatedFavoriteJobs.totalPages}
+                      onPageChange={setFavoritePage}
+                      pageSize={favoritePageSize}
+                      onPageSizeChange={setFavoritePageSize}
+                    />
+                  </>
+                ) : (
+                  <EmptyState type="favorites" />
                 )
               )}
             </CardContent>

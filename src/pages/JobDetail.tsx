@@ -44,6 +44,7 @@ import {
   defaultJobFilterOptions,
   getSalaryRangeOption
 } from "@/components/jobs/jobFilterConfig";
+import { FavoriteJobButton } from "@/components/jobs/FavoriteJobButton";
 
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
@@ -64,6 +65,7 @@ const JobDetail: React.FC = () => {
 
   const [job, setJob] = useState<PublicJobPost | null>(null);
   const [company, setCompany] = useState<CompanyProfile | null>(null);
+  const [isFavorited, setIsFavorited] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -114,6 +116,33 @@ const JobDetail: React.FC = () => {
       mounted = false;
     };
   }, [jobId, t]);
+
+  useEffect(() => {
+    if (!jobId || !token || user?.role !== "CANDIDATE") {
+      setIsFavorited(false);
+      return;
+    }
+
+    let mounted = true;
+    candidateApi.listFavoriteJobs(token)
+      .then((favoriteJobs) => {
+        if (mounted) {
+          setIsFavorited(favoriteJobs.some((favoriteJob) => String(favoriteJob.id) === String(jobId)));
+        }
+      })
+      .catch(() => {
+        if (mounted) setIsFavorited(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [jobId, token, user?.role]);
+
+  const handleFavoriteChange = (updatedJob: PublicJobPost, nextIsFavorited: boolean) => {
+    setJob(updatedJob);
+    setIsFavorited(nextIsFavorited);
+  };
 
   const handleOpenApplyModal = () => {
     if (!user || !token) {
@@ -237,7 +266,15 @@ const JobDetail: React.FC = () => {
 
             {/* Apply Action block for candidates */}
             {(!user || user.role === "CANDIDATE") && (
-              <div className="shrink-0">
+              <div className="flex shrink-0 flex-wrap gap-2">
+                {job && (
+                  <FavoriteJobButton
+                    jobId={job.id}
+                    isFavorited={isFavorited}
+                    onFavoriteChange={handleFavoriteChange}
+                    className="h-11 w-11 border-white/30 bg-white/95"
+                  />
+                )}
                 <Button
                   size="lg"
                   className="w-full md:w-auto bg-white hover:bg-white/95 text-primary font-bold px-8 shadow-md hover:shadow-lg transition-all"

@@ -14,6 +14,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"; // MỚI THÊM
 import { JobSearchFilters } from "@/components/jobs/JobSearchFilters";
+import { FavoriteJobButton } from "@/components/jobs/FavoriteJobButton";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import { jobApi, PublicJobPost, candidateApi } from "@/lib/api"; // MỚI THÊM: candidateApi
 import {
   defaultManagedSiteConfig,
@@ -33,6 +35,7 @@ import {
   type JobFilterValue,
 } from "@/components/jobs/jobFilterConfig";
 import { getVietnamProvinceOptions, getVietnamWardOptions } from "@/lib/vietnamProvinces";
+import { paginateItems } from "@/lib/pagination";
 import { useAuth } from "@/context/AuthContext"; // MỚI THÊM
 import { useToast } from "@/hooks/use-toast"; // MỚI THÊM
 
@@ -75,6 +78,8 @@ const getSearchText = (job: PublicJobPost) =>
     job.location,
     job.type,
     job.salary,
+    job.currency,
+    job.mode,
     job.experience,
     job.description,
   ].join(" ");
@@ -118,8 +123,19 @@ const matchesText = (source: string | null, selectedValue: string) => {
   return Boolean(normalizedSelected && normalizedSource.includes(normalizedSelected));
 };
 
-const matchesSalaryRange = (source: string | null, minSalary: number, maxSalary: number, isActive: boolean) => {
+const matchesSalaryRange = (
+  source: string | null,
+  selectedRange: string,
+  minSalary: number,
+  maxSalary: number,
+  isActive: boolean,
+) => {
   if (!isActive) return true;
+
+  const sourceRange = getSalaryRangeOption(source ?? "");
+  if (sourceRange && selectedRange) {
+    return sourceRange.value === selectedRange;
+  }
 
   const salaryNumbers = getSalaryNumbers(source);
   if (salaryNumbers.length === 0) return false;
@@ -189,9 +205,12 @@ const matchesOption = (
   if (!selectedValue) return true;
 
   const normalizedSource = normalizeText(source);
+  if (!normalizedSource) return false;
+
   const option = options.find((item) => item.value === selectedValue);
   const candidates = option
     ? [
+        option.value,
         option.label,
         option.labelKey ? translate(option.labelKey) : undefined,
         ...(option.aliases ?? []),
@@ -209,6 +228,8 @@ const matchesLocationText = (source: string | null, selectedLocation: string) =>
 
   const normalizedSource = normalizeText(source);
   const normalizedSelected = normalizeText(selectedLocation);
+  if (!normalizedSource || !normalizedSelected) return false;
+
   const selectedTokens = normalizedSelected.split(" ").filter((token) => token.length >= 3);
 
   return (
@@ -238,12 +259,13 @@ const filterJobs = (
       matchesOption(job.location, value.district, options.districts, translate) &&
       matchesOption(job.location, value.ward, options.wards, translate) &&
       matchesLocationText(job.location, value.location) &&
-      matchesOption(`${job.type ?? ""} ${job.description ?? ""}`, value.workMode, options.workModes, translate) &&
+      matchesOption(job.mode, value.workMode, options.workModes, translate) &&
       matchesOption(job.type, value.jobType, options.jobTypes, translate) &&
       matchesText(job.company, value.company) &&
-      matchesOption(job.salary, value.currency, options.currencies, translate) &&
-      matchesExperience(job.experience || job.description, value.experience) &&
-      matchesSalaryRange(job.salary, minSalary, maxSalary, salaryFilterActive)
+      matchesOption(`${job.currency ?? ""} ${job.salary ?? ""}`, value.currency, options.currencies, translate) &&
+      (matchesOption(job.experience, value.experience, options.experience, translate) ||
+        matchesExperience(job.description, value.experience)) &&
+      matchesSalaryRange(job.salary, value.salaryRange, minSalary, maxSalary, salaryFilterActive)
     );
   });
 
@@ -255,12 +277,15 @@ const Jobs: React.FC = () => {
   const [provinceOptions, setProvinceOptions] = useState<JobFilterOption[]>([]);
   const [wardOptions, setWardOptions] = useState<JobFilterOption[]>([]);
   const [jobs, setJobs] = useState<PublicJobPost[]>([]);
+  const [favoriteJobIds, setFavoriteJobIds] = useState<Set<string | number>>(new Set());
   const [filterValue, setFilterValue] = useState<JobFilterValue>({
     ...emptyJobFilterValue,
     keyword: initialKeyword,
   });
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [jobPage, setJobPage] = useState(1);
+  const [jobPageSize, setJobPageSize] = useState(10);
 
   // MỚI THÊM: Các state và hook cho phần nộp đơn
   const { user, token } = useAuth();
@@ -272,6 +297,7 @@ const Jobs: React.FC = () => {
 
   useEffect(() => {
     setFilterValue((current) => ({ ...current, keyword: initialKeyword }));
+    setJobPage(1);
   }, [initialKeyword]);
 
   useEffect(() => {
@@ -342,6 +368,26 @@ const Jobs: React.FC = () => {
     };
   }, [t]);
 
+  useEffect(() => {
+    if (!token || user?.role !== "CANDIDATE") {
+      setFavoriteJobIds(new Set());
+      return;
+    }
+
+    let mounted = true;
+    candidateApi.listFavoriteJobs(token)
+      .then((favoriteJobs) => {
+        if (mounted) setFavoriteJobIds(new Set(favoriteJobs.map((job) => job.id)));
+      })
+      .catch(() => {
+        if (mounted) setFavoriteJobIds(new Set());
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [token, user?.role]);
+
   const filterOptions = useMemo<JobFilterOptions>(() => {
     const fixedOptions = {
       workModes: managedConfig.filters.workModes.length ? managedConfig.filters.workModes : defaultJobFilterOptions.workModes,
@@ -369,7 +415,26 @@ const Jobs: React.FC = () => {
     () => filterJobs(jobs, filterValue, filterOptions, t),
     [jobs, filterValue, filterOptions, t],
   );
+  const paginatedJobs = useMemo(
+    () => paginateItems(filteredJobs, jobPage, jobPageSize),
+    [filteredJobs, jobPage, jobPageSize],
+  );
   const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
+
+  const handleFilterChange = (nextValue: JobFilterValue) => {
+    setFilterValue(nextValue);
+    setJobPage(1);
+  };
+
+  const handleFavoriteChange = (updatedJob: PublicJobPost, isFavorited: boolean) => {
+    setFavoriteJobIds((current) => {
+      const next = new Set(current);
+      if (isFavorited) next.add(updatedJob.id);
+      else next.delete(updatedJob.id);
+      return next;
+    });
+    setJobs((current) => current.map((job) => (String(job.id) === String(updatedJob.id) ? updatedJob : job)));
+  };
 
   // MỚI THÊM: Hàm xử lý mở popup nộp đơn
   const handleOpenApplyModal = (jobId: string | number) => {
@@ -423,8 +488,8 @@ const Jobs: React.FC = () => {
         <JobSearchFilters
           options={filterOptions}
           value={filterValue}
-          onChange={setFilterValue}
-          onReset={() => setFilterValue(emptyJobFilterValue)}
+          onChange={handleFilterChange}
+          onReset={() => handleFilterChange(emptyJobFilterValue)}
         />
 
         <div className="flex items-center justify-between">
@@ -453,7 +518,7 @@ const Jobs: React.FC = () => {
           </Card>
         ) : (
           <div className="grid gap-4">
-            {filteredJobs.map((job) => (
+            {paginatedJobs.items.map((job) => (
               <Card key={job.id} className="overflow-hidden flex flex-col h-full hover:shadow-md transition-shadow">
                 <div
                   className="cursor-pointer flex flex-col flex-1"
@@ -467,6 +532,12 @@ const Jobs: React.FC = () => {
                           {job.company || job.employerName || t("jobs.page.notProvided")}
                         </p>
                       </div>
+                      <FavoriteJobButton
+                        jobId={job.id}
+                        isFavorited={favoriteJobIds.has(job.id)}
+                        onFavoriteChange={handleFavoriteChange}
+                        className="self-start"
+                      />
                     </div>
                     <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
                       {job.location && (
@@ -516,6 +587,13 @@ const Jobs: React.FC = () => {
                 </CardFooter>
               </Card>
             ))}
+            <PaginationControls
+              page={paginatedJobs.page}
+              totalPages={paginatedJobs.totalPages}
+              onPageChange={setJobPage}
+              pageSize={jobPageSize}
+              onPageSizeChange={setJobPageSize}
+            />
           </div>
         )}
       </section>
