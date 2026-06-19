@@ -14,6 +14,8 @@ import {
     loadManagedSiteConfig,
     type ManagedSiteConfig,
 } from "@/lib/siteConfig";
+import { SanityPageSections } from "@/components/sanity/SanityPageSections";
+import { useSanityInterfaceText, useSanityManagedInterface } from "@/lib/sanityInterfaceText";
 
 const corporatePartners = [
     { id: 1, name: "ASL", logo: "/carousel/ASL.webp" },
@@ -42,8 +44,10 @@ const corporatePartners = [
 
 const Home: React.FC = () => {
     const navigate = useNavigate();
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { user, isAuthenticated } = useAuth();
+    const uiText = useSanityInterfaceText("/");
+    const { theme, homeHero } = useSanityManagedInterface("/");
     const [managedConfig, setManagedConfig] = useState<ManagedSiteConfig>(defaultManagedSiteConfig);
     const [searchKeyword, setSearchKeyword] = useState("");
     const partnerList = managedConfig.partners.length > 0 ? managedConfig.partners : corporatePartners;
@@ -58,6 +62,21 @@ const Home: React.FC = () => {
             return { partners, reverse: idx % 2 === 1 };
         })
         .filter((row) => row.partners.length > 0);
+    const localizedText = (base?: string, vi?: string, en?: string) => {
+        if (i18n.language?.startsWith("vi")) return vi || base || "";
+        if (i18n.language?.startsWith("en")) return en || base || "";
+        return base || vi || en || "";
+    };
+    const heroImageUrl = homeHero.imageUrl || theme.headerImageUrl || mscBackground;
+    const heroTitle = localizedText(homeHero.title, homeHero.titleVi, homeHero.titleEn) || uiText("home.heroTitle", "InternHiring");
+    const heroSubtitle = localizedText(homeHero.subtitle, homeHero.subtitleVi, homeHero.subtitleEn) || uiText("home.heroSubtitle", t("home.heroSubtitle"));
+    const heroDescription = localizedText(homeHero.description, homeHero.descriptionVi, homeHero.descriptionEn) || uiText("home.heroDescription", t("home.heroDescription"));
+    const pageStyle = {
+        backgroundColor: theme.pageBackgroundColor || undefined,
+    };
+    const heroTextStyle = {
+        color: theme.headerTextColor || theme.bodyTextColor || undefined,
+    };
 
     useEffect(() => {
         let mounted = true;
@@ -100,12 +119,13 @@ const Home: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-background" style={pageStyle}>
+            <SanityPageSections routePath="/" placement="top" />
             {/* Hero: Job search */}
             <section id="trang-chu" className="relative scroll-mt-24 overflow-hidden py-20">
                 <div
                     className="absolute inset-0 bg-cover bg-center bg-no-repeat hero-bg-zoom"
-                    style={{ backgroundImage: `url(${mscBackground})` }}
+                    style={{ backgroundImage: `url(${heroImageUrl})` }}
                     aria-hidden="true"
                 />
                 <div className="absolute inset-0 bg-white/75" aria-hidden="true" />
@@ -113,19 +133,20 @@ const Home: React.FC = () => {
 
                 <div className="relative z-10 container mx-auto px-4 text-center flex flex-col items-center justify-center min-h-[420px] md:min-h-[520px]">
                     <div className="mb-6">
-                        <h1 className="text-5xl md:text-7xl font-extrabold mb-2 text-primary">
-                            InternHiring
+                        <h1 className="text-5xl md:text-7xl font-extrabold mb-2 text-primary" style={heroTextStyle}>
+                            {heroTitle}
                         </h1>
-                        <p className="text-2xl md:text-3xl font-medium text-black">
-                            {t("home.heroSubtitle")}
+                        <p className="text-2xl md:text-3xl font-medium text-black" style={heroTextStyle}>
+                            {heroSubtitle}
                         </p>
                     </div>
 
-                    <p className="text-lg text-black mb-8 max-w-3xl mx-auto">
-                        {t("home.heroDescription")}
+                    <p className="text-lg text-black mb-8 max-w-3xl mx-auto" style={heroTextStyle}>
+                        {heroDescription}
                     </p>
                 </div>
             </section>
+            <SanityPageSections routePath="/" placement="afterHero" />
 
             {/* Featured Jobs */}
             {/* About / Introduction */}
@@ -252,6 +273,7 @@ const Home: React.FC = () => {
                     {t("home.footer")}
                 </div>
             </footer>
+            <SanityPageSections routePath="/" placement="bottom" />
 
         </div>
     );
