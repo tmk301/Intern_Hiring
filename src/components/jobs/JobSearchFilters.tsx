@@ -5,7 +5,6 @@ import { ChevronDown, ChevronUp, RotateCcw, SlidersHorizontal } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 import { GoogleMapsEmbedLocationFilter } from "./GoogleMapsEmbedLocationFilter";
 import {
   Select,
@@ -17,9 +16,14 @@ import {
 import {
   defaultJobFilterOptions,
   emptyJobFilterValue,
+  convertVndToCurrency,
+  getCurrencyCode,
+  getSalaryRangeOption,
+  SALARY_RANGE_OPTIONS,
   type JobFilterOptions,
   type JobFilterOption,
   type JobFilterValue,
+  type SalaryRangeOption,
 } from "./jobFilterConfig";
 import { type PublicJobPost } from "@/lib/api";
 
@@ -42,23 +46,9 @@ type SelectFilterProps = {
 };
 
 const ALL_VALUE = "__all__";
-const SALARY_RANGE_MIN = 0;
-const SALARY_RANGE_MAX = 50_000_000;
-const SALARY_STEP = 500_000;
 
 const formatCurrencyAmount = (value: number) =>
   new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value);
-
-const formatNumberText = (value: string) => {
-  if (!value) return "";
-  return formatCurrencyAmount(Number(value));
-};
-
-const clampSalaryValue = (value: string, fallback: number) => {
-  const numericValue = Number(value || fallback);
-  if (!Number.isFinite(numericValue)) return fallback;
-  return Math.min(Math.max(numericValue, SALARY_RANGE_MIN), SALARY_RANGE_MAX);
-};
 
 const getOptionLabel = (
   options: JobFilterOption[],
@@ -68,6 +58,25 @@ const getOptionLabel = (
   const option = options.find((item) => item.value === selectedValue);
   if (!option) return "";
   return option.labelKey ? translate(option.labelKey) : option.label;
+};
+
+const getSalaryRangeLabel = (
+  option: SalaryRangeOption,
+  currencyValue: string,
+  translate: (key: string, options?: Record<string, string>) => string,
+) => {
+  const currency = getCurrencyCode(currencyValue);
+  if (currency === "VND") return translate(option.labelKey);
+
+  const min = convertVndToCurrency(option.minVnd, currency);
+  const max = option.maxVnd === null ? null : convertVndToCurrency(option.maxVnd, currency);
+
+  if (max === null) return translate("jobs.filters.options.salaryRanges.usdFrom", { amount: formatCurrencyAmount(min) });
+  if (option.minVnd === 0) return translate("jobs.filters.options.salaryRanges.usdUnder", { amount: formatCurrencyAmount(max) });
+  return translate("jobs.filters.options.salaryRanges.usdBetween", {
+    min: formatCurrencyAmount(min),
+    max: formatCurrencyAmount(max),
+  });
 };
 
 function SelectFilter({
@@ -154,23 +163,13 @@ export function JobSearchFilters({
     onChange?.(nextFilterValue);
   };
 
-  const updateSalaryInputValue = (field: "salaryMin" | "salaryMax", nextValue: string) => {
-    updateValue(field, nextValue.replace(/\D/g, ""));
-  };
-
-  const salaryMinValue = clampSalaryValue(filterValue.salaryMin, SALARY_RANGE_MIN);
-  const salaryMaxValue = clampSalaryValue(filterValue.salaryMax, SALARY_RANGE_MAX);
-  const salaryRangeValue =
-    salaryMinValue <= salaryMaxValue
-      ? [salaryMinValue, salaryMaxValue]
-      : [salaryMaxValue, salaryMinValue];
-
-  const updateSalaryRange = (nextValue: number[]) => {
-    const [nextMin = SALARY_RANGE_MIN, nextMax = SALARY_RANGE_MAX] = nextValue;
+  const updateSalaryRange = (nextValue: string) => {
+    const selectedRange = getSalaryRangeOption(nextValue);
     const nextFilterValue = {
       ...filterValue,
-      salaryMin: String(nextMin),
-      salaryMax: String(nextMax),
+      salaryRange: nextValue,
+      salaryMin: selectedRange ? String(selectedRange.minVnd) : "",
+      salaryMax: selectedRange?.maxVnd === null || !selectedRange ? "" : String(selectedRange.maxVnd),
     };
 
     setInternalValue(nextFilterValue);
@@ -237,27 +236,19 @@ export function JobSearchFilters({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="job-work-mode-filter">{t("jobs.filters.workMode")}</Label>
-              <Input
-                id="job-work-mode-filter"
-                value={filterValue.workMode}
-                onChange={(event) => updateValue("workMode", event.target.value)}
-                placeholder={t("jobs.filters.workModePlaceholder")}
-                className="h-12 bg-white"
-              />
-            </div>
+            <SelectFilter
+              label={t("jobs.filters.workMode")}
+              value={filterValue.workMode}
+              options={filterOptions.workModes}
+              onChange={(nextValue) => updateValue("workMode", nextValue)}
+            />
 
-            <div className="space-y-2">
-              <Label htmlFor="job-type-filter">{t("jobs.filters.jobType")}</Label>
-              <Input
-                id="job-type-filter"
-                value={filterValue.jobType}
-                onChange={(event) => updateValue("jobType", event.target.value)}
-                placeholder={t("jobs.filters.jobTypePlaceholder")}
-                className="h-12 bg-white"
-              />
-            </div>
+            <SelectFilter
+              label={t("jobs.filters.jobType")}
+              value={filterValue.jobType}
+              options={filterOptions.jobTypes}
+              onChange={(nextValue) => updateValue("jobType", nextValue)}
+            />
           </div>
 
           <button
@@ -316,50 +307,37 @@ export function JobSearchFilters({
                 />
               </div>
 
-              <div className="space-y-4 md:col-span-2">
-                <div className="flex items-center justify-between gap-4">
-                  <Label htmlFor="job-salary-range-filter">{t("jobs.filters.salary")}</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={formatNumberText(filterValue.salaryMin)}
-                      onChange={(event) => updateSalaryInputValue("salaryMin", event.target.value)}
-                      inputMode="numeric"
-                      pattern="[0-9.]*"
-                      className="h-8 w-24 bg-white text-right text-sm"
-                      aria-label={t("jobs.filters.salaryMin")}
-                    />
-                    <span className="text-xs text-muted-foreground">-</span>
-                    <Input
-                      value={formatNumberText(filterValue.salaryMax)}
-                      onChange={(event) => updateSalaryInputValue("salaryMax", event.target.value)}
-                      inputMode="numeric"
-                      pattern="[0-9.]*"
-                      className="h-8 w-24 bg-white text-right text-sm"
-                      aria-label={t("jobs.filters.salaryMax")}
-                    />
-                  </div>
-                </div>
-                <Slider
-                  id="job-salary-range-filter"
-                  min={SALARY_RANGE_MIN}
-                  max={SALARY_RANGE_MAX}
-                  step={SALARY_STEP}
-                  value={salaryRangeValue}
-                  onValueChange={updateSalaryRange}
-                  minStepsBetweenThumbs={1}
-                  className="h-12"
-                />
-              </div>
+              <SelectFilter
+                label={t("jobs.filters.currency")}
+                value={filterValue.currency}
+                options={filterOptions.currencies}
+                onChange={(nextValue) => updateValue("currency", nextValue)}
+              />
 
               <div className="space-y-2">
-                <Label htmlFor="job-currency-filter">{t("jobs.filters.currency")}</Label>
-                <Input
-                  id="job-currency-filter"
-                  value={filterValue.currency}
-                  onChange={(event) => updateValue("currency", event.target.value)}
-                  placeholder={t("jobs.filters.currencyPlaceholder")}
-                  className="h-12 bg-white"
-                />
+                <Label>{t("jobs.filters.salary")}</Label>
+                <Select
+                  value={filterValue.salaryRange || ALL_VALUE}
+                  onValueChange={(nextValue) => updateSalaryRange(nextValue === ALL_VALUE ? "" : nextValue)}
+                >
+                  <SelectTrigger className="h-12 bg-white transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground">
+                    <SelectValue placeholder={t("jobs.filters.all")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_VALUE} className="focus:bg-primary focus:text-primary-foreground">
+                      {t("jobs.filters.all")}
+                    </SelectItem>
+                    {SALARY_RANGE_OPTIONS.map((option) => (
+                      <SelectItem
+                        key={option.value}
+                        value={option.value}
+                        className="focus:bg-primary focus:text-primary-foreground"
+                      >
+                        {getSalaryRangeLabel(option, filterValue.currency, t)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <SelectFilter

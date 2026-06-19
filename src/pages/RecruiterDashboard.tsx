@@ -1,9 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   Briefcase,
   Building2,
+  ChevronDown,
   Eye,
   EyeOff,
   Loader2,
@@ -11,28 +15,45 @@ import {
   RefreshCw,
   Trash2,
   Users,
-  CheckCircle,
+  CheckCircle2,
   XCircle,
   FileText,
+  History,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/context/AuthContext";
-import { defaultJobFilterOptions } from "@/components/jobs/jobFilterConfig";
+import {
+  CURRENCY_OPTIONS,
+  JOB_TYPE_OPTIONS,
+  SALARY_RANGE_OPTIONS,
+  WORK_MODE_OPTIONS,
+  convertVndToCurrency,
+  defaultJobFilterOptions,
+  getCurrencyCode,
+  getSalaryRangeOption,
+  type SalaryRangeOption,
+} from "@/components/jobs/jobFilterConfig";
 import { isRecruiterRole } from "@/lib/roles";
-import { recruiterApi, CandidateApplication } from "@/lib/api";
-import { getVietnamProvinceOptions, getVietnamWardOptions } from "@/lib/vietnamProvinces";
-import type { JobFilterOption } from "@/components/jobs/jobFilterConfig";
+import { recruiterApi, CandidateApplication, CompanyProfile, isApiError, type RecruiterJobChangeLog, type RecruiterJobSnapshot } from "@/lib/api";
+import { getReviewStatusBadgeClassName, getReviewStatusTranslationKey, getRoleBadgeClassName, normalizeRoleName } from "@/lib/dashboardStyles";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { paginateItems } from "@/lib/pagination";
+import { ActionIconButton } from "@/components/ui/action-icon-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+
+type JobSortKey = "title" | "company" | "type" | "applicationDeadline" | "status" | "createdAt";
+type ApplicationSortKey = "applicant" | "jobTitle" | "status" | "appliedAt";
+type SortDirection = "asc" | "desc";
 
 type RecruiterJob = {
   id: string | number;
@@ -44,12 +65,36 @@ type RecruiterJob = {
   employer_name: string | null;
   location: string | null;
   salary: string | null;
+  currency: string | null;
+  mode: string | null;
+  experience: string | null;
   status: string | null;
   hidden: boolean;
   title: string | null;
   type: string | null;
   updated_at: string | null;
+  applicationDeadline: string | null;
 };
+
+type JobHistoryVersion = {
+  id: string;
+  label: string;
+  data: RecruiterJobSnapshot;
+  changedFields: Array<keyof RecruiterJobSnapshot>;
+  createdAt?: string;
+};
+
+type JobSnapshotField = keyof RecruiterJobSnapshot;
+
+const JOB_SNAPSHOT_FIELDS: JobSnapshotField[] = [
+  "title",
+  "location",
+  "type",
+  "salary",
+  "experience",
+  "applicationDeadline",
+  "description",
+];
 
 type JobFormValue = {
   title: string;
@@ -61,13 +106,27 @@ type JobFormValue = {
   streetName: string;
   city: string;
   ward: string;
-  salaryMin: string;
-  salaryMax: string;
+  salaryRange: string;
   currency: string;
+  applicationDeadline: string;
   workMode: string;
   jobType: string;
   experience: string;
   description: string;
+};
+
+type CompanyAddressRecord = {
+  headOffice?: string;
+  province?: string;
+  district?: string;
+  detail?: string;
+  isDefault?: boolean;
+};
+
+type CompanyAddressOption = {
+  value: string;
+  label: string;
+  isDefault: boolean;
 };
 
 const emptyJobFormValue: JobFormValue = {
@@ -80,28 +139,17 @@ const emptyJobFormValue: JobFormValue = {
   streetName: "",
   city: "",
   ward: "",
-  salaryMin: "",
-  salaryMax: "",
+  salaryRange: "",
   currency: "",
+  applicationDeadline: "",
   workMode: "",
   jobType: "",
   experience: "",
   description: "",
 };
 
-const SALARY_RANGE_MIN = 0;
-const SALARY_RANGE_MAX = 50_000_000;
-const SALARY_STEP = 500_000;
-
 const formatCurrencyAmount = (value: number) =>
   new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value);
-
-const formatNumberText = (value: string) => {
-  if (!value) return "";
-  return formatCurrencyAmount(Number(value));
-};
-
-const normalizeNumericText = (value: string) => value.replace(/\D/g, "");
 
 const normalizeStatus = (status?: string | null) => status?.trim().toUpperCase() || "PENDING";
 
@@ -116,101 +164,248 @@ const formatDate = (value?: string | null, locale = "en-US") => {
   return date.toLocaleString(locale);
 };
 
-const getStatusBadgeClassName = (status?: string | null) => {
-  switch (normalizeStatus(status)) {
-    case "ACCEPTED":
-    case "APPROVED":
-      return "border-emerald-200 bg-emerald-50 text-emerald-700";
-    case "PENDING":
-      return "border-amber-200 bg-amber-50 text-amber-700";
-    case "REJECTED":
-      return "border-red-200 bg-red-50 text-red-700";
+const formatDateOnly = (value?: string | null, locale = "en-US") => {
+  if (!value) return "-";
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+  if (!year || !month || !day) return value;
+  return new Date(year, month - 1, day).toLocaleDateString(locale);
+};
+
+const getLocalDateInputValue = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getTimeValue = (value?: string | null) => {
+  if (!value) return null;
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? null : time;
+};
+
+const parseCompanyAddresses = (value?: string | null): CompanyAddressRecord[] => {
+  if (!value) return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const formatCompanyAddressOption = (address: CompanyAddressRecord): string => {
+  return [address.headOffice, address.detail, address.district, address.province]
+    .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+    .join(", ");
+};
+
+const getJobStatusSortValue = (job: RecruiterJob) =>
+  job.hidden ? "HIDDEN" : normalizeStatus(job.status);
+
+const compareNullable = (first: string | number | null, second: string | number | null, direction: SortDirection) => {
+  if (first === null && second === null) return 0;
+  if (first === null) return 1;
+  if (second === null) return -1;
+
+  const compare =
+    typeof first === "number" && typeof second === "number"
+      ? first - second
+      : String(first).localeCompare(String(second), undefined, { sensitivity: "base", numeric: true });
+
+  return direction === "asc" ? compare : -compare;
+};
+
+const compareJobs = (first: RecruiterJob, second: RecruiterJob, key: JobSortKey, direction: SortDirection) => {
+  switch (key) {
+    case "title":
+      return compareNullable(first.title, second.title, direction);
+    case "company":
+      return compareNullable(first.company, second.company, direction);
+    case "type":
+      return compareNullable(first.type, second.type, direction);
+    case "applicationDeadline":
+      return compareNullable(getTimeValue(first.applicationDeadline), getTimeValue(second.applicationDeadline), direction);
+    case "status":
+      return compareNullable(getJobStatusSortValue(first), getJobStatusSortValue(second), direction);
+    case "createdAt":
+      return compareNullable(getTimeValue(first.created_at), getTimeValue(second.created_at), direction);
     default:
-      return "border-slate-200 bg-slate-50 text-slate-700";
+      return 0;
+  }
+};
+
+const compareApplications = (
+  first: CandidateApplication,
+  second: CandidateApplication,
+  key: ApplicationSortKey,
+  direction: SortDirection,
+) => {
+  switch (key) {
+    case "applicant":
+      return compareNullable(
+        `${first.applicantName ?? ""} ${first.applicantEmail ?? ""}`.trim(),
+        `${second.applicantName ?? ""} ${second.applicantEmail ?? ""}`.trim(),
+        direction,
+      );
+    case "jobTitle":
+      return compareNullable(first.jobTitle, second.jobTitle, direction);
+    case "status":
+      return compareNullable(first.status, second.status, direction);
+    case "appliedAt":
+      return compareNullable(getTimeValue(first.appliedAt), getTimeValue(second.appliedAt), direction);
+    default:
+      return 0;
   }
 };
 
 const RecruiterDashboard: React.FC = () => {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const { user, token, isAuthenticated, isLoading } = useAuth();
   const [jobs, setJobs] = useState<RecruiterJob[]>([]);
   const [formValue, setFormValue] = useState<JobFormValue>(emptyJobFormValue);
   const [loadingJobs, setLoadingJobs] = useState(true);
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
+  const [loadingCompanyProfile, setLoadingCompanyProfile] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [actionId, setActionId] = useState<string | number | null>(null);
   const [jobPendingDelete, setJobPendingDelete] = useState<RecruiterJob | null>(null);
+  const [isJobFormOpen, setIsJobFormOpen] = useState(true);
+  const [isJobListOpen, setIsJobListOpen] = useState(true);
+  const [isApplicationsOpen, setIsApplicationsOpen] = useState(true);
+  const [editingJob, setEditingJob] = useState<RecruiterJob | null>(null);
+  const [historyJob, setHistoryJob] = useState<RecruiterJob | null>(null);
+  const [jobHistory, setJobHistory] = useState<RecruiterJobChangeLog[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+      const setUrlPage = (key: string, page: number) => {
+    const next = new URLSearchParams(searchParams);
+    next.set(key, String(page));
+    setSearchParams(next);
+  };
+  const [jobSort, setJobSort] = useState<{ key: JobSortKey; direction: SortDirection }>({
+    key: "createdAt",
+    direction: "desc",
+  });
+  const [applicationSort, setApplicationSort] = useState<{ key: ApplicationSortKey; direction: SortDirection }>({
+    key: "appliedAt",
+    direction: "desc",
+  });
+  const [jobPage, setJobPage] = useState(1);
+  const [jobPageSize, setJobPageSize] = useState(10);
+  const [applicationPage, setApplicationPage] = useState(1);
+  const [applicationPageSize, setApplicationPageSize] = useState(10);
 
   // State quản lý ứng viên
   const [applications, setApplications] = useState<CandidateApplication[]>([]);
   const [loadingApps, setLoadingApps] = useState(false);
-
-  // State cho Province API
-  const [provinceOptions, setProvinceOptions] = useState<JobFilterOption[]>([]);
-  const [wardOptions, setWardOptions] = useState<JobFilterOption[]>([]);
 
   const recruiterEmail = user?.email ?? "";
   const recruiterName = useMemo(
     () => [user?.lastName, user?.firstName].filter(Boolean).join(" ").trim() || recruiterEmail,
     [recruiterEmail, user?.firstName, user?.lastName],
   );
+  const companyAddressOptions = useMemo<CompanyAddressOption[]>(() => {
+    if (!companyProfile) return [];
+
+    const parsedOptions = parseCompanyAddresses(companyProfile.addresses)
+      .map((address) => {
+        const label = formatCompanyAddressOption(address);
+        return label ? { value: label, label, isDefault: Boolean(address.isDefault) } : null;
+      })
+      .filter((option): option is CompanyAddressOption => Boolean(option));
+
+    if (parsedOptions.length > 0) return parsedOptions;
+
+    const billingAddress = companyProfile.billingAddress?.trim();
+    return billingAddress ? [{ value: billingAddress, label: billingAddress, isDefault: true }] : [];
+  }, [companyProfile]);
+  const registeredCompanyName = companyProfile?.companyDisplayName || companyProfile?.companyFullName || "";
   const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
   const visibleJobs = useMemo(() => jobs.filter((job) => !isHiddenJob(job)), [jobs]);
   const hiddenJobs = useMemo(() => jobs.filter(isHiddenJob), [jobs]);
+  const acceptedApplications = useMemo(
+    () => applications.filter((application) => application.status === "ACCEPTED"),
+    [applications],
+  );
+  const rejectedApplications = useMemo(
+    () => applications.filter((application) => application.status === "REJECTED"),
+    [applications],
+  );
+  const sortedJobs = useMemo(
+    () => [...jobs].sort((first, second) => compareJobs(first, second, jobSort.key, jobSort.direction)),
+    [jobSort.direction, jobSort.key, jobs],
+  );
+  const sortedApplications = useMemo(
+    () =>
+      [...applications].sort((first, second) =>
+        compareApplications(first, second, applicationSort.key, applicationSort.direction),
+      ),
+    [applicationSort.direction, applicationSort.key, applications],
+  );
+  const paginatedJobs = useMemo(
+    () => paginateItems(sortedJobs, jobPage, jobPageSize),
+    [jobPage, jobPageSize, sortedJobs],
+  );
+  const paginatedApplications = useMemo(
+    () => paginateItems(sortedApplications, applicationPage, applicationPageSize),
+    [applicationPage, applicationPageSize, sortedApplications],
+  );
 
   const resetForm = useCallback(() => {
+    const defaultAddress = companyAddressOptions.find((option) => option.isDefault) || companyAddressOptions[0];
+
     setFormValue({
       ...emptyJobFormValue,
+      company: registeredCompanyName,
       employerName: recruiterName,
       employerEmail: recruiterEmail,
+      location: defaultAddress?.value || "",
     });
-  }, [recruiterEmail, recruiterName]);
+  }, [companyAddressOptions, recruiterEmail, recruiterName, registeredCompanyName]);
 
   useEffect(() => {
     resetForm();
   }, [resetForm]);
 
-  // Load Province Options
   useEffect(() => {
-    let mounted = true;
-    getVietnamProvinceOptions()
-      .then((options) => {
-        if (mounted) setProvinceOptions(options);
-      })
-      .catch(() => {
-        if (mounted) setProvinceOptions([]);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    setJobPage(1);
+  }, [jobSort.direction, jobSort.key]);
 
-  // Load Ward Options when city changes
   useEffect(() => {
-    let mounted = true;
-    const selectedProvince = provinceOptions.find((option) => option.value === formValue.city);
+    setApplicationPage(1);
+  }, [applicationSort.direction, applicationSort.key]);
 
-    if (!selectedProvince) {
-      setWardOptions([]);
-      // Reset ward when city is cleared
-      setFormValue((current) => ({ ...current, ward: "" }));
-      return () => {
-        mounted = false;
-      };
+  useEffect(() => {
+    if (!token) {
+      setCompanyProfile(null);
+      setLoadingCompanyProfile(false);
+      return;
     }
 
-    setWardOptions([]);
-    getVietnamWardOptions(formValue.city)
-      .then((options) => {
-        if (mounted) setWardOptions(options);
+    let mounted = true;
+    setLoadingCompanyProfile(true);
+
+    recruiterApi.getCompanyProfile(token)
+      .then((profile) => {
+        if (mounted) setCompanyProfile(profile);
       })
-      .catch(() => {
-        if (mounted) setWardOptions([]);
+      .catch((error: unknown) => {
+        if (mounted) setCompanyProfile(null);
+        if (!isApiError(error) || (error.status !== 400 && error.status !== 404)) {
+          toast.error(error instanceof Error ? error.message : t("recruiter.toast.companyProfileLoadError"));
+        }
+      })
+      .finally(() => {
+        if (mounted) setLoadingCompanyProfile(false);
       });
 
     return () => {
       mounted = false;
     };
-  }, [formValue.city, provinceOptions]);
+  }, [t, token]);
 
   // Load danh sách công việc
   const loadJobs = useCallback(async () => {
@@ -261,7 +456,7 @@ const RecruiterDashboard: React.FC = () => {
 
       setApplications(allApplications);
     } catch (error: unknown) {
-      toast.error("Không thể tải danh sách ứng viên");
+      toast.error(t("recruiter.toast.loadApplicationsError"));
     } finally {
       setLoadingApps(false);
     }
@@ -277,10 +472,10 @@ const RecruiterDashboard: React.FC = () => {
     setActionId(appId);
     try {
       await recruiterApi.updateApplicationStatus(token, jobId, appId, newStatus);
-      toast.success("Đã cập nhật trạng thái hồ sơ");
+      toast.success(t("recruiter.toast.updateApplicationStatusSuccess"));
       await loadApplications();
     } catch (error: unknown) {
-      toast.error("Lỗi khi cập nhật trạng thái");
+      toast.error(t("recruiter.toast.updateApplicationStatusError"));
     } finally {
       setActionId(null);
     }
@@ -290,59 +485,26 @@ const RecruiterDashboard: React.FC = () => {
     setFormValue((current) => ({ ...current, [field]: value }));
   };
 
-  const updateNumericFormValue = (field: "salaryMin" | "salaryMax", value: string) => {
-    updateFormValue(field, normalizeNumericText(value));
-  };
-
-  const clampSalaryValue = (value: string, fallback: number) => {
-    const numericValue = Number(value || fallback);
-    if (!Number.isFinite(numericValue)) return fallback;
-    return Math.min(Math.max(numericValue, SALARY_RANGE_MIN), SALARY_RANGE_MAX);
-  };
-
-  const salaryMinValue = clampSalaryValue(formValue.salaryMin, SALARY_RANGE_MIN);
-  const salaryMaxValue = clampSalaryValue(formValue.salaryMax, SALARY_RANGE_MAX);
-  const salaryRangeValue =
-    salaryMinValue <= salaryMaxValue
-      ? [salaryMinValue, salaryMaxValue]
-      : [salaryMaxValue, salaryMinValue];
-
-  const updateSalaryRange = (nextValue: number[]) => {
-    const [nextMin = SALARY_RANGE_MIN, nextMax = SALARY_RANGE_MAX] = nextValue;
-    setFormValue((current) => ({
-      ...current,
-      salaryMin: String(nextMin),
-      salaryMax: String(nextMax),
-    }));
-  };
-
-  const wardDisabled = !formValue.city || wardOptions.length === 0;
-
   const getExperienceLabel = (value: string) => {
     const option = defaultJobFilterOptions.experience.find((item) => item.value === value);
     if (!option) return value;
     return option.labelKey ? t(option.labelKey, { defaultValue: option.label }) : option.label;
   };
 
-  const getFormattedSalary = () => {
-    const minSalary = formValue.salaryMin.trim();
-    const maxSalary = formValue.salaryMax.trim();
-    const currency = formValue.currency.trim();
+  const getSalaryRangeLabel = (option: SalaryRangeOption) => {
+    const currency = getCurrencyCode(formValue.currency);
+    if (currency === "VND") return t(option.labelKey);
 
-    if (minSalary && maxSalary) {
-      return `${formatNumberText(minSalary)} - ${formatNumberText(maxSalary)} ${currency}`.trim();
-    }
+    const min = convertVndToCurrency(option.minVnd, currency);
+    const max = option.maxVnd === null ? null : convertVndToCurrency(option.maxVnd, currency);
 
-    return `${formatNumberText(minSalary || maxSalary)} ${currency}`.trim();
+    if (max === null) return t("jobs.filters.options.salaryRanges.usdFrom", { amount: formatCurrencyAmount(min) });
+    if (option.minVnd === 0) return t("jobs.filters.options.salaryRanges.usdUnder", { amount: formatCurrencyAmount(max) });
+    return t("jobs.filters.options.salaryRanges.usdBetween", {
+      min: formatCurrencyAmount(min),
+      max: formatCurrencyAmount(max),
+    });
   };
-
-  const getFormattedDescription = () =>
-    [
-      `${t("recruiter.form.workMode")}: ${formValue.workMode.trim()}`,
-      `${t("recruiter.form.experience")}: ${getExperienceLabel(formValue.experience)}`,
-      "",
-      formValue.description.trim(),
-    ].join("\n");
 
   const validateForm = () => {
     const requiredFields: Array<keyof JobFormValue> = [
@@ -350,28 +512,108 @@ const RecruiterDashboard: React.FC = () => {
       "company",
       "employerName",
       "employerEmail",
-      "salaryMin",
-      "salaryMax",
-      "currency",
+      "location",
+      "applicationDeadline",
       "workMode",
       "jobType",
       "experience",
       "description",
     ];
-    // location OR (streetNumber AND streetName AND city AND ward) must be provided
-    const locationProvided = formValue.location.trim().length > 0;
-    const detailedLocationProvided =
-      formValue.streetNumber.trim().length > 0 &&
-      formValue.streetName.trim().length > 0 &&
-      formValue.city.trim().length > 0 &&
-      formValue.ward.trim().length > 0;
 
-    const hasLocation = locationProvided || detailedLocationProvided;
+    if (!editingJob) requiredFields.push("salaryRange", "currency");
 
-    return requiredFields.every((field) => formValue[field].trim().length > 0) && hasLocation;
+    return Boolean(companyProfile) && requiredFields.every((field) => formValue[field].trim().length > 0);
   };
 
-  const handleCreateJob = async (event: React.FormEvent<HTMLFormElement>) => {
+  const buildJobPayload = () => ({
+    title: formValue.title.trim(),
+    company: formValue.company.trim(),
+    employerName: formValue.employerName.trim(),
+    location: formValue.location.trim(),
+    type: formValue.jobType,
+    salary: formValue.salaryRange,
+    currency: formValue.currency,
+    mode: formValue.workMode,
+    experience: formValue.experience,
+    applicationDeadline: formValue.applicationDeadline,
+    description: formValue.description.trim(),
+  });
+
+  const startEditJob = (job: RecruiterJob) => {
+    setEditingJob(job);
+    setIsJobFormOpen(true);
+    setFormValue({
+      ...emptyJobFormValue,
+      title: job.title || "",
+      company: job.company || registeredCompanyName,
+      employerName: job.employer_name || recruiterName,
+      employerEmail: job.employer_email || recruiterEmail,
+      location: job.location || "",
+      salaryRange: job.salary || "",
+      currency: job.currency || "",
+      applicationDeadline: job.applicationDeadline || "",
+      workMode: job.mode || "",
+      jobType: job.type || "",
+      experience: job.experience || "",
+      description: job.description || "",
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const cancelEditJob = () => {
+    setEditingJob(null);
+    resetForm();
+  };
+
+  const openJobHistory = async (job: RecruiterJob) => {
+    if (!token) return;
+
+    setHistoryJob(job);
+    setLoadingHistory(true);
+    try {
+      setJobHistory(await recruiterApi.listJobChangeLogs(token, job.id));
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : t("recruiter.toast.loadHistoryError"));
+      setJobHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const getHistoryVersions = (): JobHistoryVersion[] => {
+    if (!historyJob) return [];
+
+    const currentData: RecruiterJobSnapshot = {
+      title: historyJob.title || "",
+      location: historyJob.location || "",
+      type: historyJob.type || "",
+      salary: historyJob.salary || "",
+      currency: historyJob.currency || "",
+      mode: historyJob.mode || "",
+      experience: historyJob.experience || "",
+      applicationDeadline: historyJob.applicationDeadline || "",
+      description: historyJob.description || "",
+    };
+
+    return [
+      {
+        id: "current",
+        label: t("recruiter.history.currentVersion"),
+        data: currentData,
+        changedFields: jobHistory[0]?.changedFields || [],
+        createdAt: historyJob.updated_at || undefined,
+      },
+      ...jobHistory.map((log, index) => ({
+        id: String(log.id),
+        label: t("recruiter.history.versionLabel", { number: index + 1 }),
+        data: log.previousData,
+        changedFields: jobHistory[index + 1]?.changedFields || log.changedFields,
+        createdAt: log.createdAt,
+      })),
+    ];
+  };
+
+  const handleSubmitJob = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!validateForm()) {
@@ -379,37 +621,18 @@ const RecruiterDashboard: React.FC = () => {
       return;
     }
 
-    if (Number(formValue.salaryMax) < Number(formValue.salaryMin)) {
-      toast.error(t("recruiter.toast.salaryRangeInvalid"));
-      return;
-    }
-
     if (!token) return;
 
     setSubmitting(true);
     try {
-      // Build location string: either use provided location or combine detailed address
-      let finalLocation = formValue.location.trim();
-      if (!finalLocation) {
-        const detailParts = [
-          formValue.streetNumber.trim(),
-          formValue.streetName.trim(),
-          wardOptions.find((w) => w.value === formValue.ward)?.label,
-          provinceOptions.find((p) => p.value === formValue.city)?.label,
-        ].filter(Boolean);
-        finalLocation = detailParts.join(", ");
+      if (editingJob) {
+        await recruiterApi.updateJob(token, editingJob.id, buildJobPayload());
+        toast.success(t("recruiter.toast.updateSuccess"));
+        setEditingJob(null);
+      } else {
+        await recruiterApi.createJob(token, buildJobPayload());
+        toast.success(t("recruiter.toast.createSuccess"));
       }
-
-      await recruiterApi.createJob(token, {
-        title: formValue.title.trim(),
-        company: formValue.company.trim(),
-        employerName: formValue.employerName.trim(),
-        location: finalLocation,
-        type: formValue.jobType.trim(),
-        salary: getFormattedSalary(),
-        description: getFormattedDescription(),
-      });
-      toast.success(t("recruiter.toast.createSuccess"));
       resetForm();
       await loadJobs();
     } catch (error: unknown) {
@@ -424,8 +647,8 @@ const RecruiterDashboard: React.FC = () => {
 
     setActionId(job.id);
     try {
-      await recruiterApi.updateJobHidden(token, job.id, hidden);
-      toast.success(hidden ? t("recruiter.toast.hideSuccess") : t("recruiter.toast.showSuccess"));
+      const updatedJob = await recruiterApi.updateJobHidden(token, job.id, hidden);
+      toast.success(updatedJob.hidden ? t("recruiter.toast.hideSuccess") : t("recruiter.toast.showSuccess"));
       await loadJobs();
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : t("recruiter.toast.statusError"));
@@ -450,6 +673,62 @@ const RecruiterDashboard: React.FC = () => {
     }
   };
 
+  const updateSort = <T extends string>(
+    key: T,
+    setSort: React.Dispatch<React.SetStateAction<{ key: T; direction: SortDirection }>>,
+  ) => {
+    setSort((current) => ({
+      key,
+      direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+
+  const renderSortableHeader = <T extends string>(
+    key: T,
+    label: string,
+    sort: { key: T; direction: SortDirection },
+    setSort: React.Dispatch<React.SetStateAction<{ key: T; direction: SortDirection }>>,
+    className = "",
+  ) => {
+    const active = sort.key === key;
+    const SortIcon = !active ? ArrowUpDown : sort.direction === "asc" ? ArrowUp : ArrowDown;
+
+    return (
+      <TableHead className={className}>
+        <button
+          type="button"
+          className="inline-flex items-center gap-2 rounded-sm text-left font-medium transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          onClick={() => updateSort(key, setSort)}
+        >
+          <span>{label}</span>
+          <SortIcon className={`h-3.5 w-3.5 ${active ? "text-primary" : "text-muted-foreground"}`} />
+        </button>
+      </TableHead>
+    );
+  };
+
+  const renderJobSortableHeader = (key: JobSortKey, label: string, className = "") =>
+    renderSortableHeader(key, label, jobSort, setJobSort, className);
+
+  const renderApplicationSortableHeader = (key: ApplicationSortKey, label: string, className = "") =>
+    renderSortableHeader(key, label, applicationSort, setApplicationSort, className);
+
+  const renderApplicationAction = (application: CandidateApplication, status: "ACCEPTED" | "REJECTED") => {
+    const isApprove = status === "ACCEPTED";
+    const label = t(isApprove ? "recruiter.applications.approve" : "recruiter.applications.reject");
+    const Icon = isApprove ? CheckCircle2 : XCircle;
+
+    return (
+      <ActionIconButton
+        icon={Icon}
+        label={label}
+        variantStyle={isApprove ? "approve" : "reject"}
+        disabled={actionId === application.id}
+        onClick={() => handleUpdateAppStatus(application.jobId, application.id, status)}
+      />
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -472,7 +751,9 @@ const RecruiterDashboard: React.FC = () => {
         <div className="container mx-auto px-4 py-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <Badge className="mb-3 bg-primary text-primary-foreground">{t("recruiter.badge")}</Badge>
+              <Badge variant="outline" className={`mb-3 px-5 py-2 text-sm ${getRoleBadgeClassName(user?.role)}`}>
+                {t(`role.${normalizeRoleName(user?.role)}`, { defaultValue: t("recruiter.badge") })}
+              </Badge>
               <h1 className="text-3xl font-bold text-slate-950">{t("recruiter.title")}</h1>
               <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{t("recruiter.description")}</p>
             </div>
@@ -486,7 +767,9 @@ const RecruiterDashboard: React.FC = () => {
 
       <section className="container mx-auto space-y-6 px-4 py-8">
         {/* Thống kê */}
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t("recruiter.stats.jobStatsTitle")}</h2>
+          <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t("recruiter.stats.total")}</CardTitle>
@@ -514,18 +797,67 @@ const RecruiterDashboard: React.FC = () => {
               <div className="text-3xl font-bold">{hiddenJobs.length}</div>
             </CardContent>
           </Card>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t("recruiter.stats.applicantStatsTitle")}</h2>
+          <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{t("recruiter.stats.totalApplicants")}</CardTitle>
+              <Users className="h-5 w-5 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{applications.length}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{t("recruiter.stats.acceptedApplicants")}</CardTitle>
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{acceptedApplications.length}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{t("recruiter.stats.rejectedApplicants")}</CardTitle>
+              <XCircle className="h-5 w-5 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{rejectedApplications.length}</div>
+            </CardContent>
+          </Card>
+          </div>
         </div>
 
         {/* Form tạo việc làm mới */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <PlusCircle className="h-5 w-5 text-primary" />
-              {t("recruiter.form.title")}
-            </CardTitle>
+          <CardHeader className="p-0">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between gap-4 rounded-t-lg p-6 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              onClick={() => setIsJobFormOpen((current) => !current)}
+              aria-expanded={isJobFormOpen}
+            >
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <PlusCircle className="h-5 w-5 text-primary" />
+                {editingJob ? t("recruiter.form.editTitle") : t("recruiter.form.title")}
+              </CardTitle>
+              <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${isJobFormOpen ? "rotate-180" : ""}`} />
+            </button>
           </CardHeader>
+          {isJobFormOpen && (
           <CardContent>
-            <form className="grid gap-5 md:grid-cols-2 xl:grid-cols-4" onSubmit={handleCreateJob}>
+            <form className="grid gap-5 md:grid-cols-2 xl:grid-cols-4" onSubmit={handleSubmitJob}>
+              {!loadingCompanyProfile && !companyProfile && (
+                <div className="md:col-span-2 xl:col-span-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  {t("recruiter.form.companyProfileRequired")}
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="recruiter-job-title">{t("recruiter.form.jobTitle")}</Label>
                 <Input
@@ -539,13 +871,18 @@ const RecruiterDashboard: React.FC = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="recruiter-job-type">{t("recruiter.form.type")}</Label>
-                <Input
-                  id="recruiter-job-type"
-                  value={formValue.jobType}
-                  onChange={(event) => updateFormValue("jobType", event.target.value)}
-                  placeholder={t("recruiter.form.typePlaceholder")}
-                  className="h-11 bg-white"
-                />
+                <Select value={formValue.jobType} onValueChange={(value) => updateFormValue("jobType", value)}>
+                  <SelectTrigger id="recruiter-job-type" className="h-11 bg-white">
+                    <SelectValue placeholder={t("recruiter.form.typePlaceholder")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {JOB_TYPE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.labelKey ? t(option.labelKey, { defaultValue: option.label }) : option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
@@ -566,13 +903,18 @@ const RecruiterDashboard: React.FC = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="recruiter-job-work-mode">{t("recruiter.form.workMode")}</Label>
-                <Input
-                  id="recruiter-job-work-mode"
-                  value={formValue.workMode}
-                  onChange={(event) => updateFormValue("workMode", event.target.value)}
-                  placeholder={t("recruiter.form.workModePlaceholder")}
-                  className="h-11 bg-white"
-                />
+                <Select value={formValue.workMode} onValueChange={(value) => updateFormValue("workMode", value)}>
+                  <SelectTrigger id="recruiter-job-work-mode" className="h-11 bg-white">
+                    <SelectValue placeholder={t("recruiter.form.workModePlaceholder")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WORK_MODE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.labelKey ? t(option.labelKey, { defaultValue: option.label }) : option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
@@ -580,8 +922,8 @@ const RecruiterDashboard: React.FC = () => {
                 <Input
                   id="recruiter-employer-name"
                   value={formValue.employerName}
-                  onChange={(event) => updateFormValue("employerName", event.target.value)}
-                  className="h-11 bg-white"
+                  readOnly
+                  className="h-11 bg-muted"
                 />
               </div>
 
@@ -600,139 +942,81 @@ const RecruiterDashboard: React.FC = () => {
                 <Input
                   id="recruiter-job-company"
                   value={formValue.company}
-                  onChange={(event) => updateFormValue("company", event.target.value)}
                   placeholder={t("recruiter.form.companyPlaceholder")}
-                  className="h-11 bg-white"
-                />
-              </div>
-
-              {/* Location Section - Simple or Detailed */}
-              <div className="md:col-span-2 xl:col-span-4 space-y-4 border rounded-lg p-4 bg-muted/20">
-                <div className="font-medium text-sm">{t("recruiter.form.detailedLocation")}</div>
-
-                {/* Simple location input */}
-                <div className="space-y-2">
-                  <Label htmlFor="recruiter-job-location">{t("recruiter.form.location")}</Label>
-                  <Input
-                    id="recruiter-job-location"
-                    value={formValue.location}
-                    onChange={(event) => updateFormValue("location", event.target.value)}
-                    placeholder={t("recruiter.form.locationPlaceholder")}
-                    className="h-11 bg-white"
-                  />
-                </div>
-
-                <div className="relative py-2">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-muted/20 px-2 text-muted-foreground">{t("recruiter.form.detailedLocationDivider")}</span>
-                  </div>
-                </div>
-
-                {/* Detailed location inputs */}
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="recruiter-job-street-number">{t("recruiter.form.streetNumber")}</Label>
-                    <Input
-                      id="recruiter-job-street-number"
-                      value={formValue.streetNumber}
-                      onChange={(event) => updateFormValue("streetNumber", event.target.value)}
-                      placeholder={t("recruiter.form.streetNumberPlaceholder")}
-                      className="h-11 bg-white"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="recruiter-job-street-name">{t("recruiter.form.streetName")}</Label>
-                    <Input
-                      id="recruiter-job-street-name"
-                      value={formValue.streetName}
-                      onChange={(event) => updateFormValue("streetName", event.target.value)}
-                      placeholder={t("recruiter.form.streetNamePlaceholder")}
-                      className="h-11 bg-white"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="recruiter-job-city">{t("recruiter.form.city")}</Label>
-                    <Select value={formValue.city} onValueChange={(value) => updateFormValue("city", value)}>
-                      <SelectTrigger id="recruiter-job-city" className="h-11 bg-white">
-                        <SelectValue placeholder={t("recruiter.form.cityPlaceholder")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {provinceOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="recruiter-job-ward">{t("recruiter.form.ward")}</Label>
-                    <Select value={formValue.ward} onValueChange={(value) => updateFormValue("ward", value)} disabled={wardDisabled}>
-                      <SelectTrigger id="recruiter-job-ward" className="h-11 bg-white" disabled={wardDisabled}>
-                        <SelectValue placeholder={wardDisabled ? t("recruiter.form.wardPlaceholderDisabled") : t("recruiter.form.wardPlaceholder")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {wardOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Salary Section with Slider */}
-              <div className="md:col-span-2 space-y-4">
-                <div className="flex items-center justify-between gap-4">
-                  <Label>{t("recruiter.form.salary")}</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={formatNumberText(formValue.salaryMin)}
-                      onChange={(event) => updateNumericFormValue("salaryMin", event.target.value)}
-                      inputMode="numeric"
-                      pattern="[0-9.]*"
-                      className="h-8 w-24 bg-white text-right text-sm"
-                      aria-label={t("recruiter.form.salaryMin")}
-                    />
-                    <span className="text-xs text-muted-foreground">-</span>
-                    <Input
-                      value={formatNumberText(formValue.salaryMax)}
-                      onChange={(event) => updateNumericFormValue("salaryMax", event.target.value)}
-                      inputMode="numeric"
-                      pattern="[0-9.]*"
-                      className="h-8 w-24 bg-white text-right text-sm"
-                      aria-label={t("recruiter.form.salaryMax")}
-                    />
-                  </div>
-                </div>
-                <Slider
-                  min={SALARY_RANGE_MIN}
-                  max={SALARY_RANGE_MAX}
-                  step={SALARY_STEP}
-                  value={salaryRangeValue}
-                  onValueChange={updateSalaryRange}
-                  minStepsBetweenThumbs={1}
-                  className="h-8"
+                  readOnly
+                  className="h-11 bg-muted"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="recruiter-job-currency">{t("recruiter.form.currency")}</Label>
+                <Label htmlFor="recruiter-job-application-deadline">{t("recruiter.form.applicationDeadline")}</Label>
                 <Input
-                  id="recruiter-job-currency"
-                  value={formValue.currency}
-                  onChange={(event) => updateFormValue("currency", event.target.value)}
-                  placeholder={t("recruiter.form.currencyPlaceholder")}
+                  id="recruiter-job-application-deadline"
+                  type="date"
+                  value={formValue.applicationDeadline}
+                  min={getLocalDateInputValue()}
+                  onChange={(event) => updateFormValue("applicationDeadline", event.target.value)}
                   className="h-11 bg-white"
                 />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="recruiter-job-location">{t("recruiter.form.location")}</Label>
+                <Select
+                  value={formValue.location}
+                  onValueChange={(value) => updateFormValue("location", value)}
+                  disabled={loadingCompanyProfile || companyAddressOptions.length === 0}
+                >
+                  <SelectTrigger id="recruiter-job-location" className="h-11 bg-white">
+                    <SelectValue
+                      placeholder={
+                        loadingCompanyProfile
+                          ? t("common.loading")
+                          : t("recruiter.form.branchPlaceholder")
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {companyAddressOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">{t("recruiter.form.companyLockedHint")}</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="recruiter-job-currency">{t("recruiter.form.currency")}</Label>
+                <Select value={formValue.currency} onValueChange={(value) => updateFormValue("currency", value)}>
+                  <SelectTrigger id="recruiter-job-currency" className="h-11 bg-white">
+                    <SelectValue placeholder={t("recruiter.form.currencyPlaceholder")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CURRENCY_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.labelKey ? t(option.labelKey, { defaultValue: option.label }) : option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="recruiter-job-salary-range">{t("recruiter.form.salary")}</Label>
+                <Select value={formValue.salaryRange} onValueChange={(value) => updateFormValue("salaryRange", value)}>
+                  <SelectTrigger id="recruiter-job-salary-range" className="h-11 bg-white">
+                    <SelectValue placeholder={t("recruiter.form.salaryPlaceholder")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SALARY_RANGE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {getSalaryRangeLabel(option)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2 md:col-span-2 xl:col-span-4">
@@ -746,23 +1030,38 @@ const RecruiterDashboard: React.FC = () => {
                 />
               </div>
 
-              <div className="md:col-span-2 xl:col-span-4">
-                <Button type="submit" variant="cta" className="w-auto" disabled={submitting}>
-                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
-                  {t("recruiter.form.submit")}
+              <div className="flex justify-end gap-2 md:col-span-2 xl:col-span-4">
+                {editingJob && (
+                  <Button type="button" variant="outline" className="w-auto" onClick={cancelEditJob} disabled={submitting}>
+                    {t("common.cancel")}
+                  </Button>
+                )}
+                <Button type="submit" variant="cta" className="w-auto" disabled={submitting || loadingCompanyProfile || !companyProfile}>
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : editingJob ? <Pencil className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />}
+                  {editingJob ? t("recruiter.form.saveChanges") : t("recruiter.form.submit")}
                 </Button>
               </div>
             </form>
           </CardContent>
+          )}
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Building2 className="h-5 w-5 text-primary" />
-              {t("recruiter.jobs.title")}
-            </CardTitle>
+          <CardHeader className="p-0">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between gap-4 rounded-t-lg p-6 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              onClick={() => setIsJobListOpen((current) => !current)}
+              aria-expanded={isJobListOpen}
+            >
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <Building2 className="h-5 w-5 text-primary" />
+                {t("recruiter.jobs.title")}
+              </CardTitle>
+              <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${isJobListOpen ? "rotate-180" : ""}`} />
+            </button>
           </CardHeader>
+          {isJobListOpen && (
           <CardContent>
             {loadingJobs ? (
               <div className="flex items-center justify-center py-14">
@@ -771,29 +1070,32 @@ const RecruiterDashboard: React.FC = () => {
             ) : jobs.length === 0 ? (
               <p className="py-10 text-center text-sm text-muted-foreground">{t("recruiter.jobs.empty")}</p>
             ) : (
+              <>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t("recruiter.form.jobTitle")}</TableHead>
-                    <TableHead>{t("recruiter.form.company")}</TableHead>
-                    <TableHead>{t("recruiter.form.type")}</TableHead>
-                    <TableHead>{t("recruiter.jobs.status")}</TableHead>
-                    <TableHead>{t("recruiter.jobs.createdAt")}</TableHead>
+                    {renderJobSortableHeader("title", t("recruiter.form.jobTitle"))}
+                    {renderJobSortableHeader("company", t("recruiter.form.company"))}
+                    {renderJobSortableHeader("type", t("recruiter.form.type"))}
+                    {renderJobSortableHeader("applicationDeadline", t("recruiter.jobs.applicationDeadline"))}
+                    {renderJobSortableHeader("status", t("recruiter.jobs.status"))}
+                    {renderJobSortableHeader("createdAt", t("recruiter.jobs.createdAt"))}
                     <TableHead className="text-center">{t("common.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {jobs.map((job) => {
+                  {paginatedJobs.items.map((job) => {
                     const status = normalizeStatus(job.status);
                     const hidden = isHiddenJob(job);
 
                     return (
-                      <TableRow key={job.id}>
+                      <TableRow key={job.id} className="cursor-pointer hover:bg-slate-50/50" onClick={() => navigate(`/jobs/${job.id}`)}>
                         <TableCell className="min-w-56 font-medium">{job.title || "-"}</TableCell>
                         <TableCell>{job.company || "-"}</TableCell>
                         <TableCell>{job.type || "-"}</TableCell>
+                        <TableCell>{formatDateOnly(job.applicationDeadline, dateLocale)}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={getStatusBadgeClassName(job.status)}>
+                          <Badge variant="outline" className={getReviewStatusBadgeClassName(job.status)}>
                             {t(`recruiter.status.${status}`, { defaultValue: status })}
                           </Badge>
                         </TableCell>
@@ -801,41 +1103,43 @@ const RecruiterDashboard: React.FC = () => {
                         <TableCell>
                           <div className="flex flex-wrap justify-center gap-2">
                             {hidden ? (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="w-auto"
+                              <ActionIconButton
+                                icon={Eye}
+                                label={t("recruiter.jobs.show")}
+                                variantStyle="show"
                                 disabled={actionId === job.id}
-                                onClick={() => updateJobHidden(job, false)}
-                              >
-                                <Eye className="h-4 w-4" />
-                                {t("recruiter.jobs.show")}
-                              </Button>
+                                onClick={(e) => { e.stopPropagation(); updateJobHidden(job, false); }}
+                              />
                             ) : (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="w-auto"
+                              <ActionIconButton
+                                icon={EyeOff}
+                                label={t("recruiter.jobs.hide")}
+                                variantStyle="hide"
                                 disabled={actionId === job.id}
-                                onClick={() => updateJobHidden(job, true)}
-                              >
-                                <EyeOff className="h-4 w-4" />
-                                {t("recruiter.jobs.hide")}
-                              </Button>
+                                onClick={(e) => { e.stopPropagation(); updateJobHidden(job, true); }}
+                              />
                             )}
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              size="sm"
-                              className="w-auto"
+                            <ActionIconButton
+                              icon={Pencil}
+                              label={t("recruiter.jobs.edit")}
+                              variantStyle="show"
                               disabled={actionId === job.id}
-                              onClick={() => setJobPendingDelete(job)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              {t("recruiter.jobs.delete")}
-                            </Button>
+                              onClick={(e) => { e.stopPropagation(); startEditJob(job); }}
+                            />
+                            <ActionIconButton
+                              icon={History}
+                              label={t("recruiter.jobs.history")}
+                              variantStyle="hide"
+                              disabled={actionId === job.id}
+                              onClick={(e) => { e.stopPropagation(); openJobHistory(job); }}
+                            />
+                            <ActionIconButton
+                              icon={Trash2}
+                              label={t("recruiter.jobs.delete")}
+                              variantStyle="delete"
+                              disabled={actionId === job.id}
+                              onClick={(e) => { e.stopPropagation(); setJobPendingDelete(job); }}
+                            />
                           </div>
                         </TableCell>
                       </TableRow>
@@ -843,41 +1147,60 @@ const RecruiterDashboard: React.FC = () => {
                   })}
                 </TableBody>
               </Table>
+              <PaginationControls
+                page={paginatedJobs.page}
+                totalPages={paginatedJobs.totalPages}
+                onPageChange={setJobPage}
+                pageSize={jobPageSize}
+                onPageSizeChange={setJobPageSize}
+              />
+              </>
             )}
           </CardContent>
+          )}
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
+          <CardHeader className="p-0">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between gap-4 rounded-t-lg p-6 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              onClick={() => setIsApplicationsOpen((current) => !current)}
+              aria-expanded={isApplicationsOpen}
+            >
+              <CardTitle className="flex items-center gap-2 text-xl">
               <Users className="h-5 w-5 text-primary" />
-              Hồ sơ ứng tuyển
-            </CardTitle>
+              {t("recruiter.applications.title")}
+              </CardTitle>
+              <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${isApplicationsOpen ? "rotate-180" : ""}`} />
+            </button>
           </CardHeader>
+          {isApplicationsOpen && (
           <CardContent>
             {loadingApps ? (
               <div className="flex items-center justify-center py-14">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : applications.length === 0 ? (
-              <p className="py-10 text-center text-sm text-muted-foreground">Chưa có ứng viên nào nộp hồ sơ.</p>
+              <p className="py-10 text-center text-sm text-muted-foreground">{t("recruiter.applications.empty")}</p>
             ) : (
+              <>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Ứng viên</TableHead>
-                    <TableHead>Vị trí ứng tuyển</TableHead>
-                    <TableHead>CV</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Ngày nộp</TableHead>
-                    <TableHead className="text-center">Thao tác</TableHead>
+                    {renderApplicationSortableHeader("applicant", t("recruiter.applications.applicant"))}
+                    {renderApplicationSortableHeader("jobTitle", t("recruiter.applications.jobTitle"))}
+                    <TableHead>{t("profile.cv_title")}</TableHead>
+                    {renderApplicationSortableHeader("status", t("common.status"))}
+                    {renderApplicationSortableHeader("appliedAt", t("recruiter.applications.appliedAt"))}
+                    <TableHead className="text-center">{t("common.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {applications.map((app) => (
+                  {paginatedApplications.items.map((app) => (
                     <TableRow key={app.id}>
                       <TableCell>
-                        <div className="font-medium">{app.applicantName || "Ứng viên"}</div>
+                        <div className="font-medium">{app.applicantName || t("recruiter.applications.applicant")}</div>
                         <div className="text-xs text-muted-foreground">{app.applicantEmail}</div>
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate" title={app.jobTitle}>
@@ -891,53 +1214,88 @@ const RecruiterDashboard: React.FC = () => {
                           className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
                         >
                           <FileText className="h-4 w-4" />
-                          Xem CV
+                          {t("recruiter.applications.viewCv")}
                         </a>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={getStatusBadgeClassName(app.status)}>
-                          {app.status === "ACCEPTED" ? "Đã duyệt" : app.status === "REJECTED" ? "Từ chối" : "Chờ duyệt"}
+                        <Badge variant="outline" className={getReviewStatusBadgeClassName(app.status)}>
+                          {t(`recruiter.applications.statuses.${getReviewStatusTranslationKey(app.status)}`)}
                         </Badge>
                       </TableCell>
                       <TableCell>{formatDate(app.appliedAt, dateLocale)}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap justify-center gap-2">
-                          {app.status === "PENDING" && (
-                            <>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="w-auto border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                                disabled={actionId === app.id}
-                                onClick={() => handleUpdateAppStatus(app.jobId, app.id, "ACCEPTED")}
-                                title="Duyệt CV"
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="w-auto border-red-200 text-red-700 hover:bg-red-50"
-                                disabled={actionId === app.id}
-                                onClick={() => handleUpdateAppStatus(app.jobId, app.id, "REJECTED")}
-                                title="Từ chối"
-                              >
-                                <XCircle className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
+                          {app.status !== "ACCEPTED" && renderApplicationAction(app, "ACCEPTED")}
+                          {app.status !== "REJECTED" && renderApplicationAction(app, "REJECTED")}
                         </div>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+              <PaginationControls
+                page={paginatedApplications.page}
+                totalPages={paginatedApplications.totalPages}
+                onPageChange={setApplicationPage}
+                pageSize={applicationPageSize}
+                onPageSizeChange={setApplicationPageSize}
+              />
+              </>
             )}
           </CardContent>
+          )}
         </Card>
       </section>
+
+      <AlertDialog open={Boolean(historyJob)} onOpenChange={(open) => !open && setHistoryJob(null)}>
+        <AlertDialogContent className="max-w-5xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("recruiter.history.dialogTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {historyJob?.title || "-"} {t("recruiter.history.dialogDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {loadingHistory ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="h-7 w-7 animate-spin text-primary" />
+            </div>
+          ) : jobHistory.length === 0 ? (
+            <p className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
+              {t("recruiter.history.empty")}
+            </p>
+          ) : (
+            <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-2">
+              {getHistoryVersions().map((version) => (
+                <div key={version.id} className="rounded-lg border bg-white p-4 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="font-semibold text-slate-950">{version.label}</div>
+                    <div className="text-xs text-muted-foreground">{formatDate(version.createdAt, dateLocale)}</div>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {JOB_SNAPSHOT_FIELDS.map((field) => {
+                      const changed = version.changedFields.includes(field);
+                      return (
+                        <div
+                          key={field}
+                          className={`rounded-md border p-3 text-sm transition-colors ${
+                            changed ? "border-orange-300 bg-orange-50 text-orange-950" : "border-slate-200 bg-slate-50 text-slate-700"
+                          } ${field === "description" ? "md:col-span-2" : ""}`}
+                        >
+                          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{field}</div>
+                          <div className="whitespace-pre-wrap break-words">{String(version.data[field] || "-")}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.close")}</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={Boolean(jobPendingDelete)} onOpenChange={(open) => !open && setJobPendingDelete(null)}>
         <AlertDialogContent>

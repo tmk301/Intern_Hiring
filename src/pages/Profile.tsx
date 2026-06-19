@@ -1,15 +1,20 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { userApi, CvItem } from "@/lib/api";
-import { isAdminRole, isModeratorRole } from "@/lib/roles";
+import { userApi, CvItem, recruiterApi, CompanyProfile, isApiError } from "@/lib/api";
+import { isCandidateRole, isRecruiterRole } from "@/lib/roles";
+import { getRoleBadgeClassName, normalizeRoleName } from "@/lib/dashboardStyles";
+import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AvatarCropDialog } from "@/components/AvatarCropDialog";
 import {
   ArrowLeft,
@@ -27,8 +32,10 @@ import {
   Pencil,
   FileText,
   Trash2,
-  Plus,
-  UploadCloud,
+  Upload,
+  Settings2,
+  CheckCircle2,
+  Building2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -81,6 +88,35 @@ const parseProfileDate = (value: string) => {
   }
 
   return `${yearValue}-${monthValue}-${dayValue}`;
+};
+
+type StoredCompanyAddress = {
+  headOffice?: string;
+  province?: string;
+  district?: string;
+  detail?: string;
+  isDefault?: boolean;
+};
+
+const parseCompanyAddresses = (value?: string | null): StoredCompanyAddress[] => {
+  if (!value) return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const getCompanyDefaultAddress = (value?: string | null) => {
+  const addresses = parseCompanyAddresses(value);
+  const address = addresses.find((item) => item.isDefault) || addresses[0];
+  if (!address) return "";
+
+  return [address.detail, address.district, address.province]
+    .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+    .join(", ");
 };
 
 const rgbToHex = (red: number, green: number, blue: number) =>
@@ -142,6 +178,7 @@ const Profile = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isUploadingResume, setIsUploadingResume] = useState(false);
+  const [isCvManagerOpen, setIsCvManagerOpen] = useState(false);
   const [isCropDialogOpen, setIsCropDialogOpen] = useState(false);
   const [cropImageSrc, setCropImageSrc] = useState("");
   const [formData, setFormData] = useState({
@@ -164,12 +201,56 @@ const Profile = () => {
   });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isSavingTheme, setIsSavingTheme] = useState(false);
-  const profileThemeColor = user.themeColor || "#2563eb";
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
+  const [isLoadingCompanyProfile, setIsLoadingCompanyProfile] = useState(false);
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(user?.emailNotificationsEnabled ?? false);
+  const [isSavingEmailNotifications, setIsSavingEmailNotifications] = useState(false);
+  const shouldShowCompanyProfile = isRecruiterRole(user?.role);
+
+  useEffect(() => {
+    if (!token || !shouldShowCompanyProfile) {
+      setCompanyProfile(null);
+      return;
+    }
+
+    let mounted = true;
+    setIsLoadingCompanyProfile(true);
+
+    recruiterApi.getCompanyProfile(token)
+      .then((company) => {
+        if (mounted) setCompanyProfile(company);
+      })
+      .catch((error: unknown) => {
+        if (isApiError(error) && (error.status === 400 || error.status === 404)) {
+          if (mounted) setCompanyProfile(null);
+          return;
+        }
+
+        toast({
+          title: t("toast.error"),
+          description: getErrorMessage(error, t("profile.companyProfileLoadError")),
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        if (mounted) setIsLoadingCompanyProfile(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [shouldShowCompanyProfile, t, toast, token]);
+
+  useEffect(() => {
+    setEmailNotificationsEnabled(user?.emailNotificationsEnabled ?? false);
+  }, [user?.emailNotificationsEnabled, user?.id]);
 
   if (!user || !token) {
     navigate("/login");
     return null;
   }
+
+  const profileThemeColor = user.themeColor || "#2563eb";
 
   const togglePasswordVisibility = (field: keyof typeof visiblePasswords) => {
     setVisiblePasswords((current) => ({
@@ -188,23 +269,30 @@ const Profile = () => {
 
   const MAX_CVS = 3;
   const cvList = user.cvList || [];
-  const showCvSection = !isAdminRole(user.role) && !isModeratorRole(user.role);
+  const defaultCv = cvList.find((cv: CvItem) => cv.isDefault) || cvList[0];
+  const showCvSection = isCandidateRole(user.role);
+  const showCompanyProfileSection = shouldShowCompanyProfile;
+  const companyDefaultAddress = getCompanyDefaultAddress(companyProfile?.addresses);
 
-  const uploadResumeFile = async (file: File) => {
-    if (!file) return;
+  const uploadResumeFiles = async (files: File[]) => {
+    if (files.length === 0) return;
 
-    // Kiểm tra giới hạn số lượng CV
-    if (cvList.length >= MAX_CVS) {
-      toast({ title: t("toast.error"), description: `Bạn chỉ được lưu tối đa ${MAX_CVS} CV`, variant: "destructive" });
+    if (cvList.length + files.length > MAX_CVS) {
+      toast({
+        title: t("toast.error"),
+        description: t("profile.resumeMaxCountError", { count: MAX_CVS }),
+        variant: "destructive",
+      });
       return;
     }
 
     const allowed = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
-    if (!allowed.includes(file.type)) {
+    if (files.some((file) => !allowed.includes(file.type))) {
       toast({ title: t("toast.error"), description: t("profile.resumeTypeError"), variant: "destructive" });
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
+
+    if (files.some((file) => file.size > 10 * 1024 * 1024)) {
       toast({ title: t("toast.error"), description: t("profile.resumeSizeError"), variant: "destructive" });
       return;
     }
@@ -214,28 +302,26 @@ const Profile = () => {
       const { data: { user: supaUser } } = await supabase.auth.getUser();
       if (!supaUser) throw new Error("Not authenticated");
 
-      // Tạo tên file bằng timestamp để không bị ghi đè trên Bucket
-      const ext = file.name.split('.').pop();
-      const uniqueFileName = `resume_${Date.now()}.${ext}`;
-      const filePath = `${supaUser.id}/${uniqueFileName}`;
+      const uploadedCvList: CvItem[] = [];
+      for (const [index, file] of files.entries()) {
+        const ext = file.name.split(".").pop();
+        const uniqueFileName = `resume_${Date.now()}_${index}_${crypto.randomUUID()}.${ext}`;
+        const filePath = `${supaUser.id}/${uniqueFileName}`;
 
-      // Bỏ { upsert: true } vì tên file đã unique
-      const { error: uploadError } = await supabase.storage.from('cv').upload(filePath, file);
-      if (uploadError) throw uploadError;
+        const { error: uploadError } = await supabase.storage.from("cv").upload(filePath, file);
+        if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage.from('cv').getPublicUrl(filePath);
+        const { data: { publicUrl } } = supabase.storage.from("cv").getPublicUrl(filePath);
+        uploadedCvList.push({
+          id: crypto.randomUUID(),
+          name: file.name,
+          url: publicUrl,
+          uploadedAt: Date.now(),
+          isDefault: cvList.length === 0 && uploadedCvList.length === 0,
+        });
+      }
 
-      // Tạo object CV mới
-      const newCv = {
-        id: crypto.randomUUID(),
-        name: file.name,
-        url: publicUrl,
-        uploadedAt: Date.now(),
-        isDefault: cvList.length === 0,
-      };
-
-      // Cập nhật mảng vào Database
-      const updatedCvList = [...cvList, newCv];
+      const updatedCvList = [...cvList, ...uploadedCvList];
       await userApi.updateProfile(token, { cvList: updatedCvList });
 
       await refreshUser();
@@ -260,9 +346,9 @@ const Profile = () => {
       await userApi.updateProfile(token, { cvList: updatedCvList });
       await refreshUser();
 
-      toast({ title: t("toast.success"), description: "Đã xóa CV khỏi hồ sơ" });
+      toast({ title: t("toast.success"), description: t("profile.resumeDeleteSuccess") });
     } catch (err: unknown) {
-      toast({ title: t("toast.error"), description: "Lỗi khi xóa CV", variant: "destructive" });
+      toast({ title: t("toast.error"), description: t("profile.resumeDeleteError"), variant: "destructive" });
     }
   };
 
@@ -276,23 +362,21 @@ const Profile = () => {
       await userApi.updateProfile(token, { cvList: updatedCvList });
       await refreshUser();
 
-      toast({ title: t("toast.success"), description: "Đã đặt CV mặc định" });
+      toast({ title: t("toast.success"), description: t("profile.defaultCvSuccess") });
     } catch (err: unknown) {
-      toast({ title: t("toast.error"), description: "Lỗi khi đặt CV mặc định", variant: "destructive" });
+      toast({ title: t("toast.error"), description: t("profile.defaultCvError"), variant: "destructive" });
     }
   };
 
   const handleResumeInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    uploadResumeFile(file);
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    uploadResumeFiles(files);
   };
 
   const handleResumeDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (!file) return;
-    uploadResumeFile(file);
+    uploadResumeFiles(Array.from(e.dataTransfer.files || []));
   };
 
   const uploadAvatarBlob = async (blob: Blob) => {
@@ -459,6 +543,30 @@ const Profile = () => {
     saveThemeColor(e.target.value);
   };
 
+  const handleEmailNotificationsChange = async (checked: boolean) => {
+    const previousValue = emailNotificationsEnabled;
+    setEmailNotificationsEnabled(checked);
+    setIsSavingEmailNotifications(true);
+
+    try {
+      await userApi.updateProfile(token, { emailNotificationsEnabled: checked });
+      await refreshUser();
+      toast({
+        title: t("toast.success"),
+        description: t("profile.emailNotificationsSaved", { defaultValue: "Da luu tuy chon thong bao qua email." }),
+      });
+    } catch (err: unknown) {
+      setEmailNotificationsEnabled(previousValue);
+      toast({
+        title: t("toast.error"),
+        description: getErrorMessage(err, t("profile.emailNotificationsSaveError", { defaultValue: "Khong the luu tuy chon thong bao qua email." })),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingEmailNotifications(false);
+    }
+  };
+
   const handleMatchAvatarColor = async () => {
     if (!user.avatarUrl) {
       toast({ title: t("toast.error"), description: t("profile.avatarColorMissing"), variant: "destructive" });
@@ -573,11 +681,13 @@ const Profile = () => {
                     </h3>
                     <p className="text-sm text-muted-foreground text-center">{user.email}</p>
                     <div
-                      className="mt-2 inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium text-white"
-                      style={{ backgroundColor: profileThemeColor }}
+                      className={cn(
+                        "mt-2 inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold",
+                        getRoleBadgeClassName(user.role),
+                      )}
                     >
                       <Shield className="h-3 w-3" />
-                      {user.role}
+                      {t(`role.${normalizeRoleName(user.role)}`, { defaultValue: user.role })}
                     </div>
                   </div>
                 </Card>
@@ -724,89 +834,202 @@ const Profile = () => {
                         <Input value={user.email} disabled className="bg-muted/50" />
                       </div>
                     </div>
+
+                    <div className="flex items-center justify-between gap-4 rounded-lg border bg-muted/20 px-4 py-3">
+                      <div className="min-w-0">
+                        <Label htmlFor="email-notifications" className="flex items-center gap-2 font-medium">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          {t("profile.emailNotifications", { defaultValue: "Thong bao qua email" })}
+                        </Label>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {t("profile.emailNotificationsDescription", { defaultValue: "Nhan cap nhat quan trong ve tai khoan va ho so qua email." })}
+                        </p>
+                      </div>
+                      <Switch
+                        id="email-notifications"
+                        checked={emailNotificationsEnabled}
+                        disabled={isSavingEmailNotifications}
+                        onCheckedChange={handleEmailNotificationsChange}
+                        className="h-7 w-12 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-slate-300 [&>span]:h-6 [&>span]:w-6 [&>span]:data-[state=checked]:translate-x-5"
+                      />
+                    </div>
                   </CardContent>
                 </Card>
               </div>
             </div>
 
             {/* BOTTOM ROW: CV (when allowed) + password change */}
-            <div className="grid md:grid-cols-[48px_320px_1fr] gap-6">
+            <div className="grid items-stretch gap-6 md:grid-cols-[48px_320px_1fr]">
               <div />
               {showCvSection ? (
-                <div>
-                  <Card className="h-full flex flex-col">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                      <CardTitle className="text-sm font-semibold">
-                        {t("profile.cv_title")} ({cvList.length}/{MAX_CVS})
-                      </CardTitle>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleResumeClick}
-                        disabled={isUploadingResume || cvList.length >= MAX_CVS}
-                      >
-                        {isUploadingResume ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-                        Tải lên mới
-                      </Button>
-                      <input ref={resumeInputRef} type="file" accept=".pdf,.doc,.docx" onChange={handleResumeInput} className="hidden" />
-                    </CardHeader>
-                    <Separator />
-                    <CardContent className="p-4 flex-1">
-                      {cvList.length === 0 ? (
-                        <div
-                          onDragOver={(e) => e.preventDefault()}
-                          onDrop={handleResumeDrop}
-                          onClick={handleResumeClick}
-                          className="min-h-[120px] h-full flex flex-col items-center justify-center rounded-md border-2 border-dashed border-muted/50 bg-muted/10 text-muted-foreground cursor-pointer hover:bg-muted/20 transition-colors text-center p-4"
-                        >
-                          <UploadCloud className="h-8 w-8 mb-2 opacity-50" />
-                          <p className="text-sm">{t("profile.drag_drop_cv")}</p>
+                <Card className="min-w-0 h-full">
+                  <CardContent className="flex h-full min-h-[170px] flex-col gap-4 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-950">
+                          {t("profile.cv_title")} ({cvList.length}/{MAX_CVS})
+                        </p>
+                      </div>
+                      <TooltipProvider>
+                        <div className="flex items-center gap-2">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="outline"
+                                className="h-9 w-9 rounded-lg"
+                                onClick={handleResumeClick}
+                                disabled={isUploadingResume || cvList.length >= MAX_CVS}
+                                aria-label={t("profile.uploadCv")}
+                              >
+                                {isUploadingResume ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Upload className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>{t("profile.uploadCv")}</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="outline"
+                                className="h-9 w-9 rounded-lg"
+                                onClick={() => setIsCvManagerOpen(true)}
+                                disabled={cvList.length === 0}
+                                aria-label={t("profile.manageCv")}
+                              >
+                                <Settings2 className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>{t("profile.manageCv")}</TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </TooltipProvider>
+                      <input
+                        ref={resumeInputRef}
+                        type="file"
+                        accept=".pdf,.doc,.docx"
+                        multiple
+                        onChange={handleResumeInput}
+                        className="hidden"
+                      />
+                    </div>
+
+                    <div
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={handleResumeDrop}
+                      className="flex min-w-0 flex-1 items-center rounded-lg border bg-slate-50/70 p-3"
+                    >
+                      {defaultCv ? (
+                        <div className="flex w-full min-w-0 items-center gap-3 overflow-hidden">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                            <FileText className="h-5 w-5" />
+                          </div>
+                          <div className="min-w-0 flex-1 overflow-hidden">
+                            <a
+                              href={defaultCv.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="block max-w-full truncate text-sm font-semibold text-slate-950 hover:underline"
+                              title={defaultCv.name}
+                            >
+                              {defaultCv.name}
+                            </a>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {t("profile.defaultCv")} - {new Date(defaultCv.uploadedAt).toLocaleDateString("vi-VN")}
+                            </p>
+                          </div>
                         </div>
                       ) : (
+                        <button
+                          type="button"
+                          onClick={handleResumeClick}
+                          className="flex min-h-[88px] w-full flex-col items-center justify-center rounded-md border border-dashed border-muted-foreground/30 text-center text-sm text-muted-foreground transition-colors hover:bg-white"
+                        >
+                          <Upload className="mb-2 h-5 w-5" />
+                          {t("profile.drag_drop_cv")}
+                        </button>
+                      )}
+                    </div>
+                    </CardContent>
+                  </Card>
+              ) : showCompanyProfileSection ? (
+                <div>
+                  <Card
+                    className="h-full cursor-pointer overflow-hidden transition hover:border-primary/40 hover:shadow-md"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      navigate(companyProfile?.id ? `/companies/${companyProfile.id}` : "/recruiter-verification");
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        navigate(companyProfile?.id ? `/companies/${companyProfile.id}` : "/recruiter-verification");
+                      }
+                    }}
+                  >
+                    <CardHeader className="py-4">
+                      <CardTitle className="text-sm font-semibold">
+                        {t("profile.companyProfileTitle")}
+                      </CardTitle>
+                    </CardHeader>
+                    <Separator />
+                    <CardContent className="p-3">
+                      {isLoadingCompanyProfile ? (
+                        <div className="flex min-h-[110px] items-center justify-center text-muted-foreground">
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        </div>
+                      ) : companyProfile ? (
                         <div className="space-y-2">
-                          <div className="grid grid-cols-[1fr_64px_40px] items-center gap-2 px-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            <span>CV</span>
-                            <span className="text-center">Default</span>
-                            <span className="sr-only">Xóa</span>
-                          </div>
-                          {cvList.map((cv: CvItem) => (
-                            <div key={cv.id} className="grid grid-cols-[1fr_64px_40px] items-center gap-2 p-3 border rounded-lg hover:bg-slate-50 transition-colors">
-                              <div className="flex min-w-0 items-center gap-3 overflow-hidden">
-                                <div className="p-2 bg-primary/10 text-primary rounded-md shrink-0">
-                                  <FileText className="h-5 w-5" />
-                                </div>
-                                <div className="flex flex-col overflow-hidden">
-                                  <a href={cv.url} target="_blank" rel="noreferrer" className="text-sm font-medium hover:underline truncate">
-                                    {cv.name}
-                                  </a>
-                                  <span className="text-xs text-muted-foreground">
-                                    {new Date(cv.uploadedAt).toLocaleDateString('vi-VN')}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="flex justify-center">
-                                <input
-                                  type="radio"
-                                  name="defaultCv"
-                                  checked={Boolean(cv.isDefault)}
-                                  onChange={() => {
-                                    if (!cv.isDefault) handleSetDefaultCv(cv.id);
-                                  }}
-                                  className="h-4 w-4 accent-primary cursor-pointer"
-                                  aria-label={`Đặt ${cv.name} làm CV mặc định`}
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-slate-50">
+                              {companyProfile.logoUrl ? (
+                                <img
+                                  src={companyProfile.logoUrl}
+                                  alt=""
+                                  className="h-full w-full object-contain"
                                 />
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                onClick={() => handleDeleteCv(cv.id)}
-                                title="Xóa CV"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              ) : (
+                                <Building2 className="h-5 w-5 text-muted-foreground" />
+                              )}
                             </div>
-                          ))}
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-slate-950">
+                                {companyProfile.companyDisplayName || companyProfile.companyFullName}
+                              </p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {companyProfile.companyFullName}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5 rounded-md bg-slate-50 p-2.5 text-xs">
+                            <div className="truncate">
+                              <span className="font-semibold text-slate-600">{t("profile.companyTaxCode")}: </span>
+                              <span className="text-slate-700">{companyProfile.taxCode}</span>
+                            </div>
+                            <div className="truncate">
+                              <span className="font-semibold text-slate-600">{t("profile.companyPhone")}: </span>
+                              <span className="text-slate-700">{companyProfile.companyPhone}</span>
+                            </div>
+                            {companyDefaultAddress && (
+                              <div className="truncate">
+                                <span className="font-semibold text-slate-600">{t("profile.companyAddress")}: </span>
+                                <span className="text-slate-700">{companyDefaultAddress}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex min-h-[110px] flex-col items-center justify-center rounded-md border-2 border-dashed border-muted/50 bg-muted/10 p-3 text-center text-muted-foreground transition-colors hover:bg-muted/20">
+                          <Building2 className="mb-2 h-7 w-7 opacity-50" />
+                          <p className="text-sm">{t("profile.companyProfileEmpty")}</p>
                         </div>
                       )}
                     </CardContent>
@@ -815,8 +1038,8 @@ const Profile = () => {
               ) : (
                 <div />
               )}
-              <div>
-                <Card>
+              <div className="min-w-0">
+                <Card className="h-full">
                   <CardHeader>
                     <CardTitle className="text-lg">{t("profile.change_password")}</CardTitle>
                   </CardHeader>
@@ -914,6 +1137,88 @@ const Profile = () => {
           </div>
         </div>
       </div>
+
+      <Dialog open={isCvManagerOpen} onOpenChange={setIsCvManagerOpen}>
+        <DialogContent className="max-w-2xl" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>{t("profile.manageCv")}</DialogTitle>
+            <DialogDescription>{t("profile.manageCvDescription", { count: MAX_CVS })}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            {cvList.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                {t("profile.noCv")}
+              </div>
+            ) : (
+              cvList.map((cv: CvItem) => (
+                <div
+                  key={cv.id}
+                  className="grid min-w-0 gap-3 rounded-lg border p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <FileText className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1 overflow-hidden">
+                      <a
+                        href={cv.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block max-w-full truncate text-sm font-semibold text-slate-950 hover:underline"
+                        title={cv.name}
+                      >
+                        {cv.name}
+                      </a>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(cv.uploadedAt).toLocaleDateString("vi-VN")}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant={cv.isDefault ? "secondary" : "outline"}
+                            className="h-9 w-9"
+                            onClick={() => {
+                              if (!cv.isDefault) handleSetDefaultCv(cv.id);
+                            }}
+                            disabled={Boolean(cv.isDefault)}
+                            aria-label={cv.isDefault ? t("profile.defaultCv") : t("profile.setDefaultCv")}
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{cv.isDefault ? t("profile.defaultCv") : t("profile.setDefaultCv")}</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            className="h-9 w-9 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() => handleDeleteCv(cv.id)}
+                            aria-label={t("profile.deleteCv")}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{t("profile.deleteCv")}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Avatar Crop Dialog */}
       <AvatarCropDialog

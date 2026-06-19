@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Building2, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { ActionIconButton } from "@/components/ui/action-icon-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -260,15 +261,13 @@ export function CategoryManagementPanel({ token }: CategoryManagementPanelProps)
                       (categoryOptions[key] || []).map((option) => (
                         <div key={option.id} className="flex items-center justify-between rounded-md bg-muted px-3 py-2">
                           <span className="text-sm">{option.label}</span>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => deleteFilterOption(key, option.id)}
+                          <ActionIconButton
+                            icon={Trash2}
+                            label={t("admin.categories.deleteOptionAria", { label: option.label })}
+                            variantStyle="delete"
+                            onClick={() => deleteFilterOption(key, Number(option.id))}
                             disabled={saving}
-                            aria-label={t("admin.categories.deleteOptionAria", { label: option.label })}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          />
                         </div>
                       ))
                     )}
@@ -311,14 +310,13 @@ export function CategoryManagementPanel({ token }: CategoryManagementPanelProps)
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-end">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteFormField(field.id)}
+                        <ActionIconButton
+                          icon={Trash2}
+                          label={t("admin.categories.deleteField")}
+                          variantStyle="delete"
+                          onClick={() => deleteFormField(Number(field.id))}
                           disabled={saving}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        />
                       </div>
                     </TableCell>
                   </TableRow>

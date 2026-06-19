@@ -1,13 +1,18 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import React, { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Eye, Loader2, RefreshCw, ShieldCheck, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext.tsx";
 import { isAdminRole, isModeratorRole } from "@/lib/roles.ts";
+import { getReviewStatusBadgeClassName, getRoleBadgeClassName, normalizeReviewStatus, normalizeRoleName } from "@/lib/dashboardStyles.ts";
 import { moderatorApi, type ModeratorJobPost } from "@/lib/api.ts";
-import { Button } from "@/components/ui/button.tsx";
+import { ActionIconButton } from "@/components/ui/action-icon-button.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
+import { PaginationControls } from "@/components/ui/pagination-controls.tsx";
+import { paginateItems } from "@/lib/pagination.ts";
+import { Button } from "@/components/ui/button.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 import {
   Dialog,
@@ -19,25 +24,29 @@ import {
 } from "@/components/ui/dialog.tsx";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table.tsx";
 
-const formatDate = (value?: string | null) => {
-  if (!value) return "-";
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
 
+const formatDate = (value?: string | null, locale = "en-US") => {
+  if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-
-  return date.toLocaleString("vi-VN");
-};
-
-const getErrorMessage = (error: unknown, fallback: string) => {
-  return error instanceof Error ? error.message : fallback;
+  return date.toLocaleString(locale);
 };
 
 const ModeratorDashboard: React.FC = () => {
+  const { t, i18n } = useTranslation();
   const { user, token, isAuthenticated, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
-
   const [selectedJob, setSelectedJob] = useState<ModeratorJobPost | null>(null);
   const [actionId, setActionId] = useState<string | number | null>(null);
+  const [jobPage, setJobPage] = useState(1);
+  const [jobPageSize, setJobPageSize] = useState(10);
+  const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
+  const formatModeratorDate = useCallback(
+    (value?: string | null) => formatDate(value, dateLocale),
+    [dateLocale],
+  );
 
   const {
     data: jobs = [],
@@ -47,17 +56,23 @@ const ModeratorDashboard: React.FC = () => {
     queryKey: ["moderator", "pendingJobs", token],
     queryFn: () => moderatorApi.listPendingJobs(token!),
     enabled: !!token && isAuthenticated,
-    staleTime: 1000 * 60 * 5, // Cache trong 5 phút
+    staleTime: 1000 * 60 * 5,
   });
+  const paginatedJobs = useMemo(
+    () => paginateItems(jobs, jobPage, jobPageSize),
+    [jobPage, jobPageSize, jobs],
+  );
 
+  
+  
   const approveMutation = useMutation({
     mutationFn: (jobId: string | number) => moderatorApi.approveJob(token!, jobId),
     onSuccess: () => {
-      toast.success("Đã duyệt JD.");
+      toast.success(t("admin.jobs.approveSuccess"));
       queryClient.invalidateQueries({ queryKey: ["moderator", "pendingJobs"] });
     },
     onError: (error: unknown) => {
-      toast.error(getErrorMessage(error, "Không thể duyệt JD."));
+      toast.error(getErrorMessage(error, t("admin.jobs.approveError")));
     },
     onSettled: () => setActionId(null),
   });
@@ -65,27 +80,23 @@ const ModeratorDashboard: React.FC = () => {
   const rejectMutation = useMutation({
     mutationFn: (jobId: string | number) => moderatorApi.rejectJob(token!, jobId),
     onSuccess: () => {
-      toast.success("Đã từ chối JD.");
+      toast.success(t("admin.jobs.rejectSuccess"));
       queryClient.invalidateQueries({ queryKey: ["moderator", "pendingJobs"] });
     },
     onError: (error: unknown) => {
-      toast.error(getErrorMessage(error, "Không thể từ chối JD."));
+      toast.error(getErrorMessage(error, t("admin.jobs.rejectError")));
     },
     onSettled: () => setActionId(null),
   });
 
-  const handleApprove = async (job: ModeratorJobPost) => {
+  const handleApprove = (job: ModeratorJobPost) => {
     if (!token) return;
     setActionId(job.id);
     approveMutation.mutate(job.id);
   };
 
-  const handleReject = async (job: ModeratorJobPost) => {
-    if (!token) return;
-
-    const confirmed = window.confirm("Bạn chắc chắn muốn từ chối JD này?");
-    if (!confirmed) return;
-
+  const handleReject = (job: ModeratorJobPost) => {
+    if (!token || !window.confirm(t("admin.jobs.rejectConfirm"))) return;
     setActionId(job.id);
     rejectMutation.mutate(job.id);
   };
@@ -112,24 +123,16 @@ const ModeratorDashboard: React.FC = () => {
         <div className="container mx-auto px-4 py-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <Badge className="mb-3 bg-primary text-primary-foreground">
-                MODERATOR
+              <Badge variant="outline" className={`mb-3 px-5 py-2 text-sm ${getRoleBadgeClassName(user?.role)}`}>
+                {t(`role.${normalizeRoleName(user?.role)}`, { defaultValue: t("moderator.badge") })}
               </Badge>
-              <h1 className="text-3xl font-bold text-slate-950">
-                Trang kiểm duyệt JD
-              </h1>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Duyệt hoặc từ chối các JD do nhà tuyển dụng đăng lên.
-              </p>
+              <h1 className="text-3xl font-bold text-slate-950">{t("moderator.title")}</h1>
+              <p className="mt-2 text-sm text-muted-foreground">{t("moderator.description")}</p>
             </div>
 
-            <Button variant="outline" onClick={() => refetch()} disabled={loadingData}>
-              {loadingData ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4" />
-              )}
-              Làm mới
+            <Button variant="outline" className="w-auto" onClick={() => refetch()} disabled={loadingData}>
+              {loadingData ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              {t("common.refresh")}
             </Button>
           </div>
         </div>
@@ -139,23 +142,20 @@ const ModeratorDashboard: React.FC = () => {
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">JD chờ duyệt</CardTitle>
+              <CardTitle className="text-sm font-medium">{t("moderator.stats.pendingTitle")}</CardTitle>
               <ShieldCheck className="h-5 w-5 text-primary" />
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{jobs.length}</div>
-              <p className="text-xs text-muted-foreground">
-                Các JD đang ở trạng thái PENDING
-              </p>
+              <p className="text-xs text-muted-foreground">{t("moderator.stats.pendingDescription")}</p>
             </CardContent>
           </Card>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Danh sách JD chờ duyệt</CardTitle>
+            <CardTitle>{t("moderator.jobs.title")}</CardTitle>
           </CardHeader>
-
           <CardContent>
             {loadingData ? (
               <div className="flex justify-center py-16">
@@ -163,110 +163,105 @@ const ModeratorDashboard: React.FC = () => {
               </div>
             ) : jobs.length === 0 ? (
               <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
-                Hiện không có JD nào đang chờ duyệt.
+                {t("moderator.jobs.empty")}
               </div>
             ) : (
+              <>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Tiêu đề</TableHead>
-                    <TableHead>Công ty</TableHead>
-                    <TableHead>Địa điểm</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Ngày đăng</TableHead>
-                    <TableHead className="text-right">Thao tác</TableHead>
+                    <TableHead>{t("admin.jobs.titleColumn")}</TableHead>
+                    <TableHead>{t("common.company")}</TableHead>
+                    <TableHead>{t("common.recruiter")}</TableHead>
+                    <TableHead>{t("admin.jobs.postedDate")}</TableHead>
+                    <TableHead>{t("common.status")}</TableHead>
+                    <TableHead>{t("admin.jobs.hiddenColumn")}</TableHead>
+                    <TableHead className="text-center">{t("common.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
-
                 <TableBody>
-                  {jobs.map((job) => (
+                  {paginatedJobs.items.map((job) => (
                     <TableRow key={job.id}>
                       <TableCell className="font-medium">{job.title}</TableCell>
-                      <TableCell>{job.company || job.employerName || "-"}</TableCell>
-                      <TableCell>{job.location || "-"}</TableCell>
+                      <TableCell>{job.company || "-"}</TableCell>
+                      <TableCell>{job.employerEmail || job.employerName || job.recruiterName || "-"}</TableCell>
+                      <TableCell>{formatModeratorDate(job.createdAt)}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{job.status || "PENDING_REVIEW"}</Badge>
+                        <Badge variant="outline" className={getReviewStatusBadgeClassName(job.status)}>
+                          {t(`admin.jobs.statuses.${normalizeReviewStatus(job.status)}`)}
+                        </Badge>
                       </TableCell>
-                      <TableCell>{formatDate(job.createdAt)}</TableCell>
+                      <TableCell>{job.hidden ? t("common.yes") : t("common.no")}</TableCell>
                       <TableCell>
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="sm" onClick={() => setSelectedJob(job)}>
-                            <Eye className="h-4 w-4" />
-                            Xem
-                          </Button>
-
-                          <Button
-                            variant="outline"
-                            size="sm"
+                        <div className="flex flex-wrap justify-center gap-2">
+                          <ActionIconButton
+                            icon={Eye}
+                            label={t("common.details")}
+                            variantStyle="view"
+                            onClick={() => setSelectedJob(job)}
+                          />
+                          <ActionIconButton
+                            icon={CheckCircle2}
+                            label={t("admin.jobs.approve")}
+                            variantStyle="approve"
                             disabled={actionId === job.id}
                             onClick={() => handleApprove(job)}
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
-                            Duyệt
-                          </Button>
-
-                          <Button
-                            variant="destructive"
-                            size="sm"
+                          />
+                          <ActionIconButton
+                            icon={XCircle}
+                            label={t("admin.jobs.reject")}
+                            variantStyle="reject"
                             disabled={actionId === job.id}
                             onClick={() => handleReject(job)}
-                          >
-                            <XCircle className="h-4 w-4" />
-                            Từ chối
-                          </Button>
+                          />
                         </div>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+              <PaginationControls
+                page={paginatedJobs.page}
+                totalPages={paginatedJobs.totalPages}
+                onPageChange={setJobPage}
+                pageSize={jobPageSize}
+                onPageSizeChange={setJobPageSize}
+              />
+              </>
             )}
           </CardContent>
+
         </Card>
       </section>
 
       <Dialog open={Boolean(selectedJob)} onOpenChange={(open) => !open && setSelectedJob(null)}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Chi tiết JD</DialogTitle>
-            <DialogDescription>Thông tin JD do nhà tuyển dụng gửi lên.</DialogDescription>
+            <DialogTitle>{t("admin.jobDialog.title")}</DialogTitle>
+            <DialogDescription>{t("admin.jobDialog.description")}</DialogDescription>
           </DialogHeader>
 
           {selectedJob && (
             <div className="space-y-3 text-sm">
               <div className="grid gap-3 md:grid-cols-2">
-                <div>
-                  <strong>Tiêu đề:</strong> {selectedJob.title}
-                </div>
-                <div>
-                  <strong>Công ty:</strong> {selectedJob.company || selectedJob.employerName || "-"}
-                </div>
-                <div>
-                  <strong>Email nhà tuyển dụng:</strong> {selectedJob.employerEmail || "-"}
-                </div>
-                <div>
-                  <strong>Địa điểm:</strong> {selectedJob.location || "-"}
-                </div>
-                <div>
-                  <strong>Loại:</strong> {selectedJob.type || "-"}
-                </div>
-                <div>
-                  <strong>Lương:</strong> {selectedJob.salary || "-"}
-                </div>
+                <div><strong>{t("admin.jobs.titleColumn")}:</strong> {selectedJob.title}</div>
+                <div><strong>{t("common.company")}:</strong> {selectedJob.company || "-"}</div>
+                <div><strong>{t("common.recruiter")}:</strong> {selectedJob.employerEmail || selectedJob.employerName || selectedJob.recruiterName || "-"}</div>
+                <div><strong>{t("admin.jobDialog.location")}:</strong> {selectedJob.location || "-"}</div>
+                <div><strong>{t("common.type")}:</strong> {selectedJob.type || "-"}</div>
+                <div><strong>{t("common.salary")}:</strong> {selectedJob.salary || "-"}</div>
+                <div><strong>{t("recruiter.form.experience")}:</strong> {selectedJob.experience || "-"}</div>
               </div>
-
               <div>
-                <strong>Mô tả:</strong>
-                <p className="mt-2 whitespace-pre-wrap rounded-md bg-muted p-3">
-                  {selectedJob.description || "-"}
-                </p>
+                <strong>{t("common.description")}:</strong>
+                <p className="mt-2 whitespace-pre-wrap rounded-md bg-muted p-3">{selectedJob.description || "-"}</p>
               </div>
             </div>
           )}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelectedJob(null)}>
-              Đóng
+              {t("common.close")}
             </Button>
           </DialogFooter>
         </DialogContent>

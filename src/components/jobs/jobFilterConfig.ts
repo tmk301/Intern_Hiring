@@ -26,10 +26,20 @@ export type JobFilterValue = {
   ward: string;
   location: string;
   company: string;
+  salaryRange: string;
   salaryMin: string;
   salaryMax: string;
   currency: string;
   experience: string;
+};
+
+export type CurrencyCode = "VND" | "USD";
+
+export type SalaryRangeOption = {
+  value: string;
+  labelKey: string;
+  minVnd: number;
+  maxVnd: number | null;
 };
 
 export const emptyJobFilterValue: JobFilterValue = {
@@ -41,20 +51,124 @@ export const emptyJobFilterValue: JobFilterValue = {
   ward: "",
   location: "",
   company: "",
+  salaryRange: "",
   salaryMin: "",
   salaryMax: "",
   currency: "",
   experience: "",
 };
 
+export const USD_TO_VND_RATE = 25_000;
+
+export const WORK_MODE_OPTIONS: JobFilterOption[] = [
+  {
+    value: "On-site",
+    label: "On-site",
+    labelKey: "jobs.filters.options.workModes.onsite",
+    aliases: ["Onsite", "Tai van phong", "Tai cong ty", "Lam viec tai van phong"],
+  },
+  {
+    value: "Remote",
+    label: "Remote",
+    labelKey: "jobs.filters.options.workModes.remote",
+    aliases: ["Lam viec tu xa", "Tu xa"],
+  },
+  {
+    value: "Hybrid",
+    label: "Hybrid",
+    labelKey: "jobs.filters.options.workModes.hybrid",
+    aliases: ["Ket hop", "Linh hoat"],
+  },
+];
+
+export const JOB_TYPE_OPTIONS: JobFilterOption[] = [
+  {
+    value: "Full-time",
+    label: "Full-time",
+    labelKey: "jobs.filters.options.jobTypes.fullTime",
+    aliases: ["Full time", "Toan thoi gian"],
+  },
+  {
+    value: "Part-time",
+    label: "Part-time",
+    labelKey: "jobs.filters.options.jobTypes.partTime",
+    aliases: ["Part time", "Ban thoi gian"],
+  },
+  {
+    value: "Freelance",
+    label: "Freelance",
+    labelKey: "jobs.filters.options.jobTypes.freelance",
+    aliases: ["Tu do"],
+  },
+  {
+    value: "Internship",
+    label: "Internship",
+    labelKey: "jobs.filters.options.jobTypes.internship",
+    aliases: ["Intern", "Thuc tap", "Thuc tap sinh"],
+  },
+];
+
+export const CURRENCY_OPTIONS: JobFilterOption[] = [
+  { value: "VND", label: "VND", labelKey: "jobs.filters.options.currencies.vnd" },
+  { value: "USD", label: "USD", labelKey: "jobs.filters.options.currencies.usd" },
+];
+
+export const SALARY_RANGE_OPTIONS: SalaryRangeOption[] = [
+  {
+    value: "under-5m",
+    labelKey: "jobs.filters.options.salaryRanges.under5",
+    minVnd: 0,
+    maxVnd: 5_000_000,
+  },
+  {
+    value: "5m-10m",
+    labelKey: "jobs.filters.options.salaryRanges.from5To10",
+    minVnd: 5_000_000,
+    maxVnd: 10_000_000,
+  },
+  {
+    value: "10m-15m",
+    labelKey: "jobs.filters.options.salaryRanges.from10To15",
+    minVnd: 10_000_000,
+    maxVnd: 15_000_000,
+  },
+  {
+    value: "15m-20m",
+    labelKey: "jobs.filters.options.salaryRanges.from15To20",
+    minVnd: 15_000_000,
+    maxVnd: 20_000_000,
+  },
+  {
+    value: "20m-30m",
+    labelKey: "jobs.filters.options.salaryRanges.from20To30",
+    minVnd: 20_000_000,
+    maxVnd: 30_000_000,
+  },
+  {
+    value: "from-30m",
+    labelKey: "jobs.filters.options.salaryRanges.from30",
+    minVnd: 30_000_000,
+    maxVnd: null,
+  },
+];
+
+export const getSalaryRangeOption = (value: string) =>
+  SALARY_RANGE_OPTIONS.find((option) => option.value === value);
+
+export const getCurrencyCode = (value?: string | null): CurrencyCode =>
+  value?.trim().toUpperCase() === "USD" ? "USD" : "VND";
+
+export const convertVndToCurrency = (amount: number, currency: CurrencyCode) =>
+  currency === "USD" ? Math.round(amount / USD_TO_VND_RATE) : amount;
+
 export const defaultJobFilterOptions: JobFilterOptions = {
   cities: [],
-  workModes: [],
-  jobTypes: [],
+  workModes: WORK_MODE_OPTIONS,
+  jobTypes: JOB_TYPE_OPTIONS,
   districts: [],
   wards: [],
   companies: [],
-  currencies: [],
+  currencies: CURRENCY_OPTIONS,
   experience: [
     {
       value: "no-experience",

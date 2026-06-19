@@ -1,9 +1,12 @@
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:3000";
+  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:8080";
 
 type RequestOptions = RequestInit & {
   params?: Record<string, string | number | boolean | undefined | null>;
+  timeoutMs?: number;
 };
+
+const DEFAULT_REQUEST_TIMEOUT_MS = 15000;
 
 function buildUrl(path: string, params?: RequestOptions["params"]) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
@@ -48,15 +51,32 @@ async function readErrorMessage(response: Response) {
 
 export async function apiRequest<T>(
   path: string,
-  { params, headers, ...options }: RequestOptions = {},
+  { params, headers, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS, signal, ...options }: RequestOptions = {},
 ): Promise<T> {
-  const response = await fetch(buildUrl(path, params), {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...headers,
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  signal?.addEventListener("abort", () => controller.abort(), { once: true });
+
+  let response: Response;
+  try {
+    response = await fetch(buildUrl(path, params), {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...headers,
+      },
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("API request timed out. Please check the backend connection.");
+    }
+
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const message = await readErrorMessage(response);
@@ -100,6 +120,7 @@ export type ApiUser = {
   dob?: string;
   cvList?: CvItem[],
   themeColor?: string;
+  emailNotificationsEnabled?: boolean;
 };
 
 export type UpdateProfilePayload = {
@@ -111,6 +132,7 @@ export type UpdateProfilePayload = {
   dob?: string | null;
   themeColor?: string;
   cvList?: CvItem[];
+  emailNotificationsEnabled?: boolean;
 };
 
 // Auth API
@@ -131,6 +153,67 @@ export const userApi = {
     }),
 };
 
+export type ApiNotification = {
+  id: string | number;
+  title?: string;
+  message?: string;
+  content?: string;
+  description?: string;
+  isRead?: boolean;
+  read?: boolean;
+  readAt?: string | null;
+  type?: string;
+  jobApplicationId?: string | number | null;
+  jobId?: string | number | null;
+  createdAt?: string;
+  targetUrl?: string;
+  link?: string;
+  path?: string;
+};
+
+type NotificationListResponse = ApiNotification[] | {
+  content?: ApiNotification[];
+  notifications?: ApiNotification[];
+};
+
+export const notificationApi = {
+  list: (token: string) =>
+    apiRequest<NotificationListResponse>("/api/notifications", {
+      headers: authHeaders(token),
+    }),
+
+  markAsRead: (token: string, notificationId: string | number) =>
+    apiRequest<void>(`/api/notifications/${encodeURIComponent(String(notificationId))}/read`, {
+      method: "POST",
+      headers: authHeaders(token),
+    }),
+
+  markAllAsRead: (token: string) =>
+    apiRequest<void>("/api/notifications/read-all", {
+      method: "POST",
+      headers: authHeaders(token),
+    }),
+
+  delete: (token: string, notificationId: string | number) =>
+    apiRequest<void>(`/api/notifications/${encodeURIComponent(String(notificationId))}`, {
+      method: "DELETE",
+      headers: authHeaders(token),
+    }),
+
+  deleteMany: (token: string, notificationIds: Array<string | number>) =>
+    apiRequest<void>("/api/notifications/bulk", {
+      method: "DELETE",
+      headers: authHeaders(token),
+      body: JSON.stringify(notificationIds.map((id) => Number(id)).filter((id) => Number.isFinite(id))),
+    }),
+
+  deleteAll: (token: string) =>
+    apiRequest<void>("/api/notifications", {
+      method: "DELETE",
+      headers: authHeaders(token),
+    }),
+};
+
 export type AdminUser = ApiUser & {
   createdAt?: string;
 };
@@ -144,6 +227,10 @@ export type AdminJobPost = {
   location?: string;
   type?: string;
   salary?: string;
+  currency?: string | null;
+  mode?: string | null;
+  experience?: string;
+  applicationDeadline?: string | null;
   status?: string;
   hidden: boolean;
   description?: string;
@@ -160,6 +247,10 @@ export type RecruiterJobPost = {
   location: string | null;
   type: string | null;
   salary: string | null;
+  currency: string | null;
+  mode: string | null;
+  experience: string | null;
+  applicationDeadline: string | null;
   description: string | null;
   status: string | null;
   hidden: boolean;
@@ -191,13 +282,40 @@ export type RecruiterJobPayload = {
   location: string;
   type: string;
   salary?: string;
+  currency?: string | null;
+  mode?: string | null;
+  experience?: string;
+  applicationDeadline?: string | null;
   description: string;
+};
+
+export type RecruiterJobSnapshot = {
+  title?: string;
+  location?: string;
+  type?: string;
+  salary?: string;
+  currency?: string;
+  mode?: string;
+  experience?: string;
+  applicationDeadline?: string;
+  description?: string;
+};
+
+export type RecruiterJobChangeLog = {
+  id: string | number;
+  jobId: string | number;
+  actorEmail: string;
+  previousData: RecruiterJobSnapshot;
+  newData: RecruiterJobSnapshot;
+  changedFields: Array<keyof RecruiterJobSnapshot>;
+  createdAt: string;
 };
 
 export type AuditAction =
   | "USER_ROLE_UPDATED"
   | "USER_RESTRICTION_UPDATED"
   | "ADMIN_JOB_CREATED"
+  | "ADMIN_JOB_UPDATED"
   | "ADMIN_JOB_TRASHED"
   | "ADMIN_JOB_RESTORED"
   | "ADMIN_JOB_DELETED"
@@ -249,6 +367,15 @@ export const adminApi = {
       headers: authHeaders(token),
     }),
 
+  getUser: (token: string, userId: string | number) =>
+    apiRequest<AdminUser>(`/api/admin/users/${encodeURIComponent(String(userId))}`, {
+      headers: authHeaders(token),
+    }),
+
+  getUserCompanyProfile: (token: string, userId: string | number) =>
+    apiRequest<CompanyProfile>(`/api/admin/users/${encodeURIComponent(String(userId))}/company`, {
+      headers: authHeaders(token),
+    }),
 
   setUserRestriction: (token: string, userId: string | number, restricted: boolean) =>
     apiRequest<AdminUser>(`/api/admin/users/${encodeURIComponent(String(userId))}/restriction`, {
@@ -305,6 +432,13 @@ export const adminApi = {
       method: "DELETE",
       headers: authHeaders(token),
     }),
+
+  toggleJobHidden: (token: string, jobId: string | number, hidden: boolean) =>
+    apiRequest<AdminJobPost>(`/api/admin/jobs/${encodeURIComponent(String(jobId))}/hidden`, {
+      method: "PATCH",
+      headers: authHeaders(token),
+      body: JSON.stringify({ hidden }),
+    }),
 };
 
 export type CategoryKey = "CITIES" | "WORK_MODES" | "JOB_TYPES" | "DISTRICTS" | "WARDS" | "COMPANIES" | "CURRENCIES";
@@ -339,6 +473,27 @@ export type RecruiterApplication = {
   reviewedById?: string | number;
   reviewedAt?: string;
   createdAt?: string;
+};
+
+export type CompanyProfile = {
+  id: string | number;
+  recruiterId: string | number;
+  recruiterEmail?: string | null;
+  recruiterApplicationId?: string | number | null;
+  logoUrl: string;
+  coverUrl: string;
+  companyFullName: string;
+  companyDisplayName: string;
+  taxCode: string;
+  billingAddress: string;
+  companySize: string;
+  companyPhone: string;
+  companyWebsite?: string | null;
+  companyIntro?: string | null;
+  addresses: string;
+  galleryUrls?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export const configApi = {
@@ -390,6 +545,11 @@ export const configApi = {
 };
 
 export const recruiterApi = {
+  getCompanyProfile: (token: string) =>
+    apiRequest<CompanyProfile>("/api/recruiter/company", {
+      headers: authHeaders(token),
+    }),
+
   submitApplication: (token: string, formData: Record<string, string>) =>
     apiRequest<RecruiterApplication>("/api/recruiter/applications", {
       method: "POST",
@@ -401,6 +561,11 @@ export const recruiterApi = {
     apiRequest<RecruiterApplication[]>("/api/recruiter/applications", {
       headers: authHeaders(token),
       params: { status },
+    }),
+
+  getApplication: (token: string, id: string | number) =>
+    apiRequest<RecruiterApplication>(`/api/recruiter/applications/${encodeURIComponent(String(id))}`, {
+      headers: authHeaders(token),
     }),
 
   reviewApplication: (token: string, id: string | number, approved: boolean, reviewNote?: string) =>
@@ -434,11 +599,23 @@ export const recruiterApi = {
       body: JSON.stringify(data),
     }),
 
+  updateJob: (token: string, id: string | number, data: RecruiterJobPayload) =>
+    apiRequest<RecruiterJobPost>(`/api/recruiter/jobs/${encodeURIComponent(String(id))}`, {
+      method: "PUT",
+      headers: authHeaders(token),
+      body: JSON.stringify(data),
+    }),
+
   updateJobHidden: (token: string, id: string | number, hidden: boolean) =>
     apiRequest<RecruiterJobPost>(`/api/recruiter/jobs/${encodeURIComponent(String(id))}/hidden`, {
       method: "PATCH",
       headers: authHeaders(token),
       body: JSON.stringify({ hidden }),
+    }),
+
+  listJobChangeLogs: (token: string, id: string | number) =>
+    apiRequest<RecruiterJobChangeLog[]>(`/api/recruiter/jobs/${encodeURIComponent(String(id))}/change-logs`, {
+      headers: authHeaders(token),
     }),
 
   deleteJob: (token: string, id: string | number) =>
@@ -462,6 +639,14 @@ export const recruiterApi = {
     }),
 };
 
+export const companyApi = {
+  getCompanyProfile: (id: string | number) =>
+    apiRequest<CompanyProfile>(`/api/companies/${encodeURIComponent(String(id))}`),
+
+  getCompanyProfileByRecruiter: (recruiterId: string | number) =>
+    apiRequest<CompanyProfile>(`/api/companies/recruiter/${encodeURIComponent(String(recruiterId))}`),
+};
+
 export type ModeratorJobPost = {
   id: string | number;
   title: string;
@@ -469,7 +654,10 @@ export type ModeratorJobPost = {
   company?: string;
   location?: string;
   salary?: string;
+  currency?: string | null;
+  mode?: string | null;
   type?: string;
+  experience?: string;
   status?: string;
   hidden: boolean;
   employerName?: string;
@@ -513,6 +701,10 @@ export type PublicJobPost = {
     location: string | null;
     type: string | null;
     salary: string | null;
+    currency: string | null;
+    mode: string | null;
+    experience: string | null;
+    applicationDeadline: string | null;
     description: string | null;
     status: string;
     hidden: boolean;

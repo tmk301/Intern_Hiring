@@ -58,14 +58,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let mounted = true;
 
     const initializeAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session && mounted) {
-        setToken(session.access_token);
-        await fetchUserProfile(session.access_token);
-      }
-      if (mounted) {
-        setIsLoading(false);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (session && mounted) {
+          setToken(session.access_token);
+          await fetchUserProfile(session.access_token);
+        }
+      } catch (error) {
+        console.error('Error initializing auth session:', error);
+        if (mounted) {
+          setToken(null);
+          setUser(null);
+        }
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     };
 
@@ -104,10 +113,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await fetchUserProfile(token);
     }
   };
-
-  if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center bg-slate-900"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div></div>;
-  }
 
   return (
     <AuthContext.Provider value={{ user, token, login, logout, refreshUser, isAuthenticated: !!token, isLoading, restrictedMessage }}>
