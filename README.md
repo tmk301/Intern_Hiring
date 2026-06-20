@@ -92,17 +92,6 @@ Intern_Hiring/
 *   Node.js (Phiên bản 18 trở lên)
 *   npm / pnpm / bun / yarn
 
-### ⚙️ Biến Môi Trường Cần Thiết (`.env`)
-Tạo tệp `.env` tại thư mục gốc của dự án với các biến sau:
-```ini
-VITE_SUPABASE_URL=your-supabase-project-url
-VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-VITE_API_BASE_URL=http://localhost:8080 # URL của Spring Boot Backend
-VITE_SANITY_PROJECT_ID=your-sanity-project-id
-VITE_SANITY_DATASET=production
-VITE_SANITY_API_VERSION=2025-01-01
-```
-
 ### 💻 Khởi Chạy
 1.  Cài đặt các gói thư viện phụ thuộc:
     ```bash
