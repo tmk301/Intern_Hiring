@@ -1034,8 +1034,8 @@ const ModeratorDashboard: React.FC = () => {
                 </div>
               )}
             </CardContent>
-            )}
-          </Card>
+          )}
+        </Card>
         </div>
       </section>
 

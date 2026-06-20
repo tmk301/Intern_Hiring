@@ -67,6 +67,8 @@
   "nav": {
     "profile": "Profile",
     "logout": "Log out",
+    "logoutConfirmTitle": "Confirm log out",
+    "logoutConfirmDescription": "Are you sure you want to log out of the system?",
     "login": "Log in",
     "register": "Register",
     "admin": "Admin",
@@ -330,6 +332,8 @@
     "badge": "RECRUITER",
     "title": "Recruiter dashboard",
     "description": "Post new jobs and manage visibility for your own job posts.",
+    "companyProfileUpdatePending": "Update pending review",
+    "companyProfileUpdatePendingDescription": "Your company profile update request is waiting for admin or moderator approval. Current public information remains unchanged.",
     "stats": {
       "jobStatsTitle": "Job post statistics",
       "applicantStatsTitle": "Applicant statistics",
@@ -892,6 +896,10 @@
     "description": "Complete your company profile and send it to admin for review before becoming a recruiter.",
     "updateTitle": "Edit company profile",
     "updateDescription": "Send updated company information to admin for review. The public company profile changes only after approval.",
+    "pendingTitle": "Verification request pending review",
+    "pendingDescription": "Your company verification request is waiting for admin or moderator approval.",
+    "pendingUpdateTitle": "Company profile update pending review",
+    "pendingUpdateDescription": "Your update request is waiting for admin or moderator approval. Current public company information remains unchanged until it is approved.",
     "sections": {
       "branding": "Brand identity",
       "legal": "Company information",

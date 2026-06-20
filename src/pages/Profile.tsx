@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { userApi, CvItem, recruiterApi, CompanyProfile, isApiError } from "@/lib/api";
+import { userApi, CvItem, recruiterApi, CompanyProfile, RecruiterApplication, isApiError } from "@/lib/api";
 import { isCandidateRole, isRecruiterRole } from "@/lib/roles";
 import { getRoleBadgeClassName, normalizeRoleName } from "@/lib/dashboardStyles";
 import { cn } from "@/lib/utils";
@@ -36,6 +36,7 @@ import {
   Settings2,
   CheckCircle2,
   Building2,
+  AlertTriangle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -166,7 +167,7 @@ const getDominantImageColor = (imageUrl: string) =>
   });
 
 const Profile = () => {
-  const { user, token, refreshUser } = useAuth();
+  const { user, token, refreshUser, isLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t } = useTranslation();
@@ -202,6 +203,7 @@ const Profile = () => {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isSavingTheme, setIsSavingTheme] = useState(false);
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
+  const [pendingCompanyApplication, setPendingCompanyApplication] = useState<RecruiterApplication | undefined>();
   const [isLoadingCompanyProfile, setIsLoadingCompanyProfile] = useState(false);
   const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(user?.emailNotificationsEnabled ?? false);
   const [isSavingEmailNotifications, setIsSavingEmailNotifications] = useState(false);
@@ -210,27 +212,35 @@ const Profile = () => {
   useEffect(() => {
     if (!token || !shouldShowCompanyProfile) {
       setCompanyProfile(null);
+      setPendingCompanyApplication(undefined);
       return;
     }
 
     let mounted = true;
     setIsLoadingCompanyProfile(true);
 
-    recruiterApi.getCompanyProfile(token)
-      .then((company) => {
-        if (mounted) setCompanyProfile(company);
-      })
-      .catch((error: unknown) => {
-        if (isApiError(error) && (error.status === 400 || error.status === 404)) {
-          if (mounted) setCompanyProfile(null);
-          return;
+    Promise.allSettled([
+      recruiterApi.getCompanyProfile(token),
+      recruiterApi.getPendingApplication(token),
+    ])
+      .then(([companyResult, pendingResult]) => {
+        if (!mounted) return;
+
+        if (companyResult.status === "fulfilled") {
+          setCompanyProfile(companyResult.value);
+        } else {
+          setCompanyProfile(null);
+          const error = companyResult.reason as unknown;
+          if (!isApiError(error) || (error.status !== 400 && error.status !== 404)) {
+            toast({
+              title: t("toast.error"),
+              description: getErrorMessage(error, t("profile.companyProfileLoadError")),
+              variant: "destructive",
+            });
+          }
         }
 
-        toast({
-          title: t("toast.error"),
-          description: getErrorMessage(error, t("profile.companyProfileLoadError")),
-          variant: "destructive",
-        });
+        setPendingCompanyApplication(pendingResult.status === "fulfilled" ? pendingResult.value : undefined);
       })
       .finally(() => {
         if (mounted) setIsLoadingCompanyProfile(false);
@@ -244,6 +254,14 @@ const Profile = () => {
   useEffect(() => {
     setEmailNotificationsEnabled(user?.emailNotificationsEnabled ?? false);
   }, [user?.emailNotificationsEnabled, user?.id]);
+
+  if (isLoading) {
+    return (
+      <main className="flex h-[calc(100dvh-4rem)] items-center justify-center bg-gradient-subtle">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </main>
+    );
+  }
 
   if (!user || !token) {
     navigate("/login");
@@ -974,10 +992,43 @@ const Profile = () => {
                       }
                     }}
                   >
-                    <CardHeader className="py-4">
+                    <CardHeader className="py-4 flex flex-row items-center justify-between space-y-0">
                       <CardTitle className="text-sm font-semibold">
                         {t("profile.companyProfileTitle")}
                       </CardTitle>
+                      {pendingCompanyApplication ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div 
+                                className="flex h-8 w-8 items-center justify-center text-amber-500 hover:text-amber-600 transition-colors cursor-help shrink-0"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <AlertTriangle className="h-5 w-5" />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs bg-amber-50 border border-amber-200 text-amber-900 p-2.5 text-xs rounded-lg shadow-md">
+                              <p className="font-semibold text-amber-950 mb-1">{t("recruiter.companyProfileUpdatePending")}</p>
+                              <p className="text-amber-900/90">{t("recruiter.companyProfileUpdatePendingDescription")}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-primary shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate("/recruiter-verification");
+                          }}
+                          disabled={isLoadingCompanyProfile}
+                          title={t(companyProfile ? "profile.companyProfileEdit" : "profile.companyProfileTitle")}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
                     </CardHeader>
                     <Separator />
                     <CardContent className="p-3">

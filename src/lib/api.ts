@@ -560,6 +560,11 @@ export const recruiterApi = {
       body: JSON.stringify({ formData }),
     }),
 
+  getPendingApplication: (token: string) =>
+    apiRequest<RecruiterApplication | undefined>("/api/recruiter/applications/me/pending", {
+      headers: authHeaders(token),
+    }),
+
   listApplications: (token: string, status?: RecruiterApplication["status"]) =>
     apiRequest<RecruiterApplication[]>("/api/recruiter/applications", {
       headers: authHeaders(token),

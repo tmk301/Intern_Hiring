@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Building2, Globe, ImageIcon, Loader2, Mail, MapPin, Phone } from "lucide-react";
+import { ArrowLeft, Building2, Globe, ImageIcon, Loader2, Mail, MapPin, Phone, Pencil, AlertTriangle } from "lucide-react";
 
-import { companyApi, CompanyProfile as CompanyProfileData } from "@/lib/api";
-import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/context/AuthContext";
+import { companyApi, CompanyProfile as CompanyProfileData, recruiterApi, RecruiterApplication } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type CompanyAddress = {
   headOffice?: string;
@@ -32,8 +33,13 @@ const CompanyProfile: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { companyId } = useParams();
+  const { user, token } = useAuth();
   const [company, setCompany] = useState<CompanyProfileData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingCompanyApplication, setPendingCompanyApplication] = useState<RecruiterApplication | undefined>();
+  const [loadingPending, setLoadingPending] = useState(false);
+
+  const isOwner = user && company && String(user.id) === String(company.recruiterId);
 
   useEffect(() => {
     if (!companyId) return;
@@ -52,6 +58,30 @@ const CompanyProfile: React.FC = () => {
       mounted = false;
     };
   }, [companyId]);
+
+  useEffect(() => {
+    if (!isOwner || !token) {
+      setPendingCompanyApplication(undefined);
+      return;
+    }
+
+    let mounted = true;
+    setLoadingPending(true);
+    recruiterApi.getPendingApplication(token)
+      .then((pending) => {
+        if (mounted) setPendingCompanyApplication(pending);
+      })
+      .catch(() => {
+        if (mounted) setPendingCompanyApplication(undefined);
+      })
+      .finally(() => {
+        if (mounted) setLoadingPending(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [isOwner, token]);
 
   if (loading) {
     return (
@@ -93,12 +123,47 @@ const CompanyProfile: React.FC = () => {
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <Badge variant="outline" className="mb-2 rounded-full border-emerald-200 bg-emerald-50 text-emerald-700">
-                  {t("profile.companyProfileTitle")}
-                </Badge>
                 <h1 className="truncate text-3xl font-bold text-slate-950">{displayName}</h1>
                 <p className="mt-1 text-sm text-muted-foreground">{company.companyFullName}</p>
               </div>
+              {isOwner && (
+                <div className="shrink-0 w-full md:w-auto">
+                  {pendingCompanyApplication ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              disabled
+                              className="w-full md:w-auto flex items-center justify-center gap-2 border-slate-200 shadow-sm opacity-60 cursor-help"
+                            >
+                              <AlertTriangle className="h-4 w-4 text-amber-500" />
+                              {t("recruiter.companyProfileUpdatePending")}
+                            </Button>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs bg-amber-50 border border-amber-200 text-amber-900 p-2.5 text-xs rounded-lg shadow-md">
+                          <p className="font-semibold text-amber-950 mb-1">{t("recruiter.companyProfileUpdatePending")}</p>
+                          <p className="text-amber-900/90">{t("recruiter.companyProfileUpdatePendingDescription")}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => navigate("/recruiter-verification")}
+                      disabled={loadingPending}
+                      className="w-full md:w-auto flex items-center justify-center gap-2 border-slate-200 hover:bg-slate-50 hover:text-slate-950 shadow-sm"
+                    >
+                      <Pencil className="h-4 w-4" />
+                      {t("profile.companyProfileEdit")}
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

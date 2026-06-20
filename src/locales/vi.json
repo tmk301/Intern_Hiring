@@ -67,6 +67,8 @@
   "nav": {
     "profile": "Thông tin cá nhân",
     "logout": "Đăng xuất",
+    "logoutConfirmTitle": "Xác nhận đăng xuất",
+    "logoutConfirmDescription": "Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?",
     "login": "Đăng nhập",
     "register": "Đăng ký",
     "admin": "Quản trị viên",
@@ -341,6 +343,8 @@
     "badge": "RECRUITER",
     "title": "Trang nhà tuyển dụng",
     "description": "Đăng việc làm mới và quản lý trạng thái hiển thị cho các bài đăng của bạn.",
+    "companyProfileUpdatePending": "Yêu cầu cập nhật đang chờ duyệt",
+    "companyProfileUpdatePendingDescription": "Yêu cầu cập nhật hồ sơ công ty của bạn đang chờ admin hoặc moderator duyệt. Thông tin công khai hiện tại chưa thay đổi.",
     "stats": {
       "jobStatsTitle": "Thống kê bài đăng",
       "applicantStatsTitle": "Thống kê ứng viên",
@@ -915,6 +919,10 @@
     "description": "Hoàn tất hồ sơ công ty và gửi cho admin duyệt trước khi trở thành nhà tuyển dụng.",
     "updateTitle": "Chỉnh sửa hồ sơ công ty",
     "updateDescription": "Gửi thông tin cập nhật cho admin duyệt. Hồ sơ công ty trên hệ thống chỉ thay đổi sau khi được duyệt.",
+    "pendingTitle": "Yêu cầu xác thực đang chờ duyệt",
+    "pendingDescription": "Yêu cầu xác thực công ty của bạn đang chờ admin hoặc moderator duyệt.",
+    "pendingUpdateTitle": "Yêu cầu cập nhật hồ sơ công ty đang chờ duyệt",
+    "pendingUpdateDescription": "Yêu cầu cập nhật của bạn đang chờ admin hoặc moderator duyệt. Thông tin công ty công khai hiện tại chưa thay đổi cho tới khi được duyệt.",
     "sections": {
       "branding": "Nhận diện thương hiệu",
       "legal": "Thông tin công ty",

@@ -36,7 +36,7 @@ import {
   type SalaryRangeOption,
 } from "@/components/jobs/jobFilterConfig";
 import { isRecruiterRole } from "@/lib/roles";
-import { recruiterApi, CandidateApplication, CompanyProfile, isApiError, type RecruiterJobChangeLog, type RecruiterJobSnapshot } from "@/lib/api";
+import { recruiterApi, CandidateApplication, CompanyProfile, isApiError, type RecruiterApplication, type RecruiterJobChangeLog, type RecruiterJobSnapshot } from "@/lib/api";
 import { getReviewStatusBadgeClassName, getReviewStatusTranslationKey, getRoleBadgeClassName, getRoleBadgeDarkClassName, normalizeRoleName } from "@/lib/dashboardStyles";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -268,6 +268,7 @@ const RecruiterDashboard: React.FC = () => {
   const [formValue, setFormValue] = useState<JobFormValue>(emptyJobFormValue);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
+  const [pendingCompanyApplication, setPendingCompanyApplication] = useState<RecruiterApplication | undefined>();
   const [loadingCompanyProfile, setLoadingCompanyProfile] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [actionId, setActionId] = useState<string | number | null>(null);
@@ -463,6 +464,7 @@ const RecruiterDashboard: React.FC = () => {
   useEffect(() => {
     if (!token) {
       setCompanyProfile(null);
+      setPendingCompanyApplication(undefined);
       setLoadingCompanyProfile(false);
       return;
     }
@@ -470,15 +472,24 @@ const RecruiterDashboard: React.FC = () => {
     let mounted = true;
     setLoadingCompanyProfile(true);
 
-    recruiterApi.getCompanyProfile(token)
-      .then((profile) => {
-        if (mounted) setCompanyProfile(profile);
-      })
-      .catch((error: unknown) => {
-        if (mounted) setCompanyProfile(null);
-        if (!isApiError(error) || (error.status !== 400 && error.status !== 404)) {
-          toast.error(error instanceof Error ? error.message : t("recruiter.toast.companyProfileLoadError"));
+    Promise.allSettled([
+      recruiterApi.getCompanyProfile(token),
+      recruiterApi.getPendingApplication(token),
+    ])
+      .then(([companyResult, pendingResult]) => {
+        if (!mounted) return;
+
+        if (companyResult.status === "fulfilled") {
+          setCompanyProfile(companyResult.value);
+        } else {
+          setCompanyProfile(null);
+          const error = companyResult.reason as unknown;
+          if (!isApiError(error) || (error.status !== 400 && error.status !== 404)) {
+            toast.error(error instanceof Error ? error.message : t("recruiter.toast.companyProfileLoadError"));
+          }
         }
+
+        setPendingCompanyApplication(pendingResult.status === "fulfilled" ? pendingResult.value : undefined);
       })
       .finally(() => {
         if (mounted) setLoadingCompanyProfile(false);
@@ -839,15 +850,23 @@ const RecruiterDashboard: React.FC = () => {
               <h1 className="text-3xl font-bold text-white">{t("recruiter.title")}</h1>
               <p className="mt-2 max-w-3xl text-sm text-blue-100/90">{t("recruiter.description")}</p>
             </div>
-            <Button type="button" variant="outline" className="bg-white text-slate-900 hover:bg-slate-50 border-transparent shadow-sm w-auto" onClick={loadJobs} disabled={loadingJobs}>
-              {loadingJobs ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-              {t("common.refresh")}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" className="w-auto border-transparent bg-white text-slate-900 shadow-sm hover:bg-slate-50" onClick={loadJobs} disabled={loadingJobs}>
+                {loadingJobs ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                {t("common.refresh")}
+              </Button>
+            </div>
           </div>
         </div>
       </section>
 
       <section className="container mx-auto space-y-6 px-4 py-8 max-w-6xl">
+        {pendingCompanyApplication && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <div className="font-semibold">{t("recruiter.companyProfileUpdatePending")}</div>
+            <p className="mt-1">{t("recruiter.companyProfileUpdatePendingDescription")}</p>
+          </div>
+        )}
         {/* Thống kê */}
         <div className="space-y-3">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t("recruiter.stats.jobStatsTitle")}</h2>
