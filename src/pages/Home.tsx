@@ -11,8 +11,7 @@ import mscBackground from "@/assets/msc.jpg";
 import { useAuth } from "@/context/AuthContext";
 import { isCandidateRole } from "@/lib/roles";
 import { toast } from "sonner";
-import { jobApi, type PublicJobPost } from "@/lib/api";
-import { candidateApi } from "@/lib/api";
+import { candidateApi, companyApi, jobApi, type CompanyProfile, type PublicJobPost } from "@/lib/api";
 import { paginateItems } from "@/lib/pagination";
 import {
     CURRENCY_OPTIONS,
@@ -22,36 +21,6 @@ import {
     WORK_MODE_OPTIONS,
 } from "@/components/jobs/jobFilterConfig";
 import { FavoriteJobButton } from "@/components/jobs/FavoriteJobButton";
-import {
-    defaultManagedSiteConfig,
-    loadManagedSiteConfig,
-    type ManagedSiteConfig,
-} from "@/lib/siteConfig";
-
-const corporatePartners = [
-    { id: 1, name: "ASL", logo: "/carousel/ASL.webp" },
-    { id: 2, name: "Binemo", logo: "/carousel/Binemo.webp" },
-    { id: 3, name: "CP Group", logo: "/carousel/CP.webp" },
-    { id: 4, name: "Greenfeed", logo: "/carousel/Greenfeed.webp" },
-    { id: 5, name: "Happy Land", logo: "/carousel/Happyland.webp" },
-    { id: 6, name: "HTO Group", logo: "/carousel/HTOGroup.webp" },
-    { id: 7, name: "NAB", logo: "/carousel/NAB.webp" },
-    { id: 8, name: "Richs Vietnam", logo: "/carousel/Richs.webp" },
-    { id: 9, name: "Satra", logo: "/carousel/Satra.webp" },
-    { id: 10, name: "Schindler", logo: "/carousel/Schindler.webp" },
-    { id: 11, name: "SGC", logo: "/carousel/SGC.webp" },
-    { id: 12, name: "SGF", logo: "/carousel/SGF.webp" },
-    { id: 13, name: "SGGG", logo: "/carousel/SGGG.webp" },
-    { id: 14, name: "SGL", logo: "/carousel/SGL.webp" },
-    { id: 15, name: "Shinhan Bank", logo: "/carousel/Shinhan.webp" },
-    { id: 16, name: "Smar", logo: "/carousel/Smar.webp" },
-    { id: 17, name: "Smentor", logo: "/carousel/Smentor.webp" },
-    { id: 18, name: "SP", logo: "/carousel/SP.webp" },
-    { id: 19, name: "Tam Chau", logo: "/carousel/TC.webp" },
-    { id: 20, name: "VNPT", logo: "/carousel/VNPT.webp" },
-    { id: 21, name: "WK", logo: "/carousel/WK.webp" },
-    { id: 22, name: "YESCO", logo: "/carousel/YESCO.webp" },
-];
 
 const getOptionLabel = (
     options: Array<{ value: string; labelKey?: string }>,
@@ -67,13 +36,13 @@ const Home: React.FC = () => {
     const navigate = useNavigate();
     const { t, i18n } = useTranslation();
     const { user, token, isAuthenticated } = useAuth();
-    const [managedConfig, setManagedConfig] = useState<ManagedSiteConfig>(defaultManagedSiteConfig);
+    const [approvedCompanies, setApprovedCompanies] = useState<CompanyProfile[]>([]);
     const [featuredJobs, setFeaturedJobs] = useState<PublicJobPost[]>([]);
     const [favoriteJobIds, setFavoriteJobIds] = useState<Set<string | number>>(new Set());
     const [featuredJobPage, setFeaturedJobPage] = useState(1);
     const [featuredJobPageSize, setFeaturedJobPageSize] = useState(5);
     const [searchKeyword, setSearchKeyword] = useState("");
-    const partnerList = managedConfig.partners.length > 0 ? managedConfig.partners : corporatePartners;
+    const partnerList = approvedCompanies.filter((company) => company.logoUrl?.trim());
     const canRequestRecruiterVerification = !isAuthenticated || isCandidateRole(user?.role);
     const numberFormatter = new Intl.NumberFormat(i18n.language?.startsWith("vi") ? "vi-VN" : "en-US");
     const paginatedFeaturedJobs = paginateItems(featuredJobs, featuredJobPage, featuredJobPageSize);
@@ -91,10 +60,6 @@ const Home: React.FC = () => {
     useEffect(() => {
         let mounted = true;
 
-        loadManagedSiteConfig().then((config) => {
-            if (mounted) setManagedConfig(config);
-        });
-
         jobApi.listFeaturedJobs()
             .then((jobs) => {
                 if (mounted) setFeaturedJobs(jobs);
@@ -103,16 +68,16 @@ const Home: React.FC = () => {
                 if (mounted) setFeaturedJobs([]);
             });
 
-        const handleConfigUpdate = (event: Event) => {
-            const nextConfig = (event as CustomEvent<ManagedSiteConfig>).detail;
-            if (nextConfig) setManagedConfig(nextConfig);
-        };
-
-        window.addEventListener("managed-site-config-updated", handleConfigUpdate);
+        companyApi.listCompanies()
+            .then((companies) => {
+                if (mounted) setApprovedCompanies(companies);
+            })
+            .catch(() => {
+                if (mounted) setApprovedCompanies([]);
+            });
 
         return () => {
             mounted = false;
-            window.removeEventListener("managed-site-config-updated", handleConfigUpdate);
         };
     }, []);
 
@@ -357,33 +322,53 @@ const Home: React.FC = () => {
                             {t("home.partnersSubtitle")}
                         </p>
                     </div>
-                    <div className="mt-8 space-y-6 overflow-hidden">
-                        {partnerRows.map((row, rowIndex) => (
-                            <div
-                                key={rowIndex}
-                                className="relative overflow-hidden"
-                                aria-label={t("home.partnerRowAria", { number: rowIndex + 1 })}
-                            >
-                                <div className={`partner-marquee ${row.reverse ? "partner-marquee-reverse" : ""}`}>
-                                    {[...row.partners, ...row.partners].map((p, index) => {
-                                        const isDuplicate = index >= row.partners.length;
+                    {partnerRows.length > 0 ? (
+                        <div className="mt-8 space-y-6 overflow-hidden">
+                            {partnerRows.map((row, rowIndex) => (
+                                <div
+                                    key={rowIndex}
+                                    className="relative overflow-hidden"
+                                    aria-label={t("home.partnerRowAria", { number: rowIndex + 1 })}
+                                >
+                                    <div className={`partner-marquee ${row.reverse ? "partner-marquee-reverse" : ""}`}>
+                                        {[...row.partners, ...row.partners].map((company, index) => {
+                                            const isDuplicate = index >= row.partners.length;
+                                            const companyName = company.companyDisplayName || company.companyFullName;
 
-                                        return (
-                                            <motion.div
-                                                key={`${rowIndex}-${p.id}-${index}`}
-                                                className="partner-marquee-item flex h-24 w-48 items-center justify-center rounded-lg bg-card p-4 shadow-sm hover:shadow-lg cursor-pointer sm:w-56 md:w-60"
-                                                whileHover={{ scale: 1.08 }}
-                                                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                                                aria-hidden={isDuplicate}
-                                            >
-                                                <img src={p.logo} alt={isDuplicate ? "" : p.name} className="max-h-12 object-contain" loading="lazy" />
-                                            </motion.div>
-                                        );
-                                    })}
+                                            return (
+                                                <motion.div
+                                                    key={`${rowIndex}-${company.id}-${index}`}
+                                                    role={isDuplicate ? undefined : "button"}
+                                                    tabIndex={isDuplicate ? -1 : 0}
+                                                    className="partner-marquee-item flex h-24 w-48 items-center justify-center rounded-lg bg-card p-4 shadow-sm hover:shadow-lg cursor-pointer sm:w-56 md:w-60"
+                                                    whileHover={{ scale: 1.08 }}
+                                                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                                                    aria-hidden={isDuplicate}
+                                                    aria-label={companyName}
+                                                    onClick={() => navigate(`/companies/${company.id}`)}
+                                                    onKeyDown={(event) => {
+                                                        if (isDuplicate) return;
+                                                        if (event.key === "Enter" || event.key === " ") {
+                                                            event.preventDefault();
+                                                            navigate(`/companies/${company.id}`);
+                                                        }
+                                                    }}
+                                                >
+                                                    <img src={company.logoUrl} alt={isDuplicate ? "" : companyName} className="max-h-12 object-contain" loading="lazy" />
+                                                </motion.div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <Card className="mt-8">
+                            <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                                {t("home.partnersEmpty")}
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             </section>
 

@@ -643,6 +643,9 @@ export const recruiterApi = {
 };
 
 export const companyApi = {
+  listCompanies: () =>
+    apiRequest<CompanyProfile[]>("/api/companies"),
+
   getCompanyProfile: (id: string | number) =>
     apiRequest<CompanyProfile>(`/api/companies/${encodeURIComponent(String(id))}`),
 
