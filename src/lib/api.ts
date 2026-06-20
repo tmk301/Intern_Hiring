@@ -733,6 +733,12 @@ export const jobApi = {
         apiRequest<PublicJobPost>(`/api/jobs/${encodeURIComponent(String(id))}`, {
             method: "GET",
         }),
+        updateJobCoordinates: (token: string, jobId: string | number, lat: number, lng: number) =>
+    apiRequest<void>(`/api/jobs/${encodeURIComponent(String(jobId))}/coordinates`, {
+      method: "PUT", // Hoặc PATCH tùy theo BE của bạn
+      headers: authHeaders(token),
+      body: JSON.stringify({ latitude: lat, longitude: lng }),
+    }),
 };
 
 export const candidateApi = {

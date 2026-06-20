@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Briefcase, CalendarDays, Loader2, MapPin, FileText } from "lucide-react";
+import { Briefcase, CalendarDays, Loader2, MapPin, FileText, MoreVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -267,6 +268,11 @@ const Jobs: React.FC = () => {
   const [selectedCvId, setSelectedCvId] = useState<string>("");
   const [isApplying, setIsApplying] = useState(false);
 
+  //làm tọa độ
+  const [updateCoordJob, setUpdateCoordJob] = useState<PublicJobPost | null>(null);
+  const [coords, setCoords] = useState({ lat: "", lng: "" });
+  const [isUpdating, setIsUpdating] = useState(false);
+
   useEffect(() => {
     setFilterValue((current) => ({ ...current, keyword: initialKeyword }));
   }, [initialKeyword]);
@@ -388,6 +394,21 @@ const Jobs: React.FC = () => {
 
   const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
 
+  const handleUpdateCoords = async () => {
+    if (!updateCoordJob || !token) return;
+    setIsUpdating(true);
+    try {
+      await jobApi.updateJobCoordinates(token, updateCoordJob.id, Number(coords.lat), Number(coords.lng));
+      toast({ title: "Thành công", description: "Đã cập nhật tọa độ!" });
+      setUpdateCoordJob(null);
+      setCoords({ lat: "", lng: "" });
+    } catch (error) {
+      toast({ title: "Lỗi", description: "Không thể cập nhật tọa độ", variant: "destructive" });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const handleOpenApplyModal = (jobId: string | number) => {
     if (!user || !token) {
       toast({ description: "Vui lòng đăng nhập để nộp đơn", variant: "default" });
@@ -502,6 +523,13 @@ const Jobs: React.FC = () => {
                   )}
                 </CardContent>
                 <CardFooter className="bg-slate-50/50 border-t p-4 flex justify-end">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => setUpdateCoordJob(job)}
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
                   <Button onClick={() => handleOpenApplyModal(job.id)}>
                     Nộp đơn ứng tuyển
                   </Button>
@@ -581,6 +609,33 @@ const Jobs: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+         
+         <Dialog open={!!updateCoordJob} onOpenChange={(open) => !open && setUpdateCoordJob(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cập nhật tọa độ (x, y)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Input 
+              placeholder="Latitude (x)" 
+              value={coords.lat} 
+              onChange={e => setCoords(prev => ({...prev, lat: e.target.value}))} 
+            />
+            <Input 
+              placeholder="Longitude (y)" 
+              value={coords.lng} 
+              onChange={e => setCoords(prev => ({...prev, lng: e.target.value}))} 
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUpdateCoordJob(null)}>Hủy</Button>
+            <Button onClick={handleUpdateCoords} disabled={isUpdating}>
+              {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Lưu"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </main>
   );
 };
