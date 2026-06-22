@@ -187,6 +187,31 @@ export const notificationApi = {
       method: "POST",
       headers: authHeaders(token),
     }),
+
+  markAllAsRead: (token: string) =>
+    apiRequest<void>("/api/notifications/read-all", {
+      method: "POST",
+      headers: authHeaders(token),
+    }),
+
+  delete: (token: string, notificationId: string | number) =>
+    apiRequest<void>(`/api/notifications/${encodeURIComponent(String(notificationId))}`, {
+      method: "DELETE",
+      headers: authHeaders(token),
+    }),
+
+  deleteMany: (token: string, notificationIds: Array<string | number>) =>
+    apiRequest<void>("/api/notifications/bulk", {
+      method: "DELETE",
+      headers: authHeaders(token),
+      body: JSON.stringify(notificationIds.map((id) => Number(id)).filter((id) => Number.isFinite(id))),
+    }),
+
+  deleteAll: (token: string) =>
+    apiRequest<void>("/api/notifications", {
+      method: "DELETE",
+      headers: authHeaders(token),
+    }),
 };
 
 export type AdminUser = ApiUser & {
@@ -202,6 +227,8 @@ export type AdminJobPost = {
   location?: string;
   type?: string;
   salary?: string;
+  currency?: string | null;
+  mode?: string | null;
   experience?: string;
   applicationDeadline?: string | null;
   status?: string;
@@ -220,6 +247,8 @@ export type RecruiterJobPost = {
   location: string | null;
   type: string | null;
   salary: string | null;
+  currency: string | null;
+  mode: string | null;
   experience: string | null;
   applicationDeadline: string | null;
   description: string | null;
@@ -237,7 +266,10 @@ export type CandidateApplication = {
   company?: string | null;
   location?: string | null;
   salary?: string | null;
+  currency?: string | null;
+  mode?: string | null;
   jobType?: string | null;
+  experience?: string | null;
   applicantId: string | number;
   applicantName: string;
   applicantEmail: string;
@@ -253,6 +285,8 @@ export type RecruiterJobPayload = {
   location: string;
   type: string;
   salary?: string;
+  currency?: string | null;
+  mode?: string | null;
   experience?: string;
   applicationDeadline?: string | null;
   description: string;
@@ -263,6 +297,8 @@ export type RecruiterJobSnapshot = {
   location?: string;
   type?: string;
   salary?: string;
+  currency?: string;
+  mode?: string;
   experience?: string;
   applicationDeadline?: string;
   description?: string;
@@ -282,6 +318,7 @@ export type AuditAction =
   | "USER_ROLE_UPDATED"
   | "USER_RESTRICTION_UPDATED"
   | "ADMIN_JOB_CREATED"
+  | "ADMIN_JOB_UPDATED"
   | "ADMIN_JOB_TRASHED"
   | "ADMIN_JOB_RESTORED"
   | "ADMIN_JOB_DELETED"
@@ -374,11 +411,6 @@ export const adminApi = {
       params: { includeTrash },
     }),
 
-  listJobChangeLogs: (token: string, jobId: string | number) =>
-    apiRequest<RecruiterJobChangeLog[]>(`/api/admin/jobs/${encodeURIComponent(String(jobId))}/change-logs`, {
-      headers: authHeaders(token),
-    }),
-
   createJob: (token: string, data: Omit<AdminJobPost, "id" | "createdAt" | "deletedAt" | "status">) =>
     apiRequest<AdminJobPost>("/api/admin/jobs", {
       method: "POST",
@@ -402,6 +434,13 @@ export const adminApi = {
     apiRequest<void>(`/api/admin/jobs/${encodeURIComponent(String(jobId))}`, {
       method: "DELETE",
       headers: authHeaders(token),
+    }),
+
+  toggleJobHidden: (token: string, jobId: string | number, hidden: boolean) =>
+    apiRequest<AdminJobPost>(`/api/admin/jobs/${encodeURIComponent(String(jobId))}/hidden`, {
+      method: "PATCH",
+      headers: authHeaders(token),
+      body: JSON.stringify({ hidden }),
     }),
 };
 
@@ -603,6 +642,17 @@ export const recruiterApi = {
     }),
 };
 
+export const companyApi = {
+  listCompanies: () =>
+    apiRequest<CompanyProfile[]>("/api/companies"),
+
+  getCompanyProfile: (id: string | number) =>
+    apiRequest<CompanyProfile>(`/api/companies/${encodeURIComponent(String(id))}`),
+
+  getCompanyProfileByRecruiter: (recruiterId: string | number) =>
+    apiRequest<CompanyProfile>(`/api/companies/recruiter/${encodeURIComponent(String(recruiterId))}`),
+};
+
 export type ModeratorJobPost = {
   id: string | number;
   title: string;
@@ -610,6 +660,8 @@ export type ModeratorJobPost = {
   company?: string;
   location?: string;
   salary?: string;
+  currency?: string | null;
+  mode?: string | null;
   type?: string;
   experience?: string;
   status?: string;
@@ -623,6 +675,11 @@ export type ModeratorJobPost = {
 };
 
 export const moderatorApi = {
+  listAllJobs: (token: string) =>
+    apiRequest<ModeratorJobPost[]>("/api/moderator/jobs", {
+      headers: authHeaders(token),
+    }),
+
   listPendingJobs: (token: string) =>
     apiRequest<ModeratorJobPost[]>("/api/moderator/jobs/pending", {
       headers: authHeaders(token),
@@ -630,11 +687,6 @@ export const moderatorApi = {
 
   getJobDetail: (token: string, jobId: string | number) =>
     apiRequest<ModeratorJobPost>(`/api/moderator/jobs/${encodeURIComponent(String(jobId))}`, {
-      headers: authHeaders(token),
-    }),
-
-  listJobChangeLogs: (token: string, jobId: string | number) =>
-    apiRequest<RecruiterJobChangeLog[]>(`/api/moderator/jobs/${encodeURIComponent(String(jobId))}/change-logs`, {
       headers: authHeaders(token),
     }),
 
@@ -649,6 +701,19 @@ export const moderatorApi = {
       method: "PATCH",
       headers: authHeaders(token),
     }),
+
+  toggleJobHidden: (token: string, jobId: string | number, hidden: boolean) =>
+    apiRequest<ModeratorJobPost>(`/api/moderator/jobs/${encodeURIComponent(String(jobId))}/hidden`, {
+      method: "PATCH",
+      headers: authHeaders(token),
+      body: JSON.stringify({ hidden }),
+    }),
+
+  trashJob: (token: string, jobId: string | number) =>
+    apiRequest<ModeratorJobPost>(`/api/moderator/jobs/${encodeURIComponent(String(jobId))}/trash`, {
+      method: "PATCH",
+      headers: authHeaders(token),
+    }),
 };
 
 export type PublicJobPost = {
@@ -660,12 +725,16 @@ export type PublicJobPost = {
     location: string | null;
     type: string | null;
     salary: string | null;
+    currency: string | null;
+    mode: string | null;
     experience: string | null;
     applicationDeadline: string | null;
     description: string | null;
     status: string;
     hidden: boolean;
     recruiterId: string | number | null;
+    viewCount: number;
+    favoriteCount: number;
     createdAt: string;
     updatedAt: string | null;
     deletedAt: string | null;
@@ -674,6 +743,11 @@ export type PublicJobPost = {
 export const jobApi = {
     listJobs: () =>
         apiRequest<PublicJobPost[]>("/api/jobs", {
+            method: "GET",
+        }),
+
+    listFeaturedJobs: () =>
+        apiRequest<PublicJobPost[]>("/api/jobs/featured", {
             method: "GET",
         }),
 
@@ -695,5 +769,22 @@ export const candidateApi = {
     apiRequest<CandidateApplication[]>("/api/candidates/applications", {
       headers: authHeaders(token),
       params: { status },
+    }),
+
+  listFavoriteJobs: (token: string) =>
+    apiRequest<PublicJobPost[]>("/api/candidates/favorites", {
+      headers: authHeaders(token),
+    }),
+
+  addFavoriteJob: (token: string, jobId: string | number) =>
+    apiRequest<PublicJobPost>(`/api/candidates/jobs/${encodeURIComponent(String(jobId))}/favorite`, {
+      method: "POST",
+      headers: authHeaders(token),
+    }),
+
+  removeFavoriteJob: (token: string, jobId: string | number) =>
+    apiRequest<PublicJobPost>(`/api/candidates/jobs/${encodeURIComponent(String(jobId))}/favorite`, {
+      method: "DELETE",
+      headers: authHeaders(token),
     }),
 };

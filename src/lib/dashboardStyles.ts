@@ -19,6 +19,21 @@ export const getRoleBadgeClassName = (role?: string | null) => {
   }
 };
 
+export const getRoleBadgeDarkClassName = (role?: string | null) => {
+  switch (normalizeRoleName(role)) {
+    case USER_ROLES.ADMIN:
+      return "border-red-200 bg-white text-red-700 shadow-sm";
+    case USER_ROLES.MODERATOR:
+      return "border-violet-200 bg-white text-violet-700 shadow-sm";
+    case USER_ROLES.RECRUITER:
+      return "border-blue-200 bg-white text-blue-700 shadow-sm";
+    case USER_ROLES.CANDIDATE:
+      return "border-emerald-200 bg-white text-emerald-700 shadow-sm";
+    default:
+      return "border-slate-200 bg-white text-slate-700 shadow-sm";
+  }
+};
+
 export const getReviewStatusBadgeClassName = (status?: string | null) => {
   switch (normalizeReviewStatus(status)) {
     case "ACCEPTED":

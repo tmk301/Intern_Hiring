@@ -10,8 +10,8 @@ import {
   ClipboardList,
   CheckCircle2,
   Eye,
+  EyeOff,
   FileCheck2,
-  History,
   Image,
   Loader2,
   Mail,
@@ -29,13 +29,23 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
-import { adminApi, isApiError, moderatorApi, recruiterApi, type AdminJobPost, type AdminUser, type AuditAction, type AuditLog, type AuditTargetType, type RecruiterApplication, type RecruiterJobChangeLog, type RecruiterJobSnapshot } from "@/lib/api";
+import { adminApi, isApiError, moderatorApi, recruiterApi, type AdminJobPost, type AdminUser, type AuditAction, type AuditLog, type AuditTargetType, type RecruiterApplication } from "@/lib/api";
 import { isAdminRole, USER_ROLES, type UserRole } from "@/lib/roles";
 import { CategoryManagementPanel } from "@/components/admin/CategoryManagementPanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ActionIconButton } from "@/components/ui/action-icon-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -45,13 +55,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getReviewStatusBadgeClassName, getRoleBadgeClassName, normalizeRoleName } from "@/lib/dashboardStyles";
-import { DEFAULT_PAGE_SIZE, getSafePage, paginateItems } from "@/lib/pagination";
+import { getReviewStatusBadgeClassName, getRoleBadgeClassName, getRoleBadgeDarkClassName, normalizeRoleName } from "@/lib/dashboardStyles";
+import { getSafePage, paginateItems } from "@/lib/pagination";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
   defaultEmailTemplateConfig,
@@ -61,12 +70,23 @@ import {
   type EmailTemplateConfig,
   type ManagedSiteConfig,
 } from "@/lib/siteConfig";
+import {
+  WORK_MODE_OPTIONS,
+  JOB_TYPE_OPTIONS,
+  CURRENCY_OPTIONS,
+  getSalaryRangeOption,
+  defaultJobFilterOptions
+} from "@/components/jobs/jobFilterConfig";
 import { supabase } from "@/lib/supabase";
+import { SanityPageSections } from "@/components/sanity/SanityPageSections";
+import { useSanityManagedInterface } from "@/lib/sanityInterfaceText";
 
 type AdminSection = "users" | "jobs" | "employer-requests" | "categories" | "audit-logs" | "email-format";
 type JobStatusFilter = "ALL" | "PENDING" | "APPROVED" | "REJECTED";
-type JobHiddenFilter = "ALL" | "HIDDEN" | "VISIBLE";
+type JobHiddenFilter = "ALL" | "HIDDEN" | "VISIBLE" | "TRASH";
+type JobDeleteMode = "trash" | "permanent";
 type UserSortKey = "email" | "fullName" | "role" | "status";
+type JobSortKey = "title" | "company" | "recruiter" | "createdAt" | "deletedAt" | "status" | "hidden";
 type SortDirection = "asc" | "desc";
 type UserRoleFilter = "ALL" | UserRole;
 type UserStatusFilter = "ALL" | "ACTIVE" | "RESTRICTED";
@@ -85,26 +105,10 @@ const formatDate = (value?: string | null, locale = "en-US") => {
   return date.toLocaleString(locale);
 };
 
-type JobSnapshotField = keyof RecruiterJobSnapshot;
-
-const JOB_SNAPSHOT_FIELDS: JobSnapshotField[] = [
-  "title",
-  "location",
-  "type",
-  "salary",
-  "experience",
-  "applicationDeadline",
-  "description",
-];
-
-const JOB_FIELD_LABELS: Record<JobSnapshotField, string> = {
-  title: "Tiêu đề",
-  location: "Địa điểm",
-  type: "Loại công việc",
-  salary: "Lương",
-  experience: "Kinh nghiệm",
-  applicationDeadline: "Hạn ứng tuyển",
-  description: "Mô tả",
+const getTimeValue = (value?: string | null) => {
+  if (!value) return null;
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? null : time;
 };
 
 const getPrimaryCvUrl = (user: AdminUser) => {
@@ -171,6 +175,7 @@ const auditActions: AuditAction[] = [
   "USER_ROLE_UPDATED",
   "USER_RESTRICTION_UPDATED",
   "ADMIN_JOB_CREATED",
+  "ADMIN_JOB_UPDATED",
   "ADMIN_JOB_TRASHED",
   "ADMIN_JOB_RESTORED",
   "ADMIN_JOB_DELETED",
@@ -192,6 +197,33 @@ const adminSections: AdminSection[] = ["users", "jobs", "employer-requests", "ca
 const SANITY_STUDIO_URL = import.meta.env.VITE_SANITY_STUDIO_URL || "http://localhost:3333";
 const EMAIL_TEMPLATE_IMAGE_BUCKET = "company";
 const EMAIL_TEMPLATE_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
+const isDefaultBrandName = (name?: string) => {
+  if (!name) return true;
+  const normalized = name.trim().toLowerCase();
+  return normalized === "" || normalized === "internhiring" || normalized === "intern hiring";
+};
+
+const isDefaultFontSize = (size?: number) => {
+  return !size || size === 15;
+};
+
+const isDefaultFooterText = (text?: string) => {
+  if (!text) return true;
+  const normalized = text
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\u0111/g, "d")
+    .replace(/\u0110/g, "d");
+  
+  const textNormalized = normalized.replace(/[^a-z0-9]/g, "");
+  return (
+    textNormalized === "" ||
+    textNormalized.includes("emailnayduocguituhethong") ||
+    textNormalized.includes("thisemailwassentfrominternhiring")
+  );
+};
 
 const safeUploadFileName = (name: string) =>
   name
@@ -202,8 +234,122 @@ const safeUploadFileName = (name: string) =>
 
 const AdminDashboard: React.FC = () => {
   const { t, i18n } = useTranslation();
+  const {text: uiText, pageContent, theme} = useSanityManagedInterface("/admin");
+  const adminCardStyle = (name: string): React.CSSProperties => ({
+    backgroundColor: pageContent[`${name}CardBackgroundColor`] ? String(pageContent[`${name}CardBackgroundColor`]) : undefined,
+    borderColor: pageContent[`${name}CardBorderColor`] ? String(pageContent[`${name}CardBorderColor`]) : undefined,
+    color: pageContent[`${name}CardTextColor`] ? String(pageContent[`${name}CardTextColor`]) : undefined,
+  });
+  const adminCardTextStyle = (name: string): React.CSSProperties => ({
+    color: pageContent[`${name}CardTextColor`] ? String(pageContent[`${name}CardTextColor`]) : undefined,
+  });
+  const adminCardImage = (name: string) => pageContent[`${name}CardImageUrl`] ? String(pageContent[`${name}CardImageUrl`]) : "";
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const getAuditLogDescription = useCallback((log: AuditLog) => {
+    const metadata = log.metadata || {};
+    const title = metadata.title || "";
+    const jobId = metadata.jobId || String(log.targetId || "");
+    const hidden = metadata.hidden;
+
+    switch (log.action) {
+      case "USER_ROLE_UPDATED":
+        return t("admin.auditLogs.descriptions.USER_ROLE_UPDATED", {
+          email: metadata.email || "",
+          role: t("role." + metadata.newRole, { defaultValue: metadata.newRole }),
+          defaultValue: log.description
+        });
+      case "USER_RESTRICTION_UPDATED":
+        return t("admin.auditLogs.descriptions.USER_RESTRICTION_UPDATED", {
+          email: metadata.email || "",
+          restricted: metadata.restricted === "true" ? t("admin.users.restricted") : t("admin.users.active"),
+          defaultValue: log.description
+        });
+      case "ADMIN_JOB_CREATED":
+        return t("admin.auditLogs.descriptions.ADMIN_JOB_CREATED", {
+          title,
+          defaultValue: log.description
+        });
+      case "ADMIN_JOB_UPDATED":
+        return t("admin.auditLogs.descriptions.ADMIN_JOB_UPDATED", {
+          title,
+          status: hidden === "true" ? t("admin.jobs.filters.hiddenOnly") : t("admin.jobs.filters.visibleOnly"),
+          defaultValue: log.description
+        });
+      case "ADMIN_JOB_TRASHED":
+        return t("admin.auditLogs.descriptions.ADMIN_JOB_TRASHED", {
+          title,
+          defaultValue: log.description
+        });
+      case "ADMIN_JOB_RESTORED":
+        return t("admin.auditLogs.descriptions.ADMIN_JOB_RESTORED", {
+          title,
+          defaultValue: log.description
+        });
+      case "ADMIN_JOB_DELETED":
+        return t("admin.auditLogs.descriptions.ADMIN_JOB_DELETED", {
+          jobId,
+          defaultValue: log.description
+        });
+      case "JOB_APPROVED":
+        return t("admin.auditLogs.descriptions.JOB_APPROVED", {
+          title,
+          defaultValue: log.description
+        });
+      case "JOB_REJECTED":
+        return t("admin.auditLogs.descriptions.JOB_REJECTED", {
+          title,
+          defaultValue: log.description
+        });
+      case "CATEGORY_CREATED":
+        return t("admin.auditLogs.descriptions.CATEGORY_CREATED", {
+          label: metadata.label || "",
+          categoryKey: metadata.categoryKey || "",
+          defaultValue: log.description
+        });
+      case "CATEGORY_UPDATED":
+        return t("admin.auditLogs.descriptions.CATEGORY_UPDATED", {
+          label: metadata.label || "",
+          categoryKey: metadata.categoryKey || "",
+          defaultValue: log.description
+        });
+      case "CATEGORY_DELETED":
+        return t("admin.auditLogs.descriptions.CATEGORY_DELETED", {
+          categoryOptionId: metadata.categoryOptionId || String(log.targetId || ""),
+          defaultValue: log.description
+        });
+      case "RECRUITER_APPLICATION_APPROVED":
+        return t("admin.auditLogs.descriptions.RECRUITER_APPLICATION_APPROVED", {
+          email: metadata.applicantEmail || "",
+          defaultValue: log.description
+        });
+      case "RECRUITER_APPLICATION_REJECTED":
+        return t("admin.auditLogs.descriptions.RECRUITER_APPLICATION_REJECTED", {
+          email: metadata.applicantEmail || "",
+          defaultValue: log.description
+        });
+      case "RECRUITER_FORM_FIELD_CREATED":
+        return t("admin.auditLogs.descriptions.RECRUITER_FORM_FIELD_CREATED", {
+          label: metadata.label || "",
+          name: metadata.name || "",
+          defaultValue: log.description
+        });
+      case "RECRUITER_FORM_FIELD_UPDATED":
+        return t("admin.auditLogs.descriptions.RECRUITER_FORM_FIELD_UPDATED", {
+          label: metadata.label || "",
+          name: metadata.name || "",
+          defaultValue: log.description
+        });
+      case "RECRUITER_FORM_FIELD_DELETED":
+        return t("admin.auditLogs.descriptions.RECRUITER_FORM_FIELD_DELETED", {
+          fieldId: metadata.fieldId || String(log.targetId || ""),
+          defaultValue: log.description
+        });
+      default:
+        return log.description;
+    }
+  }, [t]);
   const { user, token, isAuthenticated, isLoading } = useAuth();
   const emailImageInputRef = useRef<HTMLInputElement | null>(null);
   const [activeSection, setActiveSection] = useState<AdminSection>("users");
@@ -212,13 +358,14 @@ const AdminDashboard: React.FC = () => {
   const [requests, setRequests] = useState<RecruiterApplication[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [auditTotal, setAuditTotal] = useState(0);
+  const [auditPage, setAuditPage] = useState(0);
+  const [auditPageSize, setAuditPageSize] = useState(20);
   const [auditAction, setAuditAction] = useState<AuditAction | "">("");
   const [auditTargetType, setAuditTargetType] = useState<AuditTargetType | "">("");
   const [auditActorEmail, setAuditActorEmail] = useState("");
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [selectedJob, setSelectedJob] = useState<AdminJobPost | null>(null);
-  const [selectedJobChangeLogs, setSelectedJobChangeLogs] = useState<RecruiterJobChangeLog[]>([]);
-  const [loadingJobChangeLogs, setLoadingJobChangeLogs] = useState(false);
+  const [jobPendingDelete, setJobPendingDelete] = useState<{ job: AdminJobPost; mode: JobDeleteMode } | null>(null);
   const [rejectingRequest, setRejectingRequest] = useState<RecruiterApplication | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [loadingData, setLoadingData] = useState(true);
@@ -226,19 +373,23 @@ const AdminDashboard: React.FC = () => {
   const [jobStatusFilter, setJobStatusFilter] = useState<JobStatusFilter>("ALL");
   const [jobHiddenFilter, setJobHiddenFilter] = useState<JobHiddenFilter>("ALL");
   const [jobDateFilter, setJobDateFilter] = useState("");
+  const [userPage, setUserPage] = useState(1);
+  const [userPageSize, setUserPageSize] = useState(10);
+  const [activeJobPage, setActiveJobPage] = useState(1);
+  const [trashedJobPage, setTrashedJobPage] = useState(1);
+  const [jobPageSize, setJobPageSize] = useState(10);
   const [userSort, setUserSort] = useState<{ key: UserSortKey; direction: SortDirection }>({
     key: "email",
     direction: "asc",
   });
+  const [jobSort, setJobSort] = useState<{ key: JobSortKey; direction: SortDirection }>({
+    key: "createdAt",
+    direction: "desc",
+  });
   const [userRoleFilter, setUserRoleFilter] = useState<UserRoleFilter>("ALL");
   const [userStatusFilter, setUserStatusFilter] = useState<UserStatusFilter>("ALL");
 
-  const usersPage = getSafePage(searchParams.get("usersPage"));
-  const pendingJobsPage = getSafePage(searchParams.get("pendingJobsPage"));
-  const approvedJobsPage = getSafePage(searchParams.get("approvedJobsPage"));
-  const trashJobsPage = getSafePage(searchParams.get("trashJobsPage"));
-  const auditPage = getSafePage(searchParams.get("auditPage"));
-
+          
   const setUrlPage = (key: string, page: number) => {
     const next = new URLSearchParams(searchParams);
     next.set(key, String(page));
@@ -247,27 +398,24 @@ const AdminDashboard: React.FC = () => {
 
   const setAuditUrlPage = (page: number) => setUrlPage("auditPage", page);
 
-  const resetAuditUrlPage = () => setAuditUrlPage(1);
+  const resetAuditPage = () => {
+    setAuditPage(0);
+    setAuditUrlPage(1);
+  };
   const [managedConfig, setManagedConfig] = useState<ManagedSiteConfig>(defaultManagedSiteConfig);
   const [emailTemplate, setEmailTemplate] = useState<EmailTemplateConfig>(defaultEmailTemplateConfig);
   const [savingEmailTemplate, setSavingEmailTemplate] = useState(false);
   const [uploadingEmailImage, setUploadingEmailImage] = useState(false);
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
 
   const activeJobs = useMemo(() => jobs.filter((job) => !isTrashedJob(job)), [jobs]);
   const trashedJobs = useMemo(() => jobs.filter(isTrashedJob), [jobs]);
-  const pendingJobs = useMemo(
-    () => activeJobs.filter((job) => normalizeJobStatus(job.status) === "PENDING"),
-    [activeJobs],
-  );
-  const approvedJobs = useMemo(
-    () => activeJobs.filter((job) => normalizeJobStatus(job.status) === "APPROVED"),
-    [activeJobs],
-  );
   const applyJobFilters = useCallback(
     (items: AdminJobPost[]) => items.filter((job) => {
       const statusMatches = jobStatusFilter === "ALL" || normalizeJobStatus(job.status) === jobStatusFilter;
       const hiddenMatches =
         jobHiddenFilter === "ALL" ||
+        jobHiddenFilter === "TRASH" ||
         (jobHiddenFilter === "HIDDEN" ? Boolean(job.hidden) : !job.hidden);
       const dateMatches = !jobDateFilter || job.createdAt?.slice(0, 10) === jobDateFilter;
 
@@ -275,9 +423,38 @@ const AdminDashboard: React.FC = () => {
     }),
     [jobDateFilter, jobHiddenFilter, jobStatusFilter],
   );
-  const filteredPendingJobs = useMemo(() => applyJobFilters(pendingJobs), [applyJobFilters, pendingJobs]);
-  const filteredApprovedJobs = useMemo(() => applyJobFilters(approvedJobs), [applyJobFilters, approvedJobs]);
+  const filteredActiveJobs = useMemo(() => applyJobFilters(activeJobs), [activeJobs, applyJobFilters]);
   const filteredTrashedJobs = useMemo(() => applyJobFilters(trashedJobs), [applyJobFilters, trashedJobs]);
+  const sortJobs = useCallback(
+    (items: AdminJobPost[]) =>
+      [...items].sort((first, second) => {
+        switch (jobSort.key) {
+          case "title":
+            return compareNullable(first.title, second.title, jobSort.direction);
+          case "company":
+            return compareNullable(first.company ?? null, second.company ?? null, jobSort.direction);
+          case "recruiter":
+            return compareNullable(
+              first.employerEmail || first.employerName || null,
+              second.employerEmail || second.employerName || null,
+              jobSort.direction,
+            );
+          case "createdAt":
+            return compareNullable(getTimeValue(first.createdAt), getTimeValue(second.createdAt), jobSort.direction);
+          case "deletedAt":
+            return compareNullable(getTimeValue(first.deletedAt), getTimeValue(second.deletedAt), jobSort.direction);
+          case "status":
+            return compareNullable(normalizeJobStatus(first.status), normalizeJobStatus(second.status), jobSort.direction);
+          case "hidden":
+            return compareNullable(first.hidden ? 1 : 0, second.hidden ? 1 : 0, jobSort.direction);
+          default:
+            return 0;
+        }
+      }),
+    [jobSort.direction, jobSort.key],
+  );
+  const sortedActiveJobs = useMemo(() => sortJobs(filteredActiveJobs), [filteredActiveJobs, sortJobs]);
+  const sortedTrashedJobs = useMemo(() => sortJobs(filteredTrashedJobs), [filteredTrashedJobs, sortJobs]);
   const pendingRequests = useMemo(
     () => requests.filter((request) => request.status === "PENDING"),
     [requests],
@@ -315,10 +492,18 @@ const AdminDashboard: React.FC = () => {
         }),
     [userRoleFilter, userSort.direction, userSort.key, userStatusFilter, users],
   );
-  const pagedUsers = paginateItems(sortedUsers, usersPage, DEFAULT_PAGE_SIZE);
-  const pagedPendingJobs = paginateItems(filteredPendingJobs, pendingJobsPage, DEFAULT_PAGE_SIZE);
-  const pagedApprovedJobs = paginateItems(filteredApprovedJobs, approvedJobsPage, DEFAULT_PAGE_SIZE);
-  const pagedTrashedJobs = paginateItems(filteredTrashedJobs, trashJobsPage, DEFAULT_PAGE_SIZE);
+          const paginatedUsers = useMemo(
+    () => paginateItems(sortedUsers, userPage, userPageSize),
+    [sortedUsers, userPage, userPageSize],
+  );
+  const paginatedActiveJobs = useMemo(
+    () => paginateItems(sortedActiveJobs, activeJobPage, jobPageSize),
+    [activeJobPage, jobPageSize, sortedActiveJobs],
+  );
+  const paginatedTrashedJobs = useMemo(
+    () => paginateItems(sortedTrashedJobs, trashedJobPage, jobPageSize),
+    [jobPageSize, sortedTrashedJobs, trashedJobPage],
+  );
   const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
   const formatAdminDate = useCallback((value?: string | null) => formatDate(value, dateLocale), [dateLocale]);
   const selectedUserCvUrl = useMemo(
@@ -385,6 +570,8 @@ const AdminDashboard: React.FC = () => {
     if (requestedSection && adminSections.includes(requestedSection)) {
       setActiveSection(requestedSection);
     }
+
+    setAuditPage(getSafePage(searchParams.get("auditPage")) - 1);
   }, [searchParams]);
 
   const openSection = (section: AdminSection) => {
@@ -400,8 +587,8 @@ const AdminDashboard: React.FC = () => {
     if (!token) return;
     try {
       const page = await adminApi.listAuditLogs(token, {
-        page: auditPage - 1,
-        size: DEFAULT_PAGE_SIZE,
+        page: auditPage,
+        size: auditPageSize,
         action: auditAction,
         targetType: auditTargetType,
         actorEmail: auditActorEmail.trim(),
@@ -411,7 +598,23 @@ const AdminDashboard: React.FC = () => {
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, t("admin.auditLogs.loadError")));
     }
-  }, [auditAction, auditActorEmail, auditPage, auditTargetType, token, t]);
+  }, [auditAction, auditActorEmail, auditPage, auditPageSize, auditTargetType, token, t]);
+
+  const loadEmailTemplateConfig = useCallback(async () => {
+    try {
+      const config = await loadManagedSiteConfig();
+      setManagedConfig(config);
+      setEmailTemplate(config.emailTemplate);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, t("admin.emailFormat.loadError", { defaultValue: "Could not load email format." })));
+    }
+  }, [t]);
+
+  useEffect(() => {
+    if (activeSection === "email-format") {
+      loadEmailTemplateConfig();
+    }
+  }, [activeSection, loadEmailTemplateConfig]);
 
   const loadData = useCallback(async () => {
     if (!token) return;
@@ -434,7 +637,7 @@ const AdminDashboard: React.FC = () => {
         setJobs(jobResult.value);
       } else {
         setJobs([]);
-        toast.error(getErrorMessage(jobResult.reason, "Không thể tải danh sách JD."));
+        toast.error(getErrorMessage(jobResult.reason, t("admin.jobs.loadError")));
       }
 
       if (requestResult.status === "fulfilled") {
@@ -476,6 +679,15 @@ const AdminDashboard: React.FC = () => {
       loadAuditLogs();
     }
   }, [activeSection, loadAuditLogs]);
+
+  useEffect(() => {
+    setUserPage(1);
+  }, [userRoleFilter, userSort.direction, userSort.key, userStatusFilter]);
+
+  useEffect(() => {
+    setActiveJobPage(1);
+    setTrashedJobPage(1);
+  }, [jobDateFilter, jobHiddenFilter, jobSort.direction, jobSort.key, jobStatusFilter]);
 
   const requireConfirm = (message: string) => window.confirm(message);
 
@@ -597,7 +809,6 @@ const AdminDashboard: React.FC = () => {
 
   const handleDeleteJobPermanently = async (job: AdminJobPost) => {
     if (!token) return;
-    if (!requireConfirm(t("admin.deleteJobConfirm"))) return;
 
     setActionId(job.id);
     try {
@@ -609,6 +820,18 @@ const AdminDashboard: React.FC = () => {
     } finally {
       setActionId(null);
     }
+  };
+
+  const confirmJobDelete = async () => {
+    if (!jobPendingDelete) return;
+
+    const { job, mode } = jobPendingDelete;
+    if (mode === "trash") {
+      await handleTrashJob(job);
+    } else {
+      await handleDeleteJobPermanently(job);
+    }
+    setJobPendingDelete(null);
   };
 
   const handleReviewRequest = async (
@@ -654,29 +877,30 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const openJobDetail = async (job: AdminJobPost) => {
+  const handleToggleJobHidden = async (job: AdminJobPost) => {
     if (!token) return;
 
-    setSelectedJob(job);
-    setSelectedJobChangeLogs([]);
-    setLoadingJobChangeLogs(true);
+    setActionId(job.id);
     try {
-      setSelectedJobChangeLogs(await adminApi.listJobChangeLogs(token, job.id));
+      await adminApi.toggleJobHidden(token, job.id, !job.hidden);
+      toast.success(job.hidden ? t("recruiter.toast.showSuccess") : t("recruiter.toast.hideSuccess"));
+      await loadData();
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Không thể tải lịch sử thay đổi bài viết"));
+      toast.error(error instanceof Error ? error.message : t("recruiter.toast.statusError"));
     } finally {
-      setLoadingJobChangeLogs(false);
+      setActionId(null);
     }
-  };
-
-  const closeJobDetail = () => {
-    setSelectedJob(null);
-    setSelectedJobChangeLogs([]);
-    setLoadingJobChangeLogs(false);
   };
 
   const updateUserSort = (key: UserSortKey) => {
     setUserSort((current) => ({
+      key,
+      direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+
+  const updateJobSort = (key: JobSortKey) => {
+    setJobSort((current) => ({
       key,
       direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
     }));
@@ -691,6 +915,22 @@ const AdminDashboard: React.FC = () => {
         type="button"
         className="inline-flex items-center gap-2 rounded-sm text-left font-medium transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         onClick={() => updateUserSort(key)}
+      >
+        <span>{label}</span>
+        <SortIcon className={`h-3.5 w-3.5 ${active ? "text-primary" : "text-muted-foreground"}`} />
+      </button>
+    );
+  };
+
+  const renderJobSortableHeader = (key: JobSortKey, label: string) => {
+    const active = jobSort.key === key;
+    const SortIcon = !active ? ArrowUpDown : jobSort.direction === "asc" ? ArrowUp : ArrowDown;
+
+    return (
+      <button
+        type="button"
+        className="inline-flex items-center gap-2 rounded-sm text-left font-medium transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        onClick={() => updateJobSort(key)}
       >
         <span>{label}</span>
         <SortIcon className={`h-3.5 w-3.5 ${active ? "text-primary" : "text-muted-foreground"}`} />
@@ -714,7 +954,7 @@ const AdminDashboard: React.FC = () => {
         ...managedConfig,
         emailTemplate: {
           ...emailTemplate,
-          fontSize: Math.max(12, Math.min(20, Number(emailTemplate.fontSize) || defaultEmailTemplateConfig.fontSize)),
+          fontSize: Math.max(12, Math.min(25, Number(emailTemplate.fontSize) || defaultEmailTemplateConfig.fontSize)),
         },
       };
       const savedConfig = await saveManagedSiteConfig(nextConfig, token);
@@ -732,12 +972,7 @@ const AdminDashboard: React.FC = () => {
     setEmailTemplate(defaultEmailTemplateConfig);
   };
 
-  const handleEmailHeaderImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-
-    if (!file) return;
-
+  const uploadEmailHeaderImage = async (file: File) => {
     if (!file.type.startsWith("image/")) {
       toast.error(t("admin.emailFormat.imageInvalid", { defaultValue: "Please choose a valid image file." }));
       return;
@@ -776,6 +1011,14 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleEmailHeaderImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+    await uploadEmailHeaderImage(file);
+  };
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -794,112 +1037,129 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <section className="border-b bg-white">
-        <div className="container mx-auto px-4 py-8">
+      <SanityPageSections routePath="/admin" placement="top" />
+      {pageContent.heroVisible !== false && <section
+        className="hero-gradient flex min-h-[220px] items-center bg-cover bg-center bg-no-repeat py-8 text-white shadow-sm md:min-h-[300px]"
+        style={theme.headerImageUrl ? {
+          backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.72), rgba(30, 64, 175, 0.72)), url(${theme.headerImageUrl})`,
+          backgroundSize: "cover",
+          backgroundPosition: theme.headerImagePosition || "center",
+          backgroundRepeat: "no-repeat",
+        } : undefined}
+      >
+        <div className="container mx-auto px-4 max-w-6xl">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <Badge variant="outline" className={`mb-3 px-5 py-2 text-sm ${getRoleBadgeClassName(USER_ROLES.ADMIN)}`}>
-                {t("role.ADMIN")}
+              <Badge variant="outline" className={`mb-3 px-5 py-2 text-sm ${getRoleBadgeDarkClassName(USER_ROLES.ADMIN)}`}>
+                {uiText("role.ADMIN", t("role.ADMIN"))}
               </Badge>
-              <h1 className="text-3xl font-bold text-slate-950">{t("admin.title")}</h1>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {t("admin.description")}
+              <h1 className="text-3xl font-bold text-white">{uiText("admin.title", t("admin.title"))}</h1>
+              <p className="mt-2 text-sm text-blue-100/90">
+                {uiText("admin.description", t("admin.description"))}
               </p>
             </div>
-            <Button variant="outline" onClick={loadData} disabled={loadingData}>
+            <Button variant="outline" className="bg-white text-slate-900 hover:bg-slate-50 border-transparent shadow-sm w-auto" onClick={loadData} disabled={loadingData}>
               {loadingData ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               {t("common.refresh")}
             </Button>
           </div>
         </div>
-      </section>
+      </section>}
 
-      <section className="container mx-auto space-y-6 px-4 py-8">
+      <SanityPageSections routePath="/admin" placement="afterHero" />
+
+      <section className="container mx-auto space-y-6 px-4 py-8 max-w-6xl">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-          <Card
+          {pageContent.usersCardVisible !== false && <Card
             className={`cursor-pointer transition hover:shadow-md ${activeSection === "users" ? "border-primary" : ""}`}
+            style={adminCardStyle("users")}
             onClick={() => openSection("users")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("admin.stats.usersTitle")}</CardTitle>
-              <Users className="h-5 w-5 text-primary" />
+              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("users")}>{uiText("admin.stats.usersTitle", t("admin.stats.usersTitle"))}</CardTitle>
+              {adminCardImage("users") ? <img src={adminCardImage("users")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Users className="h-5 w-5 text-primary" />}
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{users.length}</div>
-              <p className="text-xs text-muted-foreground">{t("admin.stats.usersDescription")}</p>
+              <p className="text-xs text-muted-foreground" style={adminCardTextStyle("users")}>{uiText("admin.stats.usersDescription", t("admin.stats.usersDescription"))}</p>
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card
+          {pageContent.jobsCardVisible !== false && <Card
             className={`cursor-pointer transition hover:shadow-md ${activeSection === "jobs" ? "border-primary" : ""}`}
+            style={adminCardStyle("jobs")}
             onClick={() => openSection("jobs")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("admin.stats.jobsTitle")}</CardTitle>
-              <Briefcase className="h-5 w-5 text-primary" />
+              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("jobs")}>{uiText("admin.stats.jobsTitle", t("admin.stats.jobsTitle"))}</CardTitle>
+              {adminCardImage("jobs") ? <img src={adminCardImage("jobs")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Briefcase className="h-5 w-5 text-primary" />}
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{pendingJobs.length}</div>
-              <p className="text-xs text-muted-foreground">{t("admin.stats.trashCount", { count: trashedJobs.length })}</p>
+              <div className="text-3xl font-bold">{jobs.length}</div>
+              <p className="text-xs text-muted-foreground" style={adminCardTextStyle("jobs")}>{t("admin.stats.trashCount", { count: trashedJobs.length })}</p>
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card
+          {pageContent.categoriesCardVisible !== false && <Card
             className={`cursor-pointer transition hover:shadow-md ${activeSection === "categories" ? "border-primary" : ""}`}
+            style={adminCardStyle("categories")}
             onClick={() => openSection("categories")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("admin.stats.categoriesTitle")}</CardTitle>
-              <Settings2 className="h-5 w-5 text-primary" />
+              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("categories")}>{uiText("admin.stats.categoriesTitle", t("admin.stats.categoriesTitle"))}</CardTitle>
+              {adminCardImage("categories") ? <img src={adminCardImage("categories")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Settings2 className="h-5 w-5 text-amber-600" />}
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">{t("admin.stats.categoriesDescription")}</p>
+              <p className="text-sm text-muted-foreground" style={adminCardTextStyle("categories")}>{uiText("admin.stats.categoriesDescription", t("admin.stats.categoriesDescription"))}</p>
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card
+          {pageContent.auditLogsCardVisible !== false && <Card
             className={`cursor-pointer transition hover:shadow-md ${activeSection === "audit-logs" ? "border-primary" : ""}`}
+            style={adminCardStyle("auditLogs")}
             onClick={() => openSection("audit-logs")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("admin.stats.auditLogsTitle")}</CardTitle>
-              <ClipboardList className="h-5 w-5 text-primary" />
+              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("auditLogs")}>{uiText("admin.stats.auditLogsTitle", t("admin.stats.auditLogsTitle"))}</CardTitle>
+              {adminCardImage("auditLogs") ? <img src={adminCardImage("auditLogs")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <ClipboardList className="h-5 w-5 text-red-600" />}
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{auditTotal}</div>
-              <p className="text-xs text-muted-foreground">{t("admin.stats.auditLogsDescription")}</p>
+              <p className="text-xs text-muted-foreground" style={adminCardTextStyle("auditLogs")}>{uiText("admin.stats.auditLogsDescription", t("admin.stats.auditLogsDescription"))}</p>
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card
+          {pageContent.emailFormatCardVisible !== false && <Card
             className={`cursor-pointer transition hover:shadow-md ${activeSection === "email-format" ? "border-primary" : ""}`}
+            style={adminCardStyle("emailFormat")}
             onClick={() => openSection("email-format")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {t("admin.stats.emailFormatTitle", { defaultValue: "Email format" })}
+              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("emailFormat")}>
+                {uiText("admin.stats.emailFormatTitle", t("admin.stats.emailFormatTitle", { defaultValue: "Email format" }))}
               </CardTitle>
-              <Mail className="h-5 w-5 text-primary" />
+              {adminCardImage("emailFormat") ? <img src={adminCardImage("emailFormat")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Mail className="h-5 w-5 text-emerald-600" />}
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                {t("admin.stats.emailFormatDescription", { defaultValue: "Colors, font size, header image" })}
+              <p className="text-sm text-muted-foreground" style={adminCardTextStyle("emailFormat")}>
+                {uiText("admin.stats.emailFormatDescription", t("admin.stats.emailFormatDescription", { defaultValue: "Colors, font size, header image" }))}
               </p>
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card
+          {pageContent.loginBrandingCardVisible !== false && <Card
             className="cursor-pointer transition hover:border-primary hover:shadow-md"
+            style={adminCardStyle("loginBranding")}
             onClick={openLoginBrandingStudio}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("admin.stats.loginBrandingTitle")}</CardTitle>
-              <Palette className="h-5 w-5 text-primary" />
+              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("loginBranding")}>{uiText("admin.stats.loginBrandingTitle", t("admin.stats.loginBrandingTitle"))}</CardTitle>
+              {adminCardImage("loginBranding") ? <img src={adminCardImage("loginBranding")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Palette className="h-5 w-5 text-amber-600" />}
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">{t("admin.stats.loginBrandingDescription")}</p>
+              <p className="text-sm text-muted-foreground" style={adminCardTextStyle("loginBranding")}>{uiText("admin.stats.loginBrandingDescription", t("admin.stats.loginBrandingDescription"))}</p>
             </CardContent>
-          </Card>
+          </Card>}
         </div>
 
         {loadingData ? (
@@ -910,55 +1170,67 @@ const AdminDashboard: React.FC = () => {
           </Card>
         ) : (
           <>
-            {activeSection === "users" && (
-              <Card>
+            {activeSection === "users" && pageContent.usersPanelVisible !== false && (
+              <Card style={{
+                backgroundColor: pageContent.usersPanelBackgroundColor ? String(pageContent.usersPanelBackgroundColor) : undefined,
+                borderColor: pageContent.usersPanelBorderColor ? String(pageContent.usersPanelBorderColor) : undefined,
+                color: pageContent.usersPanelTextColor ? String(pageContent.usersPanelTextColor) : undefined,
+              }}>
                 <CardHeader>
-                  <CardTitle>{t("admin.users.title")}</CardTitle>
+                  <CardTitle style={{color: pageContent.usersPanelTextColor ? String(pageContent.usersPanelTextColor) : undefined}}>{uiText("admin.users.title", t("admin.users.title"))}</CardTitle>
                 </CardHeader>
                 <CardContent>
+                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <Select value={userRoleFilter} onValueChange={(value) => setUserRoleFilter(value as UserRoleFilter)}>
+                        <SelectTrigger className="w-full sm:w-40 h-10 bg-white">
+                          <SelectValue placeholder={t("common.role")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ALL">{t("admin.users.allRoles")}</SelectItem>
+                          {roleOptions.map((role) => (
+                            <SelectItem key={role} value={role}>
+                              {t(`role.${role}`)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={userStatusFilter} onValueChange={(value) => setUserStatusFilter(value as UserStatusFilter)}>
+                        <SelectTrigger className="w-full sm:w-40 h-10 bg-white">
+                          <SelectValue placeholder={t("common.status")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ALL">{t("admin.users.allStatuses")}</SelectItem>
+                          <SelectItem value="ACTIVE">{t("admin.users.active")}</SelectItem>
+                          <SelectItem value="RESTRICTED">{t("admin.users.restricted")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setUserRoleFilter("ALL");
+                          setUserStatusFilter("ALL");
+                        }}
+                        className="h-10"
+                        disabled={userRoleFilter === "ALL" && userStatusFilter === "ALL"}
+                      >
+                        {t("jobs.filters.reset")}
+                      </Button>
+                    </div>
+                  </div>
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>{renderUserSortableHeader("email", "Email")}</TableHead>
                         <TableHead>{renderUserSortableHeader("fullName", t("admin.users.fullName"))}</TableHead>
-                        <TableHead>
-                          <div className="flex flex-col gap-2">
-                            {renderUserSortableHeader("role", t("common.role"))}
-                            <Select value={userRoleFilter} onValueChange={(value) => setUserRoleFilter(value as UserRoleFilter)}>
-                              <SelectTrigger className="h-8 w-36 bg-white text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="ALL">{t("admin.users.allRoles")}</SelectItem>
-                                {roleOptions.map((role) => (
-                                  <SelectItem key={role} value={role}>
-                                    {t(`role.${role}`)}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </TableHead>
-                        <TableHead>
-                          <div className="flex flex-col gap-2">
-                            {renderUserSortableHeader("status", t("common.status"))}
-                            <Select value={userStatusFilter} onValueChange={(value) => setUserStatusFilter(value as UserStatusFilter)}>
-                              <SelectTrigger className="h-8 w-40 bg-white text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="ALL">{t("admin.users.allStatuses")}</SelectItem>
-                                <SelectItem value="ACTIVE">{t("admin.users.active")}</SelectItem>
-                                <SelectItem value="RESTRICTED">{t("admin.users.restricted")}</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </TableHead>
+                        <TableHead>{renderUserSortableHeader("role", t("common.role"))}</TableHead>
+                        <TableHead>{renderUserSortableHeader("status", t("common.status"))}</TableHead>
                         <TableHead className="text-center">{t("common.actions")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {pagedUsers.items.map((account) => {
+                      {paginatedUsers.items.map((account) => {
                         const restricted = isRestrictedUser(account);
                         const pendingRequest = pendingRequestByApplicantId.get(String(account.id));
 
@@ -970,20 +1242,20 @@ const AdminDashboard: React.FC = () => {
                             </TableCell>
                             <TableCell>
                               <Select
-                                  value={normalizeRoleName(account.role)}
-                                  disabled={actionId === account.id || isAdminRole(account.role)}
-                                  onValueChange={(role) => handleRoleChange(account, role as UserRole)}
+                                value={normalizeRoleName(account.role)}
+                                disabled={actionId === account.id || isAdminRole(account.role)}
+                                onValueChange={(role) => handleRoleChange(account, role as UserRole)}
                               >
                                 <SelectTrigger
-                                    className={`h-auto w-fit rounded-full px-2.5 py-0.5 text-xs font-semibold shadow-none ${getRoleBadgeClassName(account.role)}`}
+                                  className={`h-auto w-fit rounded-full px-2.5 py-0.5 text-xs font-semibold shadow-none ${getRoleBadgeClassName(account.role)}`}
                                 >
                                   <SelectValue placeholder={t("admin.users.setRole")} />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {(isAdminRole(account.role) ? [USER_ROLES.ADMIN] : assignableRoleOptions).map((role) => (
-                                      <SelectItem key={role} value={role}>
-                                        {t(`role.${role}`)}
-                                      </SelectItem>
+                                    <SelectItem key={role} value={role}>
+                                      {t(`role.${role}`)}
+                                    </SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
@@ -1027,184 +1299,224 @@ const AdminDashboard: React.FC = () => {
                       })}
                     </TableBody>
                   </Table>
-                  <PaginationControls page={pagedUsers.page} totalPages={pagedUsers.totalPages} onPageChange={(page) => setUrlPage("usersPage", page)} />
+                  <PaginationControls
+                    page={paginatedUsers.page}
+                    totalPages={paginatedUsers.totalPages}
+                    onPageChange={setUserPage}
+                    pageSize={userPageSize}
+                    onPageSizeChange={setUserPageSize}
+                  />
                 </CardContent>
               </Card>
             )}
 
-            {activeSection === "jobs" && (
+            {activeSection === "jobs" && pageContent.jobsPanelVisible !== false && (
               <Card>
                 <CardHeader>
-                  <CardTitle>{t("admin.jobs.title")}</CardTitle>
+                  <CardTitle>{uiText("admin.jobs.title", t("admin.jobs.title"))}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Tabs defaultValue="pending">
-                    <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                      <TabsList>
-                        <TabsTrigger value="pending">{t("admin.jobs.pendingTab")}</TabsTrigger>
-                        <TabsTrigger value="approved">{t("admin.jobs.approvedTab")}</TabsTrigger>
-                        <TabsTrigger value="trash">{t("admin.jobs.trashTab")}</TabsTrigger>
-                      </TabsList>
-                      <div className="grid gap-2 sm:grid-cols-3">
-                        <Select value={jobStatusFilter} onValueChange={(value) => setJobStatusFilter(value as JobStatusFilter)}>
-                          <SelectTrigger className="w-full sm:w-40">
-                            <SelectValue placeholder={t("admin.jobs.filters.status")} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ALL">{t("admin.jobs.filters.allStatuses")}</SelectItem>
-                            <SelectItem value="PENDING">{t("admin.jobs.statuses.PENDING")}</SelectItem>
-                            <SelectItem value="APPROVED">{t("admin.jobs.statuses.APPROVED")}</SelectItem>
-                            <SelectItem value="REJECTED">{t("admin.jobs.statuses.REJECTED")}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Select value={jobHiddenFilter} onValueChange={(value) => setJobHiddenFilter(value as JobHiddenFilter)}>
-                          <SelectTrigger className="w-full sm:w-40">
-                            <SelectValue placeholder={t("admin.jobs.filters.hidden")} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ALL">{t("admin.jobs.filters.allVisibility")}</SelectItem>
-                            <SelectItem value="VISIBLE">{t("admin.jobs.filters.visibleOnly")}</SelectItem>
-                            <SelectItem value="HIDDEN">{t("admin.jobs.filters.hiddenOnly")}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Input
-                          type="date"
-                          value={jobDateFilter}
-                          onChange={(event) => setJobDateFilter(event.target.value)}
-                          aria-label={t("admin.jobs.filters.date")}
-                        />
-                      </div>
+                  <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Select value={jobStatusFilter} onValueChange={(value) => setJobStatusFilter(value as JobStatusFilter)}>
+                        <SelectTrigger className="w-full sm:w-40 h-10 bg-white">
+                          <SelectValue placeholder={t("admin.jobs.filters.status")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ALL">{t("admin.jobs.filters.allStatuses")}</SelectItem>
+                          <SelectItem value="PENDING">{t("admin.jobs.statuses.PENDING")}</SelectItem>
+                          <SelectItem value="APPROVED">{t("admin.jobs.statuses.APPROVED")}</SelectItem>
+                          <SelectItem value="REJECTED">{t("admin.jobs.statuses.REJECTED")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select value={jobHiddenFilter} onValueChange={(value) => setJobHiddenFilter(value as JobHiddenFilter)}>
+                        <SelectTrigger className="w-full sm:w-40 h-10 bg-white">
+                          <SelectValue placeholder={t("admin.jobs.filters.hidden")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ALL">{t("admin.jobs.filters.allVisibility")}</SelectItem>
+                          <SelectItem value="VISIBLE">{t("admin.jobs.filters.visibleOnly")}</SelectItem>
+                          <SelectItem value="HIDDEN">{t("admin.jobs.filters.hiddenOnly")}</SelectItem>
+                          <SelectItem value="TRASH">{t("admin.jobs.trashTab")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="date"
+                        value={jobDateFilter}
+                        onChange={(event) => setJobDateFilter(event.target.value)}
+                        className="w-full sm:w-40 h-10 bg-white"
+                        aria-label={t("admin.jobs.filters.date")}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setJobStatusFilter("ALL");
+                          setJobHiddenFilter("ALL");
+                          setJobDateFilter("");
+                        }}
+                        className="h-10"
+                        disabled={jobStatusFilter === "ALL" && jobHiddenFilter === "ALL" && !jobDateFilter}
+                      >
+                        {t("jobs.filters.reset")}
+                      </Button>
                     </div>
-                    <TabsContent value="pending">
+                  </div>
+                  {jobHiddenFilter === "TRASH" ? (
+                    <>
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>{t("admin.jobs.titleColumn")}</TableHead>
-                            <TableHead>{t("common.company")}</TableHead>
-                            <TableHead>{t("common.recruiter")}</TableHead>
-                            <TableHead>{t("admin.jobs.postedDate")}</TableHead>
-                            <TableHead>{t("common.status")}</TableHead>
-                            <TableHead>{t("admin.jobs.hiddenColumn")}</TableHead>
+                            <TableHead>{renderJobSortableHeader("title", t("admin.jobs.titleColumn"))}</TableHead>
+                            <TableHead>{renderJobSortableHeader("company", t("common.company"))}</TableHead>
+                            <TableHead>{renderJobSortableHeader("deletedAt", t("admin.jobs.deletedDate"))}</TableHead>
                             <TableHead className="text-center">{t("common.actions")}</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                           {pagedPendingJobs.items.map((job) => (
-                            <TableRow key={job.id}>
-                              <TableCell className="font-medium">{job.title}</TableCell>
-                              <TableCell>{job.company || "-"}</TableCell>
-                              <TableCell>{job.employerEmail || job.employerName || "-"}</TableCell>
-                              <TableCell>{formatAdminDate(job.createdAt)}</TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className={getReviewStatusBadgeClassName(job.status)}>
-                                  {t(`admin.jobs.statuses.${normalizeJobStatus(job.status)}`)}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>{job.hidden ? t("common.yes") : t("common.no")}</TableCell>
-                              <TableCell>
-                                <div className="flex flex-wrap justify-center gap-2">
-                                  <ActionIconButton icon={Eye} label={t("common.details")} variantStyle="view" onClick={() => openJobDetail(job)} />
-                                  <ActionIconButton icon={CheckCircle2} label={t("admin.jobs.approve")} variantStyle="approve" disabled={actionId === job.id} onClick={() => handleReviewJob(job, true)} />
-                                  <ActionIconButton icon={XCircle} label={t("admin.jobs.reject")} variantStyle="reject" disabled={actionId === job.id} onClick={() => handleReviewJob(job, false)} />
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                      <PaginationControls page={pagedPendingJobs.page} totalPages={pagedPendingJobs.totalPages} onPageChange={(page) => setUrlPage("pendingJobsPage", page)} />
-                    </TabsContent>
-                    <TabsContent value="approved">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>{t("admin.jobs.titleColumn")}</TableHead>
-                            <TableHead>{t("common.company")}</TableHead>
-                            <TableHead>{t("common.recruiter")}</TableHead>
-                            <TableHead>{t("admin.jobs.postedDate")}</TableHead>
-                            <TableHead>{t("common.status")}</TableHead>
-                            <TableHead>{t("admin.jobs.hiddenColumn")}</TableHead>
-                            <TableHead className="text-center">{t("common.actions")}</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                           {pagedApprovedJobs.items.map((job) => (
-                            <TableRow key={job.id}>
-                              <TableCell className="font-medium">{job.title}</TableCell>
-                              <TableCell>{job.company || "-"}</TableCell>
-                              <TableCell>{job.employerEmail || job.employerName || "-"}</TableCell>
-                              <TableCell>{formatAdminDate(job.createdAt)}</TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className={getReviewStatusBadgeClassName(job.status)}>
-                                  {t(`admin.jobs.statuses.${normalizeJobStatus(job.status)}`)}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>{job.hidden ? t("common.yes") : t("common.no")}</TableCell>
-                              <TableCell>
-                                <div className="flex flex-wrap justify-center gap-2">
-                                  <ActionIconButton icon={Eye} label={t("common.details")} variantStyle="view" onClick={() => openJobDetail(job)} />
-                                  <ActionIconButton icon={History} label="Lịch sử" variantStyle="view" onClick={() => openJobDetail(job)} />
-                                  <ActionIconButton icon={Trash2} label={t("admin.jobs.moveToTrash")} variantStyle="delete" disabled={actionId === job.id} onClick={() => handleTrashJob(job)} />
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                      <PaginationControls page={pagedApprovedJobs.page} totalPages={pagedApprovedJobs.totalPages} onPageChange={(page) => setUrlPage("approvedJobsPage", page)} />
-                    </TabsContent>
-                    <TabsContent value="trash">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>{t("admin.jobs.titleColumn")}</TableHead>
-                            <TableHead>{t("common.company")}</TableHead>
-                            <TableHead>{t("admin.jobs.deletedDate")}</TableHead>
-                            <TableHead className="text-center">{t("common.actions")}</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                           {pagedTrashedJobs.items.map((job) => (
+                          {paginatedTrashedJobs.items.map((job) => (
                             <TableRow key={job.id}>
                               <TableCell className="font-medium">{job.title}</TableCell>
                               <TableCell>{job.company || "-"}</TableCell>
                               <TableCell>{formatAdminDate(job.deletedAt)}</TableCell>
                               <TableCell>
                                 <div className="flex justify-center gap-2">
-                                  <ActionIconButton icon={RotateCcw} label={t("admin.jobs.restore")} variantStyle="restore" disabled={actionId === job.id} onClick={() => handleRestoreJob(job)} />
-                                  <ActionIconButton icon={Trash2} label={t("admin.jobs.deletePermanent")} variantStyle="delete" disabled={actionId === job.id} onClick={() => handleDeleteJobPermanently(job)} />
+                                  <ActionIconButton
+                                    icon={RotateCcw}
+                                    label={t("admin.jobs.restore")}
+                                    variantStyle="restore"
+                                    disabled={actionId === job.id}
+                                    onClick={(e) => { e.stopPropagation(); handleRestoreJob(job); }}
+                                  />
+                                  <ActionIconButton
+                                    icon={Trash2}
+                                    label={t("admin.jobs.deletePermanent")}
+                                    variantStyle="delete"
+                                    disabled={actionId === job.id}
+                                    onClick={(e) => { e.stopPropagation(); setJobPendingDelete({ job, mode: "permanent" }); }}
+                                  />
                                 </div>
                               </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
                       </Table>
-                      <PaginationControls page={pagedTrashedJobs.page} totalPages={pagedTrashedJobs.totalPages} onPageChange={(page) => setUrlPage("trashJobsPage", page)} />
-                    </TabsContent>
-                  </Tabs>
+                      <PaginationControls
+                        page={paginatedTrashedJobs.page}
+                        totalPages={paginatedTrashedJobs.totalPages}
+                        onPageChange={setTrashedJobPage}
+                        pageSize={jobPageSize}
+                        onPageSizeChange={setJobPageSize}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{renderJobSortableHeader("title", t("admin.jobs.titleColumn"))}</TableHead>
+                            <TableHead>{renderJobSortableHeader("company", t("common.company"))}</TableHead>
+                            <TableHead>{renderJobSortableHeader("recruiter", t("common.recruiter"))}</TableHead>
+                            <TableHead>{renderJobSortableHeader("createdAt", t("admin.jobs.postedDate"))}</TableHead>
+                            <TableHead>{renderJobSortableHeader("status", t("common.status"))}</TableHead>
+                            <TableHead className="w-28 text-center">
+                              <div className="flex justify-center">
+                                {renderJobSortableHeader("hidden", t("admin.jobs.hiddenColumn"))}
+                              </div>
+                            </TableHead>
+                            <TableHead className="text-center">{t("common.actions")}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {paginatedActiveJobs.items.map((job) => {
+                            const jobStatus = normalizeJobStatus(job.status);
+
+                            return (
+                              <TableRow key={job.id} className="cursor-pointer" onClick={() => navigate(`/jobs/${job.id}`)}>
+                                <TableCell className="font-medium">{job.title}</TableCell>
+                                <TableCell>{job.company || "-"}</TableCell>
+                                <TableCell>{job.employerEmail || job.employerName || "-"}</TableCell>
+                                <TableCell>{formatAdminDate(job.createdAt)}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className={getReviewStatusBadgeClassName(job.status)}>
+                                    {t(`admin.jobs.statuses.${jobStatus}`)}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="w-28 text-center">
+                                  <div className="flex justify-center">
+                                    <span
+                                      className={`inline-flex items-center justify-center ${job.hidden ? "text-red-700" : "text-emerald-700"
+                                        }`}
+                                      title={job.hidden ? t("admin.jobs.filters.hiddenOnly") : t("admin.jobs.filters.visibleOnly")}
+                                      aria-label={job.hidden ? t("admin.jobs.filters.hiddenOnly") : t("admin.jobs.filters.visibleOnly")}
+                                    >
+                                      {job.hidden ? <XCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex flex-wrap justify-center gap-2">
+                                    <ActionIconButton
+                                      icon={job.hidden ? Eye : EyeOff}
+                                      label={t(job.hidden ? "recruiter.jobs.show" : "recruiter.jobs.hide")}
+                                      variantStyle={job.hidden ? "show" : "hide"}
+                                      disabled={actionId === job.id}
+                                      onClick={(e) => { e.stopPropagation(); handleToggleJobHidden(job); }}
+                                    />
+                                    {jobStatus === "PENDING" ? (
+                                      <>
+                                        <ActionIconButton icon={CheckCircle2} label={t("admin.jobs.approve")} variantStyle="approve" disabled={actionId === job.id} onClick={(e) => { e.stopPropagation(); handleReviewJob(job, true); }} />
+                                        <ActionIconButton icon={XCircle} label={t("admin.jobs.reject")} variantStyle="reject" disabled={actionId === job.id} onClick={(e) => { e.stopPropagation(); handleReviewJob(job, false); }} />
+                                      </>
+                                    ) : (
+                                      <ActionIconButton
+                                        icon={Trash2}
+                                        label={t("admin.jobs.moveToTrash")}
+                                        variantStyle="delete"
+                                        disabled={actionId === job.id}
+                                        onClick={(e) => { e.stopPropagation(); setJobPendingDelete({ job, mode: "trash" }); }}
+                                      />
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                      <PaginationControls
+                        page={paginatedActiveJobs.page}
+                        totalPages={paginatedActiveJobs.totalPages}
+                        onPageChange={setActiveJobPage}
+                        pageSize={jobPageSize}
+                        onPageSizeChange={setJobPageSize}
+                      />
+                    </>
+                  )}
                 </CardContent>
               </Card>
             )}
 
-            {activeSection === "categories" && token && (
+            {activeSection === "categories" && token && pageContent.categoriesPanelVisible !== false && (
               <CategoryManagementPanel token={token} />
             )}
 
-            {activeSection === "email-format" && (
+            {activeSection === "email-format" && pageContent.emailPanelVisible !== false && (
               <Card>
                 <CardHeader>
-                  <CardTitle>{t("admin.emailFormat.title", { defaultValue: "Email format" })}</CardTitle>
+                  <CardTitle>{uiText("admin.emailFormat.title", t("admin.emailFormat.title", { defaultValue: "Email format" }))}</CardTitle>
                 </CardHeader>
                 <CardContent className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
-                  <div className="grid gap-4 sm:grid-cols-2">
+                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="email-brand">
                         {t("admin.emailFormat.brandName", { defaultValue: "Brand name" })}
                       </Label>
                       <Input
                         id="email-brand"
-                        value={emailTemplate.brandName}
+                        value={isDefaultBrandName(emailTemplate.brandName) ? "" : emailTemplate.brandName}
                         onChange={(event) => updateEmailTemplate("brandName", event.target.value)}
+                        placeholder="InternHiring"
                       />
                     </div>
                     <div className="space-y-2">
@@ -1215,9 +1527,13 @@ const AdminDashboard: React.FC = () => {
                         id="email-font-size"
                         type="number"
                         min={12}
-                        max={20}
-                        value={emailTemplate.fontSize}
-                        onChange={(event) => updateEmailTemplate("fontSize", Number(event.target.value))}
+                        max={25}
+                        value={isDefaultFontSize(emailTemplate.fontSize) ? "" : (emailTemplate.fontSize || "")}
+                        onChange={(event) => {
+                          const val = event.target.value;
+                          updateEmailTemplate("fontSize", val ? Number(val) : 15);
+                        }}
+                        placeholder="15"
                       />
                     </div>
                     <div className="space-y-2">
@@ -1265,7 +1581,7 @@ const AdminDashboard: React.FC = () => {
                       />
                     </div>
                     <div className="space-y-2 sm:col-span-2">
-                      <Label htmlFor="email-image">
+                      <Label>
                         {t("admin.emailFormat.headerImage", { defaultValue: "Header image" })}
                       </Label>
                       <input
@@ -1275,33 +1591,98 @@ const AdminDashboard: React.FC = () => {
                         className="hidden"
                         onChange={handleEmailHeaderImageUpload}
                       />
-                      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
-                        <Input
-                          id="email-image"
-                          value={emailTemplate.headerImageUrl}
-                          readOnly
-                          placeholder={t("admin.emailFormat.noHeaderImage", { defaultValue: "No image uploaded" })}
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
+                      
+                      {emailTemplate.headerImageUrl ? (
+                        <div 
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            setIsDraggingImage(true);
+                          }}
+                          onDragLeave={() => setIsDraggingImage(false)}
+                          onDrop={async (e) => {
+                            e.preventDefault();
+                            setIsDraggingImage(false);
+                            const file = e.dataTransfer.files?.[0];
+                            if (file) {
+                              await uploadEmailHeaderImage(file);
+                            }
+                          }}
+                          className={`relative rounded-lg border-2 border-dashed p-4 flex flex-col items-center justify-center group min-h-[140px] transition-all duration-200 ${
+                            isDraggingImage 
+                              ? "border-primary bg-primary/5 scale-[1.02]" 
+                              : "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-slate-50/80"
+                          }`}
+                        >
+                          <img
+                            src={emailTemplate.headerImageUrl}
+                            alt="Header template"
+                            className="max-h-28 object-contain rounded transition group-hover:blur-[1px]"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-2 rounded-lg">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => emailImageInputRef.current?.click()}
+                              disabled={uploadingEmailImage}
+                            >
+                              <Upload className="h-4 w-4 mr-1" />
+                              {t("admin.emailFormat.uploadImage", { defaultValue: "Change image" })}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => updateEmailTemplate("headerImageUrl", "")}
+                              disabled={uploadingEmailImage}
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              {t("admin.emailFormat.clearImage", { defaultValue: "Delete" })}
+                            </Button>
+                          </div>
+                          {uploadingEmailImage && (
+                            <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg">
+                              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            setIsDraggingImage(true);
+                          }}
+                          onDragLeave={() => setIsDraggingImage(false)}
+                          onDrop={async (e) => {
+                            e.preventDefault();
+                            setIsDraggingImage(false);
+                            const file = e.dataTransfer.files?.[0];
+                            if (file) {
+                              await uploadEmailHeaderImage(file);
+                            }
+                          }}
                           onClick={() => emailImageInputRef.current?.click()}
-                          disabled={uploadingEmailImage}
+                          className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 min-h-[140px] ${
+                            isDraggingImage
+                              ? "border-primary bg-primary/5 scale-[1.02]"
+                              : "border-slate-300 hover:border-primary/50 bg-slate-50/50 hover:bg-slate-50 hover:shadow-sm"
+                          }`}
                         >
-                          {uploadingEmailImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                          {t("admin.emailFormat.uploadImage", { defaultValue: "Upload" })}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          onClick={() => updateEmailTemplate("headerImageUrl", "")}
-                          disabled={!emailTemplate.headerImageUrl || uploadingEmailImage}
-                          aria-label={t("admin.emailFormat.clearImage", { defaultValue: "Clear image" })}
-                        >
-                          <Image className="h-4 w-4" />
-                        </Button>
-                      </div>
+                          {uploadingEmailImage ? (
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                          ) : (
+                            <>
+                              <Upload className="mb-2 h-6 w-6 text-slate-400 group-hover:text-primary transition-colors duration-200" />
+                              <span className="text-sm font-medium text-slate-700 text-center">
+                                {t("admin.emailFormat.dragDropText", { defaultValue: "Kéo thả ảnh vào đây hoặc click để tải lên" })}
+                              </span>
+                              <span className="text-xs text-muted-foreground mt-1 text-center">
+                                {t("admin.emailFormat.imageHint", { defaultValue: "PNG, JPG, JPEG (tối đa 2MB)" })}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-2 sm:col-span-2">
                       <Label htmlFor="email-footer">
@@ -1309,8 +1690,10 @@ const AdminDashboard: React.FC = () => {
                       </Label>
                       <Textarea
                         id="email-footer"
-                        value={emailTemplate.footerText}
+                        value={isDefaultFooterText(emailTemplate.footerText) ? "" : emailTemplate.footerText}
                         onChange={(event) => updateEmailTemplate("footerText", event.target.value)}
+                        placeholder="Email này được gửi từ hệ thống thông báo InternHiring. / This email was sent from InternHiring notification system."
+                        rows={3}
                       />
                     </div>
                     <div className="flex flex-wrap gap-2 sm:col-span-2">
@@ -1340,7 +1723,7 @@ const AdminDashboard: React.FC = () => {
                         />
                       )}
                       <div className="mb-4 text-sm font-bold" style={{ color: emailTemplate.accentColor }}>
-                        {emailTemplate.brandName || defaultEmailTemplateConfig.brandName}
+                        {emailTemplate.brandName || "InternHiring"}
                       </div>
                       <h3 className="mb-3 text-xl font-semibold text-slate-950">
                         {t("admin.emailFormat.previewTitle", { defaultValue: "Application update" })}
@@ -1357,44 +1740,63 @@ const AdminDashboard: React.FC = () => {
                         </p>
                       </div>
                       <div className="my-5 h-px bg-slate-200" />
-                      <p className="text-center text-xs text-slate-500">{emailTemplate.footerText}</p>
+                      <p className="text-center text-xs text-slate-500">
+                        {emailTemplate.footerText || "Email này được gửi từ hệ thống thông báo InternHiring. / This email was sent from InternHiring notification system."}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             )}
 
-            {activeSection === "audit-logs" && (
+            {activeSection === "audit-logs" && pageContent.auditPanelVisible !== false && (
               <Card>
                 <CardHeader>
-                  <CardTitle>{t("admin.auditLogs.title")}</CardTitle>
+                  <CardTitle>{uiText("admin.auditLogs.title", t("admin.auditLogs.title"))}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid gap-3 md:grid-cols-4">
-                    <Select value={auditAction || "all"} onValueChange={(value) => { resetAuditUrlPage(); setAuditAction(value === "all" ? "" : value as AuditAction); }}>
-                      <SelectTrigger><SelectValue placeholder={t("admin.auditLogs.action")} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">{t("admin.auditLogs.allActions")}</SelectItem>
-                        {auditActions.map((action) => <SelectItem key={action} value={action}>{t(`admin.auditLogs.actions.${action}`, { defaultValue: action })}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <Select value={auditTargetType || "all"} onValueChange={(value) => { resetAuditUrlPage(); setAuditTargetType(value === "all" ? "" : value as AuditTargetType); }}>
-                      <SelectTrigger><SelectValue placeholder={t("admin.auditLogs.targetType")} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">{t("admin.auditLogs.allTargets")}</SelectItem>
-                        {auditTargetTypes.map((target) => <SelectItem key={target} value={target}>{t(`admin.auditLogs.targets.${target}`, { defaultValue: target })}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <input
-                      className="rounded-md border px-3 py-2 text-sm"
-                      value={auditActorEmail}
-                      onChange={(event) => { resetAuditUrlPage(); setAuditActorEmail(event.target.value); }}
-                      placeholder={t("admin.auditLogs.actorPlaceholder")}
-                    />
-                    <Button variant="outline" onClick={loadAuditLogs}>
-                      <RefreshCw className="h-4 w-4" />
-                      {t("common.refresh")}
-                    </Button>
+                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <Select value={auditAction || "all"} onValueChange={(value) => { resetAuditPage(); setAuditAction(value === "all" ? "" : value as AuditAction); }}>
+                        <SelectTrigger className="w-full sm:w-44 h-10 bg-white">
+                          <SelectValue placeholder={t("admin.auditLogs.action")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{t("admin.auditLogs.allActions")}</SelectItem>
+                          {auditActions.map((action) => <SelectItem key={action} value={action}>{t(`admin.auditLogs.actions.${action}`, { defaultValue: action })}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Select value={auditTargetType || "all"} onValueChange={(value) => { resetAuditPage(); setAuditTargetType(value === "all" ? "" : value as AuditTargetType); }}>
+                        <SelectTrigger className="w-full sm:w-44 h-10 bg-white">
+                          <SelectValue placeholder={t("admin.auditLogs.targetType")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{t("admin.auditLogs.allTargets")}</SelectItem>
+                          {auditTargetTypes.map((target) => <SelectItem key={target} value={target}>{t(`admin.auditLogs.targets.${target}`, { defaultValue: target })}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="text"
+                        value={auditActorEmail}
+                        onChange={(event) => { resetAuditPage(); setAuditActorEmail(event.target.value); }}
+                        placeholder={t("admin.auditLogs.actorPlaceholder")}
+                        className="w-full sm:w-48 h-10 bg-white"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          resetAuditPage();
+                          setAuditAction("");
+                          setAuditTargetType("");
+                          setAuditActorEmail("");
+                        }}
+                        className="h-10 w-full sm:w-auto"
+                        disabled={!auditAction && !auditTargetType && !auditActorEmail}
+                      >
+                        {t("jobs.filters.reset")}
+                      </Button>
+                    </div>
                   </div>
                   <Table>
                     <TableHeader>
@@ -1414,7 +1816,7 @@ const AdminDashboard: React.FC = () => {
                           <TableCell><Badge variant="outline">{t(`admin.auditLogs.actions.${log.action}`, { defaultValue: log.action })}</Badge></TableCell>
                           <TableCell>{t(`admin.auditLogs.targets.${log.targetType}`, { defaultValue: log.targetType })} #{log.targetId ?? "-"}</TableCell>
                           <TableCell>
-                            <div>{log.description}</div>
+                            <div>{getAuditLogDescription(log)}</div>
                             {log.metadata && Object.keys(log.metadata).length > 0 && (
                               <div className="mt-1 text-xs text-muted-foreground">
                                 {Object.entries(log.metadata).map(([key, value]) => `${key}: ${value}`).join(" · ")}
@@ -1426,13 +1828,66 @@ const AdminDashboard: React.FC = () => {
                     </TableBody>
                   </Table>
                   {auditLogs.length === 0 && <p className="py-8 text-center text-muted-foreground">{t("admin.auditLogs.empty")}</p>}
-                  <PaginationControls page={auditPage} totalPages={Math.max(1, Math.ceil(auditTotal / DEFAULT_PAGE_SIZE))} onPageChange={setAuditUrlPage} />
+                  <div className="text-sm text-muted-foreground">
+                    <span>{t("admin.auditLogs.total", { count: auditTotal })}</span>
+                  </div>
+                  <PaginationControls
+                    page={auditPage + 1}
+                    totalPages={Math.max(1, Math.ceil(auditTotal / auditPageSize))}
+                    onPageChange={(page) => {
+                      setAuditPage(page - 1);
+                      setAuditUrlPage(page);
+                    }}
+                    pageSize={auditPageSize}
+                    onPageSizeChange={(pageSize) => {
+                      setAuditPageSize(pageSize);
+                      setAuditPage(0);
+                    }}
+                  />
                 </CardContent>
               </Card>
             )}
           </>
         )}
       </section>
+
+      <AlertDialog
+        open={Boolean(jobPendingDelete)}
+        onOpenChange={(open) => {
+          if (!open && actionId !== jobPendingDelete?.job.id) {
+            setJobPendingDelete(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {jobPendingDelete?.mode === "permanent"
+                ? t("admin.jobs.deletePermanent")
+                : t("admin.jobs.moveToTrash")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {jobPendingDelete?.mode === "permanent"
+                ? t("admin.deleteJobConfirm")
+                : t("admin.trashJobConfirm")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionId === jobPendingDelete?.job.id}>
+              {t("common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={actionId === jobPendingDelete?.job.id}
+              onClick={confirmJobDelete}
+            >
+              {jobPendingDelete?.mode === "permanent"
+                ? t("admin.jobs.deletePermanent")
+                : t("admin.jobs.moveToTrash")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={Boolean(selectedUser)} onOpenChange={(open) => !open && setSelectedUser(null)}>
         <DialogContent className="max-w-2xl">
@@ -1458,8 +1913,8 @@ const AdminDashboard: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(selectedJob)} onOpenChange={(open) => !open && closeJobDetail()}>
-        <DialogContent className="max-w-5xl">
+      <Dialog open={Boolean(selectedJob)} onOpenChange={(open) => !open && setSelectedJob(null)}>
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>{t("admin.jobDialog.title")}</DialogTitle>
             <DialogDescription>{t("admin.jobDialog.description")}</DialogDescription>
@@ -1471,76 +1926,19 @@ const AdminDashboard: React.FC = () => {
                 <div><strong>{t("common.company")}:</strong> {selectedJob.company || "-"}</div>
                 <div><strong>{t("common.recruiter")}:</strong> {selectedJob.employerEmail || selectedJob.employerName || "-"}</div>
                 <div><strong>{t("admin.jobDialog.location")}:</strong> {selectedJob.location || "-"}</div>
-                <div><strong>{t("common.type")}:</strong> {selectedJob.type || "-"}</div>
-                <div><strong>{t("common.salary")}:</strong> {selectedJob.salary || "-"}</div>
-                <div><strong>{t("recruiter.form.experience")}:</strong> {selectedJob.experience || "-"}</div>
+                <div><strong>{t("common.type")}:</strong> {selectedJob.type ? (JOB_TYPE_OPTIONS.find(o => o.value === selectedJob.type)?.labelKey ? t(JOB_TYPE_OPTIONS.find(o => o.value === selectedJob.type)!.labelKey!) : selectedJob.type) : "-"}</div>
+                <div><strong>{t("common.salary")}:</strong> {selectedJob.salary ? `${getSalaryRangeOption(selectedJob.salary)?.labelKey ? t(getSalaryRangeOption(selectedJob.salary)!.labelKey!) : selectedJob.salary} ${selectedJob.currency ? (CURRENCY_OPTIONS.find(o => o.value === selectedJob.currency)?.labelKey ? t(CURRENCY_OPTIONS.find(o => o.value === selectedJob.currency)!.labelKey!) : selectedJob.currency) : ""}` : "-"}</div>
+                <div><strong>{t("recruiter.form.workMode")}:</strong> {selectedJob.mode ? (WORK_MODE_OPTIONS.find(o => o.value === selectedJob.mode)?.labelKey ? t(WORK_MODE_OPTIONS.find(o => o.value === selectedJob.mode)!.labelKey!) : selectedJob.mode) : "-"}</div>
+                <div><strong>{t("recruiter.form.experience")}:</strong> {selectedJob.experience ? (defaultJobFilterOptions.experience.find(o => o.value === selectedJob.experience)?.labelKey ? t(defaultJobFilterOptions.experience.find(o => o.value === selectedJob.experience)!.labelKey!) : selectedJob.experience) : "-"}</div>
               </div>
               <div>
                 <strong>{t("common.description")}:</strong>
                 <p className="mt-2 whitespace-pre-wrap rounded-md bg-muted p-3">{selectedJob.description || "-"}</p>
               </div>
-              <div className="border-t pt-4">
-                <div className="mb-3 flex items-center gap-2 font-semibold text-slate-950">
-                  <History className="h-4 w-4 text-primary" />
-                  Lịch sử chỉnh sửa
-                </div>
-                {loadingJobChangeLogs ? (
-                  <div className="flex items-center justify-center rounded-md border border-dashed py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                  </div>
-                ) : selectedJobChangeLogs.length === 0 ? (
-                  <p className="rounded-md border border-dashed py-6 text-center text-sm text-muted-foreground">
-                    Chưa có thay đổi nào được ghi nhận.
-                  </p>
-                ) : (
-                  <div className="max-h-[45vh] space-y-4 overflow-y-auto pr-2">
-                    {selectedJobChangeLogs.map((log) => (
-                      <div key={log.id} className="rounded-lg border bg-white p-4">
-                        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
-                            <div className="font-medium text-slate-950">{log.actorEmail}</div>
-                            <div className="text-xs text-muted-foreground">{formatAdminDate(log.createdAt)}</div>
-                          </div>
-                          <div className="flex flex-wrap gap-1">
-                            {log.changedFields.map((field) => (
-                              <Badge key={field} variant="outline" className="border-orange-300 bg-orange-50 text-orange-700">
-                                {JOB_FIELD_LABELS[field] || field}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="grid gap-3 md:grid-cols-2">
-                          {JOB_SNAPSHOT_FIELDS.filter((field) => log.changedFields.includes(field)).map((field) => (
-                            <div key={field} className={`rounded-md border border-orange-200 bg-orange-50 p-3 ${field === "description" ? "md:col-span-2" : ""}`}>
-                              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-orange-700">
-                                {JOB_FIELD_LABELS[field] || field}
-                              </div>
-                              <div className="grid gap-2 md:grid-cols-2">
-                                <div>
-                                  <div className="mb-1 text-xs font-medium text-muted-foreground">Trước</div>
-                                  <div className="whitespace-pre-wrap break-words rounded bg-white p-2 text-slate-700">
-                                    {String(log.previousData[field] || "-")}
-                                  </div>
-                                </div>
-                                <div>
-                                  <div className="mb-1 text-xs font-medium text-muted-foreground">Sau</div>
-                                  <div className="whitespace-pre-wrap break-words rounded bg-white p-2 text-slate-950">
-                                    {String(log.newData[field] || "-")}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={closeJobDetail}>{t("common.close")}</Button>
+            <Button variant="outline" onClick={() => setSelectedJob(null)}>{t("common.close")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1571,6 +1969,7 @@ const AdminDashboard: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <SanityPageSections routePath="/admin" placement="bottom" />
     </main>
   );
 };

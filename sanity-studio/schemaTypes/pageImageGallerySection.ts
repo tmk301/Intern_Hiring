@@ -44,15 +44,43 @@ const sectionBaseFields = [
   }),
   defineField({
     name: 'placement',
-    title: 'Placement',
+    title: 'Vị trí chèn',
     type: 'string',
-    initialValue: 'bottom',
+    initialValue: 'custom',
+    options: {
+      list: [
+        {title: 'Tùy chọn — chèn cạnh bất kỳ phần tử nào', value: 'custom'},
+        {title: 'Đầu trang (tương thích nội dung cũ)', value: 'top'},
+        {title: 'Sau hero (tương thích nội dung cũ)', value: 'afterHero'},
+        {title: 'Cuối trang (tương thích nội dung cũ)', value: 'bottom'},
+      ],
+    },
+  }),
+  defineField({
+    name: 'targetSelector',
+    title: 'Phần tử đích (CSS selector)',
+    type: 'string',
+    description: 'Ví dụ #gioi-thieu, #viec-lam-noi-bat hoặc main.',
+    hidden: ({parent}) => parent?.placement !== 'custom',
+    validation: (rule) => rule.custom((value, context) =>
+      (context.parent as {placement?: string})?.placement !== 'custom' || value
+        ? true
+        : 'Nhập phần tử đích để chèn section.',
+    ),
+  }),
+  defineField({
+    name: 'insertPosition',
+    title: 'Chèn ở đâu so với phần tử đích',
+    type: 'string',
+    initialValue: 'after',
+    hidden: ({parent}) => parent?.placement !== 'custom',
     options: {
       layout: 'radio',
       list: [
-        {title: 'Top of page', value: 'top'},
-        {title: 'After hero', value: 'afterHero'},
-        {title: 'Bottom of page', value: 'bottom'},
+        {title: 'Ngay trước', value: 'before'},
+        {title: 'Ngay sau', value: 'after'},
+        {title: 'Bên trong, ở đầu', value: 'insideStart'},
+        {title: 'Bên trong, ở cuối', value: 'insideEnd'},
       ],
     },
   }),

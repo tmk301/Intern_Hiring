@@ -20,12 +20,18 @@ import { isAdminRole, isCandidateRole, isModeratorRole, isRecruiterRole } from "
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { NotificationButton } from "./NotificationButton";
+import { SanityNavbarItem, useSanityManagedInterface } from "@/lib/sanityInterfaceText";
+
+type NavbarDisplayItem = SanityNavbarItem & {
+  label: string;
+};
 
 const Navbar = () => {
   const { user, token, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { navbar } = useSanityManagedInterface("/");
   const showModeratorLink = isModeratorRole(user?.role) && location.pathname !== "/moderator";
   const showProfileLink = location.pathname !== "/profile";
   const showAdminLink = isAdminRole(user?.role) && location.pathname !== "/admin";
@@ -38,14 +44,24 @@ const Navbar = () => {
     navigate("/");
   };
 
-  const navItems = [
+  const defaultNavItems: NavbarDisplayItem[] = [
     { label: t("nav.about"), targetId: "gioi-thieu" },
     { label: t("nav.featured"), targetId: "viec-lam-noi-bat" },
     { label: t("nav.partners"), targetId: "doi-tac" },
     ...(showRecruitmentNavItem ? [{ label: t("nav.recruitment"), targetId: "tuyen-dung" }] : []),
   ];
 
-  type NavItem = (typeof navItems)[number];
+  const customNavItems: NavbarDisplayItem[] = (navbar.items || [])
+    .filter((item) => item.isVisible !== false && Boolean(item.path || item.targetId))
+    .map((item) => ({
+      ...item,
+      label: i18n.language.startsWith("en")
+        ? item.labelEn || item.label || item.labelVi || ""
+        : item.labelVi || item.label || item.labelEn || "",
+    }))
+    .filter((item) => Boolean(item.label));
+
+  const navItems = navbar.isEnabled ? customNavItems : defaultNavItems;
 
   const scrollToSection = (targetId?: string) => {
     if (window.location.pathname !== "/") {
@@ -65,8 +81,8 @@ const Navbar = () => {
     }, 80);
   };
 
-  const handleNavItem = (item: NavItem) => {
-    if ("path" in item) {
+  const handleNavItem = (item: NavbarDisplayItem) => {
+    if (item.path) {
       navigate(item.path);
       return;
     }
@@ -75,7 +91,10 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b bg-white shadow-sm">
+    <nav
+      className="sticky top-0 z-50 w-full border-b shadow-sm"
+      style={{backgroundColor: navbar.isEnabled ? navbar.backgroundColor || "#ffffff" : "#ffffff"}}
+    >
       <div className="container mx-auto relative flex h-16 items-center px-4">
         <button type="button" className="flex shrink-0 items-center" onClick={() => scrollToSection()}>
           <span className="font-bold text-xl text-primary">InternHiring</span>
@@ -88,6 +107,7 @@ const Navbar = () => {
               type="button"
               onClick={() => handleNavItem(item)}
               className="whitespace-nowrap px-2 text-center text-sm font-semibold text-black transition hover:text-primary"
+              style={{color: item.textColor || (navbar.isEnabled ? navbar.textColor : undefined)}}
             >
               {item.label}
             </button>
@@ -185,6 +205,7 @@ const Navbar = () => {
                         type="button"
                         onClick={() => handleNavItem(item)}
                         className="w-full text-left text-base font-semibold"
+                        style={{color: item.textColor || (navbar.isEnabled ? navbar.textColor : undefined)}}
                       >
                         {item.label}
                       </button>

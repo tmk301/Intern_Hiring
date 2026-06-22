@@ -1,4 +1,4 @@
-export type SanityPagePlacement = "top" | "afterHero" | "bottom";
+export type SanityPagePlacement = "top" | "afterHero" | "bottom" | "custom";
 
 type SanityDescriptionStyle = {
   descriptionFontSize?: number;
@@ -16,6 +16,11 @@ export type SanityPageButton = {
 
 export type SanityPageCard = SanityDescriptionStyle & {
   _key?: string;
+  isVisible?: boolean;
+  backgroundColor?: string;
+  borderColor?: string;
+  textColor?: string;
+  titleTextColor?: string;
   title?: string;
   titleVi?: string;
   titleEn?: string;
@@ -37,9 +42,14 @@ type SanityPageSectionBase = {
   _type: string;
   isVisible?: boolean;
   placement?: SanityPagePlacement;
+  targetSelector?: string;
+  insertPosition?: "before" | "after" | "insideStart" | "insideEnd";
   anchorId?: string;
   backgroundColor?: string;
   textColor?: string;
+  borderColor?: string;
+  titleTextColor?: string;
+  bodyTextColor?: string;
   animation?: "none" | "fadeUp" | "fadeIn" | "zoomIn" | "slideLeft" | "slideRight";
   animationDelay?: number;
 };
@@ -134,6 +144,7 @@ type SanityFlexibleItemBase = {
   isVisible?: boolean;
   backgroundColor?: string;
   textColor?: string;
+  borderColor?: string;
   rounded?: boolean;
   padding?: number;
 };
@@ -226,9 +237,14 @@ const managedPageQuery = `*[_type == "managedPage" && routePath == $routePath][0
     _type,
     isVisible,
     placement,
+    targetSelector,
+    insertPosition,
     "anchorId": anchorId.current,
     backgroundColor,
     textColor,
+    borderColor,
+    titleTextColor,
+    bodyTextColor,
     animation,
     animationDelay,
     eyebrow,
@@ -280,6 +296,11 @@ const managedPageQuery = `*[_type == "managedPage" && routePath == $routePath][0
     },
     cards[]{
       _key,
+      isVisible,
+      backgroundColor,
+      borderColor,
+      textColor,
+      titleTextColor,
       title,
       titleVi,
       titleEn,
@@ -305,6 +326,7 @@ const managedPageQuery = `*[_type == "managedPage" && routePath == $routePath][0
       isVisible,
       backgroundColor,
       textColor,
+      borderColor,
       rounded,
       padding,
       content,
@@ -343,7 +365,9 @@ const managedPageQuery = `*[_type == "managedPage" && routePath == $routePath][0
 const hasSanityConfig = () => Boolean(SANITY_PROJECT_ID && SANITY_DATASET);
 
 const retiredSectionKeysByRoute: Record<string, string[]> = {
+  "/": ["home-about"],
   "/profile": ["profile-top-note"],
+  "/jobs": ["jobs-top-note", "jobs-bottom-cta"],
 };
 
 export const loadSanityPageSections = async (

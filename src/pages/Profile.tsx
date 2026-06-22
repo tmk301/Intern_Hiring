@@ -13,6 +13,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AvatarCropDialog } from "@/components/AvatarCropDialog";
 import {
   ArrowLeft,
@@ -30,14 +32,14 @@ import {
   Pencil,
   FileText,
   Trash2,
-  Plus,
-  UploadCloud,
+  Upload,
+  Settings2,
+  CheckCircle2,
   Building2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
-import { SanityPageSections } from "@/components/sanity/SanityPageSections";
-import { useSanityManagedInterface } from "@/lib/sanityInterfaceText";
+import { useSanityInterfaceText } from "@/lib/sanityInterfaceText";
 
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
@@ -169,8 +171,7 @@ const Profile = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t } = useTranslation();
-  const { text: uiText, textStyle: uiTextStyle, textBoxStyle: uiTextBoxStyle, profileDefaults } = useSanityManagedInterface("/profile");
-  const showDefaultProfileLayout = profileDefaults.isVisible !== false;
+  const uiText = useSanityInterfaceText("/profile");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resumeInputRef = useRef<HTMLInputElement>(null);
   const themeColorInputRef = useRef<HTMLInputElement>(null);
@@ -179,6 +180,7 @@ const Profile = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isUploadingResume, setIsUploadingResume] = useState(false);
+  const [isCvManagerOpen, setIsCvManagerOpen] = useState(false);
   const [isCropDialogOpen, setIsCropDialogOpen] = useState(false);
   const [cropImageSrc, setCropImageSrc] = useState("");
   const [formData, setFormData] = useState({
@@ -269,63 +271,30 @@ const Profile = () => {
 
   const MAX_CVS = 3;
   const cvList = user.cvList || [];
+  const defaultCv = cvList.find((cv: CvItem) => cv.isDefault) || cvList[0];
   const showCvSection = isCandidateRole(user.role);
   const showCompanyProfileSection = shouldShowCompanyProfile;
   const companyDefaultAddress = getCompanyDefaultAddress(companyProfile?.addresses);
-  const changePasswordTitle = uiText("profile.change_password", t("profile.change_password"));
-  const showChangePasswordCard = changePasswordTitle !== "";
-  const profileDefaultsStyle = {
-    backgroundColor: typeof profileDefaults.backgroundColor === "string" ? profileDefaults.backgroundColor : undefined,
-    color: typeof profileDefaults.textColor === "string" ? profileDefaults.textColor : undefined,
-  };
-  const profileCardStyle = {
-    backgroundColor: typeof profileDefaults.cardBackgroundColor === "string" ? profileDefaults.cardBackgroundColor : undefined,
-    borderColor: typeof profileDefaults.cardBorderColor === "string" ? profileDefaults.cardBorderColor : undefined,
-    color: typeof profileDefaults.textColor === "string" ? profileDefaults.textColor : undefined,
-  };
-  const profileMutedStyle = {
-    color: typeof profileDefaults.mutedTextColor === "string" ? profileDefaults.mutedTextColor : undefined,
-  };
-  const profileAccentColor = typeof profileDefaults.accentColor === "string" ? profileDefaults.accentColor : profileThemeColor;
-  const sectionCardStyle = (prefix: string) => ({
-    backgroundColor:
-      typeof profileDefaults[`${prefix}CardBackgroundColor`] === "string"
-        ? profileDefaults[`${prefix}CardBackgroundColor`]
-        : profileCardStyle.backgroundColor,
-    borderColor:
-      typeof profileDefaults[`${prefix}CardBorderColor`] === "string"
-        ? profileDefaults[`${prefix}CardBorderColor`]
-        : profileCardStyle.borderColor,
-    color:
-      typeof profileDefaults[`${prefix}TextColor`] === "string"
-        ? profileDefaults[`${prefix}TextColor`]
-        : profileCardStyle.color,
-  });
-  const sectionAccentColor = (prefix: string) =>
-    typeof profileDefaults[`${prefix}AccentColor`] === "string" ? profileDefaults[`${prefix}AccentColor`] : profileAccentColor;
-  const sectionMutedStyle = (prefix: string) => ({
-    color:
-      typeof profileDefaults[`${prefix}MutedTextColor`] === "string"
-        ? profileDefaults[`${prefix}MutedTextColor`]
-        : profileMutedStyle.color,
-  });
-  const mergeStyles = (...styles: Array<React.CSSProperties | undefined>) => Object.assign({}, ...styles);
 
-  const uploadResumeFile = async (file: File) => {
-    if (!file) return;
+  const uploadResumeFiles = async (files: File[]) => {
+    if (files.length === 0) return;
 
-    // Kiểm tra giới hạn số lượng CV
-    if (cvList.length >= MAX_CVS) {
-      toast({ title: t("toast.error"), description: `Bạn chỉ được lưu tối đa ${MAX_CVS} CV`, variant: "destructive" });
+    if (cvList.length + files.length > MAX_CVS) {
+      toast({
+        title: t("toast.error"),
+        description: t("profile.resumeMaxCountError", { count: MAX_CVS }),
+        variant: "destructive",
+      });
       return;
     }
 
     const allowed = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
-    if (!allowed.includes(file.type)) {
+    if (files.some((file) => !allowed.includes(file.type))) {
       toast({ title: t("toast.error"), description: t("profile.resumeTypeError"), variant: "destructive" });
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
+
+    if (files.some((file) => file.size > 10 * 1024 * 1024)) {
       toast({ title: t("toast.error"), description: t("profile.resumeSizeError"), variant: "destructive" });
       return;
     }
@@ -335,28 +304,26 @@ const Profile = () => {
       const { data: { user: supaUser } } = await supabase.auth.getUser();
       if (!supaUser) throw new Error("Not authenticated");
 
-      // Tạo tên file bằng timestamp để không bị ghi đè trên Bucket
-      const ext = file.name.split('.').pop();
-      const uniqueFileName = `resume_${Date.now()}.${ext}`;
-      const filePath = `${supaUser.id}/${uniqueFileName}`;
+      const uploadedCvList: CvItem[] = [];
+      for (const [index, file] of files.entries()) {
+        const ext = file.name.split(".").pop();
+        const uniqueFileName = `resume_${Date.now()}_${index}_${crypto.randomUUID()}.${ext}`;
+        const filePath = `${supaUser.id}/${uniqueFileName}`;
 
-      // Bỏ { upsert: true } vì tên file đã unique
-      const { error: uploadError } = await supabase.storage.from('cv').upload(filePath, file);
-      if (uploadError) throw uploadError;
+        const { error: uploadError } = await supabase.storage.from("cv").upload(filePath, file);
+        if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage.from('cv').getPublicUrl(filePath);
+        const { data: { publicUrl } } = supabase.storage.from("cv").getPublicUrl(filePath);
+        uploadedCvList.push({
+          id: crypto.randomUUID(),
+          name: file.name,
+          url: publicUrl,
+          uploadedAt: Date.now(),
+          isDefault: cvList.length === 0 && uploadedCvList.length === 0,
+        });
+      }
 
-      // Tạo object CV mới
-      const newCv = {
-        id: crypto.randomUUID(),
-        name: file.name,
-        url: publicUrl,
-        uploadedAt: Date.now(),
-        isDefault: cvList.length === 0,
-      };
-
-      // Cập nhật mảng vào Database
-      const updatedCvList = [...cvList, newCv];
+      const updatedCvList = [...cvList, ...uploadedCvList];
       await userApi.updateProfile(token, { cvList: updatedCvList });
 
       await refreshUser();
@@ -381,9 +348,9 @@ const Profile = () => {
       await userApi.updateProfile(token, { cvList: updatedCvList });
       await refreshUser();
 
-      toast({ title: t("toast.success"), description: "Đã xóa CV khỏi hồ sơ" });
+      toast({ title: t("toast.success"), description: t("profile.resumeDeleteSuccess") });
     } catch (err: unknown) {
-      toast({ title: t("toast.error"), description: "Lỗi khi xóa CV", variant: "destructive" });
+      toast({ title: t("toast.error"), description: t("profile.resumeDeleteError"), variant: "destructive" });
     }
   };
 
@@ -397,23 +364,21 @@ const Profile = () => {
       await userApi.updateProfile(token, { cvList: updatedCvList });
       await refreshUser();
 
-      toast({ title: t("toast.success"), description: "Đã đặt CV mặc định" });
+      toast({ title: t("toast.success"), description: t("profile.defaultCvSuccess") });
     } catch (err: unknown) {
-      toast({ title: t("toast.error"), description: "Lỗi khi đặt CV mặc định", variant: "destructive" });
+      toast({ title: t("toast.error"), description: t("profile.defaultCvError"), variant: "destructive" });
     }
   };
 
   const handleResumeInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    uploadResumeFile(file);
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    uploadResumeFiles(files);
   };
 
   const handleResumeDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (!file) return;
-    uploadResumeFile(file);
+    uploadResumeFiles(Array.from(e.dataTransfer.files || []));
   };
 
   const uploadAvatarBlob = async (blob: Blob) => {
@@ -628,10 +593,8 @@ const Profile = () => {
   };
 
   return (
-	    <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-	      <SanityPageSections routePath="/profile" placement="top" />
-	      {showDefaultProfileLayout && (
-	      <div className="container mx-auto flex items-start justify-center px-4 py-4" style={profileDefaultsStyle}>
+    <main className="h-[calc(100dvh-4rem)] overflow-hidden bg-gradient-to-b from-slate-50 to-white">
+      <div className="container mx-auto flex h-full items-start justify-center px-4 py-4">
         <div className="w-full max-w-5xl overflow-hidden">
           <div className="grid grid-rows-[auto_auto] gap-6">
             {/* TOP ROW: back button, avatar, personal info */}
@@ -651,34 +614,34 @@ const Profile = () => {
 
               {/* MIDDLE - avatar card */}
               <div className="flex flex-col gap-4 h-full">
-	                <Card className="overflow-hidden h-full" style={sectionCardStyle("personal")}>
+                <Card className="overflow-hidden h-full">
                   <div
                     className="relative h-28 transition-colors duration-300"
-	                    style={{ background: `linear-gradient(135deg, ${sectionAccentColor("personal")}cc, ${sectionAccentColor("personal")})` }}
+                    style={{ background: `linear-gradient(135deg, ${profileThemeColor}cc, ${profileThemeColor})` }}
                   >
-                    <div className="absolute right-3 top-3 flex items-center gap-2 rounded-full bg-white/95 p-1 shadow">
-                      <button
-                        type="button"
-                        onClick={handleMatchAvatarColor}
-                        disabled={isSavingTheme}
-                        className="flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-colors hover:bg-slate-100 disabled:opacity-50"
-	                        style={{ color: sectionAccentColor("personal") }}
-                        aria-label={t("profile.matchAvatarColor")}
-                        title={t("profile.matchAvatarColor")}
-                      >
-                        {isSavingTheme ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-                        {t("profile.matchAvatarColorShort")}
-                      </button>
+                    <div className="absolute right-3 top-3 group flex flex-row-reverse items-center gap-0 overflow-hidden rounded-full bg-white/95 p-1 shadow transition-all duration-300 max-w-[36px] hover:max-w-[160px] hover:gap-2">
                       <button
                         type="button"
                         onClick={() => themeColorInputRef.current?.click()}
                         disabled={isSavingTheme}
-                        className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-slate-100 disabled:opacity-50"
-	                        style={{ color: sectionAccentColor("personal") }}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-slate-100 disabled:opacity-50"
+                        style={{ color: profileThemeColor }}
                         aria-label={t("profile.changeThemeColor")}
                         title={profileThemeColor}
                       >
                         <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleMatchAvatarColor}
+                        disabled={isSavingTheme}
+                        className="flex h-8 items-center gap-1.5 rounded-full text-xs font-semibold transition-all duration-300 hover:bg-slate-100 disabled:opacity-50 w-0 opacity-0 scale-90 px-0 overflow-hidden pointer-events-none group-hover:w-[105px] group-hover:opacity-100 group-hover:scale-100 group-hover:px-3 group-hover:pointer-events-auto"
+                        style={{ color: profileThemeColor }}
+                        aria-label={t("profile.matchAvatarColor")}
+                        title={t("profile.matchAvatarColor")}
+                      >
+                        {isSavingTheme ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                        <span className="whitespace-nowrap">{t("profile.matchAvatarColorShort")}</span>
                       </button>
                     </div>
                     <input
@@ -702,7 +665,7 @@ const Profile = () => {
                         onClick={handleAvatarClick}
                         disabled={isUploading}
                         className="absolute -right-1 bottom-0 flex h-8 w-8 items-center justify-center rounded-full text-white shadow transition-transform hover:scale-110 disabled:opacity-50"
-	                        style={{ backgroundColor: sectionAccentColor("personal") }}
+                        style={{ backgroundColor: profileThemeColor }}
                         aria-label={t("profile.changeAvatar")}
                       >
                         {isUploading ? (
@@ -718,7 +681,7 @@ const Profile = () => {
                     <h3 className="text-lg font-bold text-center">
                       {user.lastName} {user.firstName}
                     </h3>
-	                    <p className="text-sm text-muted-foreground text-center" style={sectionMutedStyle("personal")}>{user.email}</p>
+                    <p className="text-sm text-muted-foreground text-center">{user.email}</p>
                     <div
                       className={cn(
                         "mt-2 inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold",
@@ -735,14 +698,12 @@ const Profile = () => {
 
               {/* RIGHT - personal info card */}
               <div className="flex flex-col gap-4">
-                <Card style={mergeStyles(sectionCardStyle("personal"), uiTextBoxStyle("profile.personal_info"))}>
+                <Card>
                   <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="text-lg" style={uiTextStyle("profile.personal_info")}>
-                      {uiText("profile.personal_info", t("profile.personal_info"))}
-                    </CardTitle>
+                    <CardTitle className="text-lg">{uiText("profile.personal_info", t("profile.personal_info"))}</CardTitle>
                     {!isEditing ? (
                       <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-	                        {uiText("profile.edit", t("profile.edit"))}
+                        {uiText("profile.edit", t("profile.edit"))}
                       </Button>
                     ) : (
                       <div className="flex gap-2">
@@ -760,7 +721,7 @@ const Profile = () => {
                             });
                           }}
                         >
-	                          {uiText("profile.cancel", t("profile.cancel"))}
+                        {uiText("profile.cancel", t("profile.cancel"))}
                         </Button>
                         <Button size="sm" onClick={handleSave} disabled={isSaving}>
                           {isSaving ? (
@@ -768,7 +729,7 @@ const Profile = () => {
                           ) : (
                             <Save className="mr-2 h-4 w-4" />
                           )}
-	                          {uiText("profile.save", t("profile.save"))}
+                        {uiText("profile.save", t("profile.save"))}
                         </Button>
                       </div>
                     )}
@@ -777,14 +738,14 @@ const Profile = () => {
                   <CardContent className="space-y-4 p-4">
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
-                        <Label className="mb-2 flex items-center gap-2 text-muted-foreground" style={sectionMutedStyle("personal")}>
-	                          <UserIcon className="h-4 w-4" /> {uiText("profile.last_name", t("profile.last_name"))}
+                        <Label className="mb-2 flex items-center gap-2 text-muted-foreground">
+                      <UserIcon className="h-4 w-4" /> {uiText("profile.last_name", t("profile.last_name"))}
                         </Label>
                         {isEditing ? (
                           <Input
                             value={formData.lastName}
                             onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-	                            placeholder={uiText("profile.lastNamePlaceholder", t("profile.lastNamePlaceholder"))}
+                        placeholder={uiText("profile.lastNamePlaceholder", t("profile.lastNamePlaceholder"))}
                           />
                         ) : (
                           <Input value={user.lastName || t("common.emptyValue")} disabled className="bg-muted/50" />
@@ -792,14 +753,14 @@ const Profile = () => {
                       </div>
 
                       <div>
-                        <Label className="mb-2 flex items-center gap-2 text-muted-foreground" style={sectionMutedStyle("personal")}>
-	                          <UserIcon className="h-4 w-4" /> {uiText("profile.first_name", t("profile.first_name"))}
+                        <Label className="mb-2 flex items-center gap-2 text-muted-foreground">
+                      <UserIcon className="h-4 w-4" /> {uiText("profile.first_name", t("profile.first_name"))}
                         </Label>
                         {isEditing ? (
                           <Input
                             value={formData.firstName}
                             onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-	                            placeholder={uiText("profile.firstNamePlaceholder", t("profile.firstNamePlaceholder"))}
+                        placeholder={uiText("profile.firstNamePlaceholder", t("profile.firstNamePlaceholder"))}
                           />
                         ) : (
                           <Input value={user.firstName || t("common.emptyValue")} disabled className="bg-muted/50" />
@@ -809,14 +770,14 @@ const Profile = () => {
 
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
-                        <Label className="mb-2 flex items-center gap-2 text-muted-foreground" style={sectionMutedStyle("personal")}>
-	                          <Phone className="h-4 w-4" /> {uiText("profile.phone", t("profile.phone"))}
+                        <Label className="mb-2 flex items-center gap-2 text-muted-foreground">
+                      <Phone className="h-4 w-4" /> {uiText("profile.phone", t("profile.phone"))}
                         </Label>
                         {isEditing ? (
                           <Input
                             value={formData.phoneNumber}
                             onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-	                            placeholder={uiText("profile.phonePlaceholder", t("profile.phonePlaceholder"))}
+                        placeholder={uiText("profile.phonePlaceholder", t("profile.phonePlaceholder"))}
                           />
                         ) : (
                           <Input value={user.phoneNumber || t("common.emptyValue")} disabled className="bg-muted/50" />
@@ -824,8 +785,8 @@ const Profile = () => {
                       </div>
 
                       <div>
-                        <Label className="mb-2 flex items-center gap-2 text-muted-foreground" style={sectionMutedStyle("personal")}>
-	                          <CalendarDays className="h-4 w-4" /> {uiText("profile.dob", t("profile.dob"))}
+                        <Label className="mb-2 flex items-center gap-2 text-muted-foreground">
+                      <CalendarDays className="h-4 w-4" /> {uiText("profile.dob", t("profile.dob"))}
                         </Label>
                         {isEditing ? (
                           <Input
@@ -833,7 +794,7 @@ const Profile = () => {
                             onChange={(e) => setFormData({ ...formData, dob: formatDobInput(e.target.value) })}
                             inputMode="numeric"
                             maxLength={10}
-	                            placeholder={uiText("profile.dobPlaceholder", t("profile.dobPlaceholder"))}
+                        placeholder={uiText("profile.dobPlaceholder", t("profile.dobPlaceholder"))}
                           />
                         ) : (
                           <Input
@@ -847,14 +808,14 @@ const Profile = () => {
 
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
-	                        <Label className="mb-2 flex items-center gap-2 text-muted-foreground" style={sectionMutedStyle("personal")}>{uiText("profile.gender_label", t("profile.gender_label"))}</Label>
+                    <Label className="mb-2 flex items-center gap-2 text-muted-foreground">{uiText("profile.gender_label", t("profile.gender_label"))}</Label>
                         {isEditing ? (
                           <select
                             value={formData.gender}
                             onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base"
                           >
-	                            <option value="">{uiText("profile.select", t("profile.select"))}</option>
+                          <option value="">{uiText("profile.select", t("profile.select"))}</option>
                             <option value="MALE">{t("gender.MALE")}</option>
                             <option value="FEMALE">{t("gender.FEMALE")}</option>
                             <option value="OTHER">{t("gender.OTHER")}</option>
@@ -869,8 +830,8 @@ const Profile = () => {
                       </div>
 
                       <div>
-                        <Label className="mb-2 flex items-center gap-2 text-muted-foreground" style={sectionMutedStyle("personal")}>
-	                          <Mail className="h-4 w-4" /> {uiText("profile.email", t("profile.email"))}
+                        <Label className="mb-2 flex items-center gap-2 text-muted-foreground">
+                      <Mail className="h-4 w-4" /> {uiText("profile.email", t("profile.email"))}
                         </Label>
                         <Input value={user.email} disabled className="bg-muted/50" />
                       </div>
@@ -879,11 +840,11 @@ const Profile = () => {
                     <div className="flex items-center justify-between gap-4 rounded-lg border bg-muted/20 px-4 py-3">
                       <div className="min-w-0">
                         <Label htmlFor="email-notifications" className="flex items-center gap-2 font-medium">
-                          <Mail className="h-4 w-4 text-muted-foreground" style={sectionMutedStyle("personal")} />
-                          {uiText("profile.emailNotifications", t("profile.emailNotifications", { defaultValue: "Thong bao qua email" }))}
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          {uiText("profile.emailNotifications", t("profile.emailNotifications", { defaultValue: "Thông báo qua email" }))}
                         </Label>
-                        <p className="mt-1 text-xs text-muted-foreground" style={sectionMutedStyle("personal")}>
-                          {uiText("profile.emailNotificationsDescription", t("profile.emailNotificationsDescription", { defaultValue: "Nhan cap nhat quan trong ve tai khoan va ho so qua email." }))}
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {uiText("profile.emailNotificationsDescription", t("profile.emailNotificationsDescription", { defaultValue: "Nhận cập nhật quan trọng về tài khoản và hồ sơ qua email." }))}
                         </p>
                       </div>
                       <Switch
@@ -900,118 +861,130 @@ const Profile = () => {
             </div>
 
             {/* BOTTOM ROW: CV (when allowed) + password change */}
-            <div className="grid md:grid-cols-[48px_320px_1fr] gap-6">
+            <div className="grid items-stretch gap-6 md:grid-cols-[48px_320px_1fr]">
               <div />
               {showCvSection ? (
-                <div>
-                  <Card className="h-full flex flex-col" style={mergeStyles(sectionCardStyle("cv"), uiTextBoxStyle("profile.cv_title"))}>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                      <CardTitle className="text-sm font-semibold">
-                        <span style={uiTextStyle("profile.cv_title")}>
-                          {uiText("profile.cv_title", t("profile.cv_title"))}
-                        </span>{" "}
-                        ({cvList.length}/{MAX_CVS})
-                      </CardTitle>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleResumeClick}
-                        disabled={isUploadingResume || cvList.length >= MAX_CVS}
-                      >
-                        {isUploadingResume ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-                        {uiText("profile.uploadNewCv", "Tải lên mới")}
-                      </Button>
-                      <input ref={resumeInputRef} type="file" accept=".pdf,.doc,.docx" onChange={handleResumeInput} className="hidden" />
-                    </CardHeader>
-                    <Separator />
-                    <CardContent className="p-4 flex-1">
-                      {cvList.length === 0 ? (
-                        <div
-                          onDragOver={(e) => e.preventDefault()}
-                          onDrop={handleResumeDrop}
-                          onClick={handleResumeClick}
-                          className="min-h-[120px] h-full flex flex-col items-center justify-center rounded-md border-2 border-dashed border-muted/50 bg-muted/10 text-muted-foreground cursor-pointer hover:bg-muted/20 transition-colors text-center p-4"
-                          style={sectionMutedStyle("cv")}
-                        >
-                          <UploadCloud className="h-8 w-8 mb-2 opacity-50" />
-                          <p className="text-sm">{uiText("profile.drag_drop_cv", t("profile.drag_drop_cv"))}</p>
+                <Card className="min-w-0 h-full">
+                  <CardContent className="flex h-full min-h-[170px] flex-col gap-4 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-950">
+                    {uiText("profile.cv_title", t("profile.cv_title"))} ({cvList.length}/{MAX_CVS})
+                        </p>
+                      </div>
+                      <TooltipProvider>
+                        <div className="flex items-center gap-2">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="outline"
+                                className="h-9 w-9 rounded-lg"
+                                onClick={handleResumeClick}
+                                disabled={isUploadingResume || cvList.length >= MAX_CVS}
+                                aria-label={t("profile.uploadCv")}
+                              >
+                                {isUploadingResume ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Upload className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>{t("profile.uploadCv")}</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="outline"
+                                className="h-9 w-9 rounded-lg"
+                                onClick={() => setIsCvManagerOpen(true)}
+                                disabled={cvList.length === 0}
+                                aria-label={t("profile.manageCv")}
+                              >
+                                <Settings2 className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>{t("profile.manageCv")}</TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </TooltipProvider>
+                      <input
+                        ref={resumeInputRef}
+                        type="file"
+                        accept=".pdf,.doc,.docx"
+                        multiple
+                        onChange={handleResumeInput}
+                        className="hidden"
+                      />
+                    </div>
+
+                    <div
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={handleResumeDrop}
+                      className="flex min-w-0 flex-1 items-center rounded-lg border bg-slate-50/70 p-3"
+                    >
+                      {defaultCv ? (
+                        <div className="flex w-full min-w-0 items-center gap-3 overflow-hidden">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                            <FileText className="h-5 w-5" />
+                          </div>
+                          <div className="min-w-0 flex-1 overflow-hidden">
+                            <a
+                              href={defaultCv.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="block max-w-full truncate text-sm font-semibold text-slate-950 hover:underline"
+                              title={defaultCv.name}
+                            >
+                              {defaultCv.name}
+                            </a>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {t("profile.defaultCv")} - {new Date(defaultCv.uploadedAt).toLocaleDateString("vi-VN")}
+                            </p>
+                          </div>
                         </div>
                       ) : (
-                        <div className="space-y-2">
-                          <div className="grid grid-cols-[1fr_64px_40px] items-center gap-2 px-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground" style={sectionMutedStyle("cv")}>
-                            <span>{uiText("profile.cvColumnName", "CV")}</span>
-                            <span className="text-center">{uiText("profile.cvDefault", "Default")}</span>
-                            <span className="sr-only">{uiText("profile.deleteCv", "Xóa CV")}</span>
-                          </div>
-                          {cvList.map((cv: CvItem) => (
-                            <div key={cv.id} className="grid grid-cols-[1fr_64px_40px] items-center gap-2 p-3 border rounded-lg hover:bg-slate-50 transition-colors">
-                              <div className="flex min-w-0 items-center gap-3 overflow-hidden">
-                                <div className="p-2 bg-primary/10 text-primary rounded-md shrink-0">
-                                  <FileText className="h-5 w-5" />
-                                </div>
-                                <div className="flex flex-col overflow-hidden">
-                                  <a href={cv.url} target="_blank" rel="noreferrer" className="text-sm font-medium hover:underline truncate">
-                                    {cv.name}
-                                  </a>
-                                  <span className="text-xs text-muted-foreground" style={sectionMutedStyle("cv")}>
-                                    {new Date(cv.uploadedAt).toLocaleDateString('vi-VN')}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="flex justify-center">
-                                <input
-                                  type="radio"
-                                  name="defaultCv"
-                                  checked={Boolean(cv.isDefault)}
-                                  onChange={() => {
-                                    if (!cv.isDefault) handleSetDefaultCv(cv.id);
-                                  }}
-                                  className="h-4 w-4 accent-primary cursor-pointer"
-                                  aria-label={uiText("profile.setDefaultCv", "Đặt {name} làm CV mặc định").replace("{name}", cv.name)}
-                                />
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                onClick={() => handleDeleteCv(cv.id)}
-                                title={uiText("profile.deleteCv", "Xóa CV")}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={handleResumeClick}
+                          className="flex min-h-[88px] w-full flex-col items-center justify-center rounded-md border border-dashed border-muted-foreground/30 text-center text-sm text-muted-foreground transition-colors hover:bg-white"
+                        >
+                          <Upload className="mb-2 h-5 w-5" />
+                          {uiText("profile.drag_drop_cv", t("profile.drag_drop_cv"))}
+                        </button>
                       )}
+                    </div>
                     </CardContent>
                   </Card>
-                </div>
               ) : showCompanyProfileSection ? (
                 <div>
                   <Card
                     className="h-full cursor-pointer overflow-hidden transition hover:border-primary/40 hover:shadow-md"
-                    style={mergeStyles(sectionCardStyle("company"), uiTextBoxStyle("profile.companyProfileTitle"))}
                     role="button"
                     tabIndex={0}
-                    onClick={() => navigate("/recruiter-verification")}
+                    onClick={() => {
+                      navigate(companyProfile?.id ? `/companies/${companyProfile.id}` : "/recruiter-verification");
+                    }}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
-                        navigate("/recruiter-verification");
+                        navigate(companyProfile?.id ? `/companies/${companyProfile.id}` : "/recruiter-verification");
                       }
                     }}
                   >
                     <CardHeader className="py-4">
                       <CardTitle className="text-sm font-semibold">
-                        <span style={uiTextStyle("profile.companyProfileTitle")}>
-                          {uiText("profile.companyProfileTitle", t("profile.companyProfileTitle"))}
-                        </span>
+                        {uiText("profile.companyProfileTitle", t("profile.companyProfileTitle"))}
                       </CardTitle>
                     </CardHeader>
                     <Separator />
                     <CardContent className="p-3">
                       {isLoadingCompanyProfile ? (
-                        <div className="flex min-h-[110px] items-center justify-center text-muted-foreground" style={sectionMutedStyle("company")}>
+                        <div className="flex min-h-[110px] items-center justify-center text-muted-foreground">
                           <Loader2 className="h-5 w-5 animate-spin" />
                         </div>
                       ) : companyProfile ? (
@@ -1025,14 +998,14 @@ const Profile = () => {
                                   className="h-full w-full object-contain"
                                 />
                               ) : (
-                                <Building2 className="h-5 w-5 text-muted-foreground" style={sectionMutedStyle("company")} />
+                                <Building2 className="h-5 w-5 text-muted-foreground" />
                               )}
                             </div>
                             <div className="min-w-0">
                               <p className="truncate text-sm font-semibold text-slate-950">
                                 {companyProfile.companyDisplayName || companyProfile.companyFullName}
                               </p>
-                              <p className="truncate text-xs text-muted-foreground" style={sectionMutedStyle("company")}>
+                              <p className="truncate text-xs text-muted-foreground">
                                 {companyProfile.companyFullName}
                               </p>
                             </div>
@@ -1049,21 +1022,16 @@ const Profile = () => {
                             </div>
                             {companyDefaultAddress && (
                               <div className="truncate">
-                                <span className="font-semibold text-slate-600">{uiText("profile.companyAddress", t("profile.companyAddress"))}: </span>
+                              <span className="font-semibold text-slate-600">{uiText("profile.companyAddress", t("profile.companyAddress"))}: </span>
                                 <span className="text-slate-700">{companyDefaultAddress}</span>
                               </div>
                             )}
                           </div>
                         </div>
                       ) : (
-                        <div
-                          className="flex min-h-[110px] flex-col items-center justify-center rounded-md border-2 border-dashed border-muted/50 bg-muted/10 p-3 text-center text-muted-foreground transition-colors hover:bg-muted/20"
-                          style={mergeStyles(sectionMutedStyle("company"), uiTextBoxStyle("profile.companyProfileEmpty"))}
-                        >
+                        <div className="flex min-h-[110px] flex-col items-center justify-center rounded-md border-2 border-dashed border-muted/50 bg-muted/10 p-3 text-center text-muted-foreground transition-colors hover:bg-muted/20">
                           <Building2 className="mb-2 h-7 w-7 opacity-50" />
-                          <p className="text-sm" style={uiTextStyle("profile.companyProfileEmpty")}>
-                            {uiText("profile.companyProfileEmpty", t("profile.companyProfileEmpty"))}
-                          </p>
+                          <p className="text-sm">{uiText("profile.companyProfileEmpty", t("profile.companyProfileEmpty"))}</p>
                         </div>
                       )}
                     </CardContent>
@@ -1071,32 +1039,30 @@ const Profile = () => {
                 </div>
               ) : (
                 <div />
-	              )}
-	              <div>
-	                {showChangePasswordCard && (
-	                <Card style={mergeStyles(sectionCardStyle("password"), uiTextBoxStyle("profile.change_password"))}>
-	                  <CardHeader>
-	                    <CardTitle className="text-lg" style={uiTextStyle("profile.change_password")}>{changePasswordTitle}</CardTitle>
+              )}
+              <div className="min-w-0">
+                <Card className="h-full">
+                  <CardHeader>
+                    <CardTitle className="text-lg">{uiText("profile.change_password", t("profile.change_password"))}</CardTitle>
                   </CardHeader>
                   <Separator />
                   <CardContent className="space-y-4 p-4">
                     <div className="grid gap-4 md:grid-cols-3">
                       <div>
-                        <Label className="sr-only">{uiText("profile.current_password", t("profile.current_password"))}</Label>
+                        <Label className="sr-only">{t("profile.current_password")}</Label>
                         <div className="relative">
                           <Input
                             type={visiblePasswords.currentPassword ? "text" : "password"}
                             value={passwordData.currentPassword}
                             onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                            placeholder={uiText("profile.current_password", t("profile.current_password"))}
+                        placeholder={uiText("profile.current_password", t("profile.current_password"))}
                             className="pr-10"
                           />
-	                          <button
-	                            type="button"
-	                            aria-label={visiblePasswords.currentPassword ? t("login.hidePassword") : t("login.showPassword")}
-	                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-primary"
-	                            style={sectionMutedStyle("password")}
-	                            onClick={() => togglePasswordVisibility("currentPassword")}
+                          <button
+                            type="button"
+                            aria-label={visiblePasswords.currentPassword ? t("login.hidePassword") : t("login.showPassword")}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-primary"
+                            onClick={() => togglePasswordVisibility("currentPassword")}
                           >
                             {visiblePasswords.currentPassword ? (
                               <EyeOff className="h-4 w-4" />
@@ -1107,21 +1073,20 @@ const Profile = () => {
                         </div>
                       </div>
                       <div>
-                        <Label className="sr-only">{uiText("profile.new_password", t("profile.new_password"))}</Label>
+                        <Label className="sr-only">{t("profile.new_password")}</Label>
                         <div className="relative">
                           <Input
                             type={visiblePasswords.newPassword ? "text" : "password"}
                             value={passwordData.newPassword}
                             onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                            placeholder={uiText("profile.new_password", t("profile.new_password"))}
+                        placeholder={uiText("profile.new_password", t("profile.new_password"))}
                             className="pr-10"
                           />
-	                          <button
-	                            type="button"
-	                            aria-label={visiblePasswords.newPassword ? t("login.hidePassword") : t("login.showPassword")}
-	                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-primary"
-	                            style={sectionMutedStyle("password")}
-	                            onClick={() => togglePasswordVisibility("newPassword")}
+                          <button
+                            type="button"
+                            aria-label={visiblePasswords.newPassword ? t("login.hidePassword") : t("login.showPassword")}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-primary"
+                            onClick={() => togglePasswordVisibility("newPassword")}
                           >
                             {visiblePasswords.newPassword ? (
                               <EyeOff className="h-4 w-4" />
@@ -1132,21 +1097,20 @@ const Profile = () => {
                         </div>
                       </div>
                       <div>
-                        <Label className="sr-only">{uiText("profile.confirm_password", t("profile.confirm_password"))}</Label>
+                        <Label className="sr-only">{t("profile.confirm_password")}</Label>
                         <div className="relative">
                           <Input
                             type={visiblePasswords.confirmPassword ? "text" : "password"}
                             value={passwordData.confirmPassword}
                             onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                            placeholder={uiText("profile.confirm_password", t("profile.confirm_password"))}
+                        placeholder={uiText("profile.confirm_password", t("profile.confirm_password"))}
                             className="pr-10"
                           />
-	                          <button
-	                            type="button"
-	                            aria-label={visiblePasswords.confirmPassword ? t("login.hidePassword") : t("login.showPassword")}
-	                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-primary"
-	                            style={sectionMutedStyle("password")}
-	                            onClick={() => togglePasswordVisibility("confirmPassword")}
+                          <button
+                            type="button"
+                            aria-label={visiblePasswords.confirmPassword ? t("login.hidePassword") : t("login.showPassword")}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-primary"
+                            onClick={() => togglePasswordVisibility("confirmPassword")}
                           >
                             {visiblePasswords.confirmPassword ? (
                               <EyeOff className="h-4 w-4" />
@@ -1159,30 +1123,106 @@ const Profile = () => {
                     </div>
 
                     <div className="flex justify-end">
-	                      <Button
-	                        onClick={handleChangePassword}
-	                        disabled={isChangingPassword}
-	                        style={{ backgroundColor: sectionAccentColor("password"), borderColor: sectionAccentColor("password") }}
-	                      >
+                      <Button onClick={handleChangePassword} disabled={isChangingPassword}>
                         {isChangingPassword ? (
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         ) : (
                           <Lock className="mr-2 h-4 w-4" />
                         )}
-	                        {changePasswordTitle}
-	                      </Button>
-	                    </div>
-	                  </CardContent>
-	                </Card>
-	                )}
-	              </div>
+                      {uiText("profile.change_password", t("profile.change_password"))}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </div>
         </div>
-	      </div>
-	      )}
+      </div>
 
-	      {/* Avatar Crop Dialog */}
+      <Dialog open={isCvManagerOpen} onOpenChange={setIsCvManagerOpen}>
+        <DialogContent className="max-w-2xl" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>{t("profile.manageCv")}</DialogTitle>
+            <DialogDescription>{t("profile.manageCvDescription", { count: MAX_CVS })}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            {cvList.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                {t("profile.noCv")}
+              </div>
+            ) : (
+              cvList.map((cv: CvItem) => (
+                <div
+                  key={cv.id}
+                  className="grid min-w-0 gap-3 rounded-lg border p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <FileText className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1 overflow-hidden">
+                      <a
+                        href={cv.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block max-w-full truncate text-sm font-semibold text-slate-950 hover:underline"
+                        title={cv.name}
+                      >
+                        {cv.name}
+                      </a>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(cv.uploadedAt).toLocaleDateString("vi-VN")}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant={cv.isDefault ? "secondary" : "outline"}
+                            className="h-9 w-9"
+                            onClick={() => {
+                              if (!cv.isDefault) handleSetDefaultCv(cv.id);
+                            }}
+                            disabled={Boolean(cv.isDefault)}
+                            aria-label={cv.isDefault ? t("profile.defaultCv") : t("profile.setDefaultCv")}
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{cv.isDefault ? t("profile.defaultCv") : t("profile.setDefaultCv")}</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            className="h-9 w-9 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() => handleDeleteCv(cv.id)}
+                            aria-label={t("profile.deleteCv")}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{t("profile.deleteCv")}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Avatar Crop Dialog */}
       <AvatarCropDialog
         open={isCropDialogOpen}
         imageSrc={cropImageSrc}
@@ -1193,7 +1233,6 @@ const Profile = () => {
         }}
         isLoading={isUploading}
       />
-      <SanityPageSections routePath="/profile" placement="bottom" />
     </main>
   );
 };

@@ -74,14 +74,20 @@ const Register = () => {
   const [registerHero, setRegisterHero] = useState<RegisterHeroConfig>(
     defaultManagedSiteConfig.registerHero,
   );
+  const [isHeroLoading, setIsHeroLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     let isMounted = true;
 
-    loadRegisterHeroConfig().then((config) => {
-      if (isMounted) setRegisterHero(config);
-    });
+    setIsHeroLoading(true);
+    loadRegisterHeroConfig()
+      .then((config) => {
+        if (isMounted) setRegisterHero(config);
+      })
+      .finally(() => {
+        if (isMounted) setIsHeroLoading(false);
+      });
 
     return () => {
       isMounted = false;
@@ -201,6 +207,14 @@ const Register = () => {
     setPendingEmail("");
     tokenForm.reset();
   };
+
+  if (isHeroLoading) {
+    return (
+      <main className="flex h-[calc(100dvh-4rem)] items-center justify-center bg-gradient-subtle">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </main>
+    );
+  }
 
   return (
     <main className="h-[calc(100dvh-4rem)] overflow-hidden bg-gradient-subtle">

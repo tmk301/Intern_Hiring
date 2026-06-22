@@ -44,6 +44,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isResetOpen, setIsResetOpen] = useState(false);
   const [loginHero, setLoginHero] = useState<LoginHeroConfig>(defaultManagedSiteConfig.loginHero);
+  const [isHeroLoading, setIsHeroLoading] = useState(true);
   const navigate = useNavigate();
   const loginSchema = useMemo(
     () =>
@@ -88,9 +89,14 @@ const Login = () => {
   useEffect(() => {
     let mounted = true;
 
-    loadLoginHeroConfig().then((hero) => {
-      if (mounted) setLoginHero(hero);
-    });
+    setIsHeroLoading(true);
+    loadLoginHeroConfig()
+      .then((hero) => {
+        if (mounted) setLoginHero(hero);
+      })
+      .finally(() => {
+        if (mounted) setIsHeroLoading(false);
+      });
 
     const handleConfigUpdate = (event: Event) => {
       const config = (event as CustomEvent).detail;
@@ -152,7 +158,7 @@ const Login = () => {
     }
   };
 
-  if (isAuthLoading) {
+  if (isAuthLoading || isHeroLoading) {
     return (
       <main className="flex h-[calc(100dvh-4rem)] items-center justify-center bg-gradient-subtle">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

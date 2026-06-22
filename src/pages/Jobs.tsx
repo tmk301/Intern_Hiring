@@ -14,6 +14,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"; // MỚI THÊM
 import { JobSearchFilters } from "@/components/jobs/JobSearchFilters";
+import { FavoriteJobButton } from "@/components/jobs/FavoriteJobButton";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import { jobApi, PublicJobPost, candidateApi } from "@/lib/api"; // MỚI THÊM: candidateApi
 import {
   defaultManagedSiteConfig,
@@ -24,13 +26,20 @@ import {
   emptyJobFilterValue,
   defaultJobFilterOptions,
   USD_TO_VND_RATE,
+  WORK_MODE_OPTIONS,
+  JOB_TYPE_OPTIONS,
+  CURRENCY_OPTIONS,
+  getSalaryRangeOption,
   type JobFilterOption,
   type JobFilterOptions,
   type JobFilterValue,
 } from "@/components/jobs/jobFilterConfig";
 import { getVietnamProvinceOptions, getVietnamWardOptions } from "@/lib/vietnamProvinces";
+import { paginateItems } from "@/lib/pagination";
 import { useAuth } from "@/context/AuthContext"; // MỚI THÊM
 import { useToast } from "@/hooks/use-toast"; // MỚI THÊM
+import { SanityPageSections } from "@/components/sanity/SanityPageSections";
+import { useSanityManagedInterface } from "@/lib/sanityInterfaceText";
 
 const normalizeText = (value?: string | number | null) =>
   String(value ?? "")
@@ -71,6 +80,8 @@ const getSearchText = (job: PublicJobPost) =>
     job.location,
     job.type,
     job.salary,
+    job.currency,
+    job.mode,
     job.experience,
     job.description,
   ].join(" ");
@@ -114,8 +125,19 @@ const matchesText = (source: string | null, selectedValue: string) => {
   return Boolean(normalizedSelected && normalizedSource.includes(normalizedSelected));
 };
 
-const matchesSalaryRange = (source: string | null, minSalary: number, maxSalary: number, isActive: boolean) => {
+const matchesSalaryRange = (
+  source: string | null,
+  selectedRange: string,
+  minSalary: number,
+  maxSalary: number,
+  isActive: boolean,
+) => {
   if (!isActive) return true;
+
+  const sourceRange = getSalaryRangeOption(source ?? "");
+  if (sourceRange && selectedRange) {
+    return sourceRange.value === selectedRange;
+  }
 
   const salaryNumbers = getSalaryNumbers(source);
   if (salaryNumbers.length === 0) return false;
@@ -185,9 +207,12 @@ const matchesOption = (
   if (!selectedValue) return true;
 
   const normalizedSource = normalizeText(source);
+  if (!normalizedSource) return false;
+
   const option = options.find((item) => item.value === selectedValue);
   const candidates = option
     ? [
+        option.value,
         option.label,
         option.labelKey ? translate(option.labelKey) : undefined,
         ...(option.aliases ?? []),
@@ -205,6 +230,8 @@ const matchesLocationText = (source: string | null, selectedLocation: string) =>
 
   const normalizedSource = normalizeText(source);
   const normalizedSelected = normalizeText(selectedLocation);
+  if (!normalizedSource || !normalizedSelected) return false;
+
   const selectedTokens = normalizedSelected.split(" ").filter((token) => token.length >= 3);
 
   return (
@@ -234,12 +261,13 @@ const filterJobs = (
       matchesOption(job.location, value.district, options.districts, translate) &&
       matchesOption(job.location, value.ward, options.wards, translate) &&
       matchesLocationText(job.location, value.location) &&
-      matchesOption(`${job.type ?? ""} ${job.description ?? ""}`, value.workMode, options.workModes, translate) &&
+      matchesOption(job.mode, value.workMode, options.workModes, translate) &&
       matchesOption(job.type, value.jobType, options.jobTypes, translate) &&
       matchesText(job.company, value.company) &&
-      matchesOption(job.salary, value.currency, options.currencies, translate) &&
-      matchesExperience(job.experience || job.description, value.experience) &&
-      matchesSalaryRange(job.salary, minSalary, maxSalary, salaryFilterActive)
+      matchesOption(`${job.currency ?? ""} ${job.salary ?? ""}`, value.currency, options.currencies, translate) &&
+      (matchesOption(job.experience, value.experience, options.experience, translate) ||
+        matchesExperience(job.description, value.experience)) &&
+      matchesSalaryRange(job.salary, value.salaryRange, minSalary, maxSalary, salaryFilterActive)
     );
   });
 
@@ -251,23 +279,28 @@ const Jobs: React.FC = () => {
   const [provinceOptions, setProvinceOptions] = useState<JobFilterOption[]>([]);
   const [wardOptions, setWardOptions] = useState<JobFilterOption[]>([]);
   const [jobs, setJobs] = useState<PublicJobPost[]>([]);
+  const [favoriteJobIds, setFavoriteJobIds] = useState<Set<string | number>>(new Set());
   const [filterValue, setFilterValue] = useState<JobFilterValue>({
     ...emptyJobFilterValue,
     keyword: initialKeyword,
   });
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [jobPage, setJobPage] = useState(1);
+  const [jobPageSize, setJobPageSize] = useState(10);
 
   // MỚI THÊM: Các state và hook cho phần nộp đơn
   const { user, token } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { text: uiText, pageContent } = useSanityManagedInterface("/jobs");
   const [applyJobId, setApplyJobId] = useState<string | number | null>(null);
   const [selectedCvId, setSelectedCvId] = useState<string>("");
   const [isApplying, setIsApplying] = useState(false);
 
   useEffect(() => {
     setFilterValue((current) => ({ ...current, keyword: initialKeyword }));
+    setJobPage(1);
   }, [initialKeyword]);
 
   useEffect(() => {
@@ -338,6 +371,26 @@ const Jobs: React.FC = () => {
     };
   }, [t]);
 
+  useEffect(() => {
+    if (!token || user?.role !== "CANDIDATE") {
+      setFavoriteJobIds(new Set());
+      return;
+    }
+
+    let mounted = true;
+    candidateApi.listFavoriteJobs(token)
+      .then((favoriteJobs) => {
+        if (mounted) setFavoriteJobIds(new Set(favoriteJobs.map((job) => job.id)));
+      })
+      .catch(() => {
+        if (mounted) setFavoriteJobIds(new Set());
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [token, user?.role]);
+
   const filterOptions = useMemo<JobFilterOptions>(() => {
     const fixedOptions = {
       workModes: managedConfig.filters.workModes.length ? managedConfig.filters.workModes : defaultJobFilterOptions.workModes,
@@ -365,17 +418,36 @@ const Jobs: React.FC = () => {
     () => filterJobs(jobs, filterValue, filterOptions, t),
     [jobs, filterValue, filterOptions, t],
   );
+  const paginatedJobs = useMemo(
+    () => paginateItems(filteredJobs, jobPage, jobPageSize),
+    [filteredJobs, jobPage, jobPageSize],
+  );
   const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
+
+  const handleFilterChange = (nextValue: JobFilterValue) => {
+    setFilterValue(nextValue);
+    setJobPage(1);
+  };
+
+  const handleFavoriteChange = (updatedJob: PublicJobPost, isFavorited: boolean) => {
+    setFavoriteJobIds((current) => {
+      const next = new Set(current);
+      if (isFavorited) next.add(updatedJob.id);
+      else next.delete(updatedJob.id);
+      return next;
+    });
+    setJobs((current) => current.map((job) => (String(job.id) === String(updatedJob.id) ? updatedJob : job)));
+  };
 
   // MỚI THÊM: Hàm xử lý mở popup nộp đơn
   const handleOpenApplyModal = (jobId: string | number) => {
     if (!user || !token) {
-      toast({ description: "Vui lòng đăng nhập để nộp đơn", variant: "default" });
+      toast({ description: t("jobs.apply.loginRequired", { defaultValue: "Vui lòng đăng nhập để nộp đơn" }), variant: "default" });
       navigate("/login");
       return;
     }
     if (user.role !== "CANDIDATE") {
-      toast({ description: "Chỉ tài khoản Ứng viên mới có thể nộp đơn", variant: "destructive" });
+      toast({ description: t("jobs.apply.candidateOnly", { defaultValue: "Chỉ tài khoản Ứng viên mới có thể nộp đơn" }), variant: "destructive" });
       return;
     }
     const defaultCv = user.cvList?.find((cv) => cv.isDefault) ?? user.cvList?.[0];
@@ -392,13 +464,15 @@ const Jobs: React.FC = () => {
       // Gọi xuống Backend với cvId (Theo đúng chuẩn bảo mật đã thiết kế)
       await candidateApi.applyJob(token, applyJobId, selectedCvId);
       
-      toast({ title: "Thành công!", description: "Đã nộp CV thành công cho công việc này." });
+      toast({ title: t("toast.success"), description: t("jobs.apply.success", { defaultValue: "Đã nộp CV thành công cho công việc này." }) });
       setApplyJobId(null);
       setSelectedCvId("");
     } catch (error: unknown) {
+
+
       toast({ 
-        title: "Không thể nộp đơn", 
-        description: getErrorMessage(error, "Bạn đã nộp đơn cho công việc này rồi hoặc có lỗi xảy ra."),
+        title: t("toast.error"), 
+        description: getErrorMessage(error, t("jobs.apply.error", { defaultValue: "Bạn đã nộp đơn cho công việc này rồi hoặc có lỗi xảy ra." })),
         variant: "destructive" 
       });
     } finally {
@@ -408,24 +482,32 @@ const Jobs: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <section className="border-b bg-white">
-        <div className="container mx-auto px-4 py-8">
-          <h1 className="text-3xl font-bold text-slate-950">{t("jobs.page.title")}</h1>
-          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{t("jobs.page.description")}</p>
+      <SanityPageSections routePath="/jobs" placement="top" />
+      {pageContent.heroVisible !== false && <section
+        className="hero-gradient text-white py-8 shadow-sm"
+        style={pageContent.heroBackgroundColor ? {background: String(pageContent.heroBackgroundColor)} : undefined}
+      >
+        <div className="container mx-auto px-4">
+          <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl text-white" style={{color: String(pageContent.heroTextColor || "#ffffff")}}>{uiText("jobs.page.title", t("jobs.page.title"))}</h1>
+          <p className="mt-2 max-w-3xl text-sm text-blue-100/90" style={{color: String(pageContent.heroTextColor || "#ffffff")}}>{uiText("jobs.page.description", t("jobs.page.description"))}</p>
         </div>
-      </section>
+      </section>}
 
-      <section className="container mx-auto space-y-6 px-4 py-8">
-        <JobSearchFilters
+      <SanityPageSections routePath="/jobs" placement="afterHero" />
+
+      {(pageContent.filtersVisible !== false || pageContent.resultsVisible !== false) && <section className="container mx-auto space-y-6 px-4 py-8" style={{backgroundColor: pageContent.contentBackgroundColor ? String(pageContent.contentBackgroundColor) : undefined}}>
+        {pageContent.filtersVisible !== false && <JobSearchFilters
           options={filterOptions}
           value={filterValue}
-          onChange={setFilterValue}
-          onReset={() => setFilterValue(emptyJobFilterValue)}
-        />
+          onChange={handleFilterChange}
+          onReset={() => handleFilterChange(emptyJobFilterValue)}
+        />}
 
+        {pageContent.resultsVisible !== false && <div id="ket-qua-tim-kiem" className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-slate-950">{t("jobs.page.resultsTitle")}</h2>
-          <Badge variant="outline">{t("jobs.page.count", { count: filteredJobs.length })}</Badge>
+          <h2 className="text-xl font-semibold text-slate-950">
+            {uiText("jobs.page.resultsTitle", t("jobs.page.resultsTitle"))} ({filteredJobs.length})
+          </h2>
         </div>
 
         {loading ? (
@@ -442,69 +524,109 @@ const Jobs: React.FC = () => {
           <Card>
             <CardContent className="py-12 text-center">
               <Briefcase className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
-              <h3 className="font-semibold text-slate-950">{t("jobs.page.emptyTitle")}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{t("jobs.page.emptyDescription")}</p>
+              <h3 className="font-semibold text-slate-950">{uiText("jobs.page.emptyTitle", t("jobs.page.emptyTitle"))}</h3>
+              <p className="mt-2 text-sm text-muted-foreground">{uiText("jobs.page.emptyDescription", t("jobs.page.emptyDescription"))}</p>
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-4">
-            {filteredJobs.map((job) => (
-              <Card key={job.id} className="overflow-hidden flex flex-col h-full hover:shadow-md transition-shadow">
-                <CardHeader className="space-y-3">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <CardTitle className="text-xl">{job.title || t("jobs.page.untitled")}</CardTitle>
-                      <p className="mt-1 text-sm font-medium text-slate-700">
-                        {job.company || job.employerName || t("jobs.page.notProvided")}
-                      </p>
+            {paginatedJobs.items.map((job) => (
+              <Card
+                key={job.id}
+                className="group relative overflow-hidden flex flex-col h-full hover:shadow-medium shadow-soft border bg-card transition-smooth hover:-translate-y-1"
+                style={{
+                  backgroundColor: pageContent.jobCardBackgroundColor ? String(pageContent.jobCardBackgroundColor) : undefined,
+                  borderColor: pageContent.jobCardBorderColor ? String(pageContent.jobCardBorderColor) : undefined,
+                }}
+              >
+                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-primary-light" />
+                <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary/10 transition-smooth group-hover:scale-125" />
+                <div
+                  className="relative cursor-pointer flex flex-col flex-1"
+                  onClick={() => navigate(`/jobs/${job.id}`)}
+                >
+                  <CardHeader className="space-y-3">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <CardTitle className="text-xl" style={{color: pageContent.jobCardTitleColor ? String(pageContent.jobCardTitleColor) : undefined}}>{job.title || t("jobs.page.untitled")}</CardTitle>
+                        <p className="mt-1 text-sm font-medium text-slate-700" style={{color: pageContent.jobCardTextColor ? String(pageContent.jobCardTextColor) : undefined}}>
+                          {job.company || job.employerName || t("jobs.page.notProvided")}
+                        </p>
+                      </div>
+                      <FavoriteJobButton
+                        jobId={job.id}
+                        isFavorited={favoriteJobIds.has(job.id)}
+                        onFavoriteChange={handleFavoriteChange}
+                        className="self-start relative z-10"
+                      />
                     </div>
-                    {job.status && <Badge variant="secondary">{job.status}</Badge>}
-                  </div>
-                  <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-                    {job.location && (
-                      <span className="inline-flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        {job.location}
-                      </span>
+                    <div className="flex flex-wrap gap-2.5 text-sm text-muted-foreground">
+                      {job.location && (
+                        <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
+                          <MapPin className="h-4 w-4 text-primary" />
+                          {job.location}
+                        </span>
+                      )}
+                      {job.createdAt && (
+                        <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
+                          <CalendarDays className="h-4 w-4 text-primary" />
+                          {new Date(job.createdAt).toLocaleDateString(dateLocale)}
+                        </span>
+                      )}
+                      {job.applicationDeadline && (
+                        <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
+                          <CalendarDays className="h-4 w-4 text-primary" />
+                          {uiText("jobs.page.applicationDeadline", t("jobs.page.applicationDeadline"))}: {formatDateOnly(job.applicationDeadline, dateLocale)}
+                        </span>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4 flex-1">
+                    <div className="flex flex-wrap gap-2">
+                      {job.type && <Badge variant="secondary" className="rounded-full px-3 py-1">{JOB_TYPE_OPTIONS.find(o => o.value === job.type)?.labelKey ? t(JOB_TYPE_OPTIONS.find(o => o.value === job.type)!.labelKey!) : job.type}</Badge>}
+                      {job.salary && (
+                        <Badge variant="secondary" className="rounded-full px-3 py-1">
+                          {getSalaryRangeOption(job.salary)?.labelKey ? t(getSalaryRangeOption(job.salary)!.labelKey!) : job.salary} {job.currency ? (CURRENCY_OPTIONS.find(o => o.value === job.currency)?.labelKey ? t(CURRENCY_OPTIONS.find(o => o.value === job.currency)!.labelKey!) : job.currency) : ""}
+                        </Badge>
+                      )}
+                      {job.mode && <Badge variant="secondary" className="rounded-full px-3 py-1">{WORK_MODE_OPTIONS.find(o => o.value === job.mode)?.labelKey ? t(WORK_MODE_OPTIONS.find(o => o.value === job.mode)!.labelKey!) : job.mode}</Badge>}
+                      {job.experience && <Badge variant="secondary" className="rounded-full px-3 py-1">{defaultJobFilterOptions.experience.find(o => o.value === job.experience)?.labelKey ? t(defaultJobFilterOptions.experience.find(o => o.value === job.experience)!.labelKey!) : job.experience}</Badge>}
+                    </div>
+                    {job.description && (
+                      <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-600" style={{color: pageContent.jobCardTextColor ? String(pageContent.jobCardTextColor) : undefined}}>
+                        {job.description}
+                      </p>
                     )}
-                    {job.createdAt && (
-                      <span className="inline-flex items-center gap-1">
-                        <CalendarDays className="h-4 w-4" />
-                        {new Date(job.createdAt).toLocaleDateString(dateLocale)}
-                      </span>
-                    )}
-                    {job.applicationDeadline && (
-                      <span className="inline-flex items-center gap-1">
-                        <CalendarDays className="h-4 w-4" />
-                        {t("jobs.page.applicationDeadline")}: {formatDateOnly(job.applicationDeadline, dateLocale)}
-                      </span>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4 flex-1">
-                  <div className="flex flex-wrap gap-2">
-                    {job.type && <Badge variant="outline">{job.type}</Badge>}
-                    {job.salary && <Badge variant="outline">{job.salary}</Badge>}
-                    {job.experience && <Badge variant="outline">{job.experience}</Badge>}
-                  </div>
-                  {job.description && (
-                    <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">
-                      {job.description}
-                    </p>
-                  )}
-                </CardContent>
+                  </CardContent>
+                </div>
                 
                 {/* MỚI THÊM: Nút nộp đơn */}
-                <CardFooter className="bg-slate-50/50 border-t p-4 flex justify-end">
-                  <Button onClick={() => handleOpenApplyModal(job.id)}>
-                    Nộp đơn ứng tuyển
+                <CardFooter className="relative bg-slate-50/50 border-t p-4 flex justify-end z-10">
+                  <Button
+                    variant="cta"
+                    className="bg-primary text-primary-foreground hover:bg-primary-dark w-auto px-5"
+                    style={{
+                      backgroundColor: pageContent.applyButtonBackgroundColor ? String(pageContent.applyButtonBackgroundColor) : undefined,
+                      color: pageContent.applyButtonTextColor ? String(pageContent.applyButtonTextColor) : undefined,
+                    }}
+                    onClick={() => handleOpenApplyModal(job.id)}
+                  >
+                    {uiText("jobs.apply.button", t("jobs.apply.button"))}
                   </Button>
                 </CardFooter>
               </Card>
             ))}
+            <PaginationControls
+              page={paginatedJobs.page}
+              totalPages={paginatedJobs.totalPages}
+              onPageChange={setJobPage}
+              pageSize={jobPageSize}
+              onPageSizeChange={setJobPageSize}
+            />
           </div>
         )}
-      </section>
+        </div>}
+      </section>}
 
       {/* MỚI THÊM: Giao diện Modal Chọn CV nộp đơn */}
       <Dialog 
@@ -518,9 +640,9 @@ const Jobs: React.FC = () => {
       >
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Chọn CV ứng tuyển</DialogTitle>
+            <DialogTitle>{t("jobs.apply.dialogTitle")}</DialogTitle>
             <DialogDescription>
-              Vui lòng chọn 1 CV từ hồ sơ của bạn để nộp cho vị trí này.
+              {t("jobs.apply.dialogDescription")}
             </DialogDescription>
           </DialogHeader>
 
@@ -528,10 +650,10 @@ const Jobs: React.FC = () => {
             {!user?.cvList || user.cvList.length === 0 ? (
               <div className="text-center py-6 border-2 border-dashed rounded-lg bg-slate-50">
                 <FileText className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
-                <p className="text-sm font-medium text-slate-900">Bạn chưa có CV nào</p>
-                <p className="text-sm text-muted-foreground mt-1 mb-4">Vui lòng tải lên CV trước khi nộp đơn.</p>
+                <p className="text-sm font-medium text-slate-900">{t("jobs.apply.noCv")}</p>
+                <p className="text-sm text-muted-foreground mt-1 mb-4">{t("jobs.apply.noCvDesc")}</p>
                 <Button variant="outline" onClick={() => navigate("/profile")}>
-                  Đến trang cá nhân để tải lên CV
+                  {t("jobs.apply.goToProfile", { defaultValue: "Tải lên CV" })}
                 </Button>
               </div>
             ) : (
@@ -554,7 +676,7 @@ const Jobs: React.FC = () => {
                         {cv.name}
                       </p>
                       <p className="text-xs text-slate-500 mt-1">
-                        Ngày tải lên: {new Date(cv.uploadedAt).toLocaleDateString('vi-VN')}
+                        {t("profile.cv_upload_time")}: {new Date(cv.uploadedAt).toLocaleDateString(dateLocale)}
                         {cv.isDefault && <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">Default</span>}
                       </p>
                     </div>
@@ -570,17 +692,18 @@ const Jobs: React.FC = () => {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setApplyJobId(null)}>Hủy bỏ</Button>
+            <Button variant="outline" onClick={() => setApplyJobId(null)}>{t("common.cancel")}</Button>
             <Button 
               onClick={submitApplication} 
               disabled={!selectedCvId || isApplying || !user?.cvList?.length}
             >
               {isApplying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Gửi hồ sơ
+              {t("jobs.apply.submit")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <SanityPageSections routePath="/jobs" placement="bottom" />
     </main>
   );
 };

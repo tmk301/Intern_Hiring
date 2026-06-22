@@ -81,7 +81,7 @@ const managedPageTemplate = (
   id: string,
   title: string,
   routePath: string,
-  sections: Array<Record<string, unknown>>,
+  _sections: Array<Record<string, unknown>>,
   texts: Array<ReturnType<typeof textItem>> = [],
   theme = {},
   extraValue: Record<string, unknown> = {},
@@ -93,7 +93,7 @@ const managedPageTemplate = (
     title,
     routePath,
     texts,
-    sections,
+    sections: [],
     theme,
     ...extraValue,
   },
@@ -115,11 +115,57 @@ export default defineConfig({
   title: 'Intern Hiring',
   projectId: '41cnp8ig',
   dataset: 'production',
-  plugins: [structureTool(), visionTool()],
+  plugins: [
+    structureTool({
+      structure: (S) => {
+        const managedPageItem = (id: string, title: string, routePath: string, templateId: string) =>
+          S.listItem()
+            .id(id)
+            .title(title)
+            .child(
+              S.documentList()
+                .id(`${id}-documents`)
+                .title(title)
+                .schemaType('managedPage')
+                .filter('_type == "managedPage" && routePath == $routePath')
+                .params({routePath})
+                .initialValueTemplates([S.initialValueTemplateItem(templateId)]),
+            )
+
+        return S.list()
+          .title('Intern Hiring')
+          .items([
+            S.listItem()
+              .id('site-header')
+              .title('Header/navbar')
+              .child(S.document().schemaType('siteHeader').documentId('siteHeader')),
+            S.divider(),
+            managedPageItem('page-home', 'Trang chủ', '/', 'managed-page-home'),
+            managedPageItem('page-jobs', 'Trang việc làm', '/jobs', 'managed-page-jobs'),
+            managedPageItem('page-profile', 'Trang Profile', '/profile', 'managed-page-profile'),
+            managedPageItem('page-applications', 'Trang ứng tuyển', '/applications', 'managed-page-applications'),
+            managedPageItem(
+              'page-recruiter-verification',
+              'Xác thực nhà tuyển dụng',
+              '/recruiter-verification',
+              'managed-page-recruiter-verification',
+            ),
+            managedPageItem('page-admin', 'Dashboard Admin', '/admin', 'managed-page-admin'),
+            managedPageItem('page-recruiter', 'Dashboard nhà tuyển dụng', '/recruiter', 'managed-page-recruiter'),
+            managedPageItem('page-moderator', 'Dashboard kiểm duyệt', '/moderator', 'managed-page-moderator'),
+            S.divider(),
+            ...S.documentTypeListItems().filter(
+              (item) => item.getId() !== 'siteHeader' && item.getId() !== 'managedPage',
+            ),
+          ])
+      },
+    }),
+    visionTool(),
+  ],
   schema: {
     types: schemaTypes,
     templates: (prev) => [
-      ...prev,
+      ...prev.filter((template) => template.schemaType !== 'siteHeader'),
       managedPageTemplate(
         'managed-page-home',
         'Quản lý Trang chủ',

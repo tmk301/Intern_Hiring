@@ -4,7 +4,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { ArrowLeft, Building2, ImageIcon, Loader2, MapPin, Plus, Trash2, UploadCloud, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { isApiError, recruiterApi } from "@/lib/api";
+import { configApi, isApiError, recruiterApi, type RecruiterFormField } from "@/lib/api";
 import { isCandidateRole, isRecruiterRole } from "@/lib/roles";
 import { supabase } from "@/lib/supabase";
 import { getVietnamProvinceOptions, getVietnamWardOptions } from "@/lib/vietnamProvinces";
@@ -17,6 +17,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { SanityPageSections } from "@/components/sanity/SanityPageSections";
+import { useSanityInterfaceText } from "@/lib/sanityInterfaceText";
 
 const COMPANY_PROFILE_BUCKET = "company";
 const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg"];
@@ -25,6 +27,20 @@ const LOGO_MAX_SIZE = 5 * MB;
 const COVER_MAX_SIZE = 10 * MB;
 const GALLERY_MAX_SIZE = 5 * MB;
 const MAX_GALLERY_IMAGES = 5;
+const RESERVED_FORM_FIELD_NAMES = new Set([
+  "logoUrl",
+  "coverUrl",
+  "companyFullName",
+  "companyDisplayName",
+  "taxCode",
+  "billingAddress",
+  "companySize",
+  "companyPhone",
+  "companyWebsite",
+  "companyIntro",
+  "addresses",
+  "galleryUrls",
+]);
 
 type CompanyAddress = {
   id: string;
@@ -114,6 +130,7 @@ const getCompanySizeValue = (value?: string | null) => {
 
 const RecruiterVerification: React.FC = () => {
   const { t } = useTranslation();
+  const uiText = useSanityInterfaceText("/recruiter-verification");
   const navigate = useNavigate();
   const { user, token, isAuthenticated, isLoading } = useAuth();
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -129,6 +146,9 @@ const RecruiterVerification: React.FC = () => {
   const [districtOptions, setDistrictOptions] = useState<Record<string, JobFilterOption[]>>({});
   const [loadingDistricts, setLoadingDistricts] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [customFields, setCustomFields] = useState<RecruiterFormField[]>([]);
+  const [customFormValue, setCustomFormValue] = useState<Record<string, string>>({});
+  const [loadingCustomFields, setLoadingCustomFields] = useState(true);
   const [loadingCompany, setLoadingCompany] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const isRecruiter = isRecruiterRole(user?.role);
@@ -158,6 +178,37 @@ const RecruiterVerification: React.FC = () => {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    configApi.listRecruiterFormFields(false)
+      .then((fields) => {
+        if (!mounted) return;
+
+        const nextFields = fields
+          .filter((field) => field.active && !RESERVED_FORM_FIELD_NAMES.has(field.name))
+          .sort((first, second) => first.sortOrder - second.sortOrder);
+        setCustomFields(nextFields);
+        setCustomFormValue((current) => {
+          const next = { ...current };
+          nextFields.forEach((field) => {
+            if (next[field.name] === undefined) next[field.name] = "";
+          });
+          return next;
+        });
+      })
+      .catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : t("recruiterVerification.toast.loadCompanyError"));
+      })
+      .finally(() => {
+        if (mounted) setLoadingCustomFields(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [t]);
 
   useEffect(() => {
     if (!token || !isRecruiter) return;
@@ -258,6 +309,14 @@ const RecruiterVerification: React.FC = () => {
     );
   }
 
+  if (loadingCustomFields) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   const fieldClassName = (key: string) =>
     errors[key] ? "border-destructive focus-visible:ring-destructive" : "";
 
@@ -269,6 +328,15 @@ const RecruiterVerification: React.FC = () => {
     setErrors((current) => {
       const next = { ...current };
       delete next[field];
+      return next;
+    });
+  };
+
+  const updateCustomFormValue = (field: string, value: string) => {
+    setCustomFormValue((current) => ({ ...current, [field]: value }));
+    setErrors((current) => {
+      const next = { ...current };
+      delete next[`custom.${field}`];
       return next;
     });
   };
@@ -446,6 +514,31 @@ const RecruiterVerification: React.FC = () => {
       if (!address.detail.trim()) nextErrors[`address.${address.id}.detail`] = requiredMessage;
     });
 
+    customFields.forEach((field) => {
+      const value = customFormValue[field.name]?.trim() || "";
+      const errorKey = `custom.${field.name}`;
+
+      if (field.required && !value) {
+        nextErrors[errorKey] = requiredMessage;
+        return;
+      }
+
+      if (field.validationRegex && value) {
+        try {
+          const regex = new RegExp(field.validationRegex);
+          if (!regex.test(value)) {
+            nextErrors[errorKey] = t("recruiterVerification.errors.invalidFormat", {
+              defaultValue: "Định dạng không hợp lệ",
+            });
+          }
+        } catch {
+          nextErrors[errorKey] = t("admin.categories.invalidRegex", {
+            defaultValue: "Regex không hợp lệ",
+          });
+        }
+      }
+    });
+
     setErrors(nextErrors);
 
     const firstErrorKey = Object.keys(nextErrors)[0];
@@ -518,6 +611,10 @@ const RecruiterVerification: React.FC = () => {
         companyIntro: formValue.companyIntro.trim(),
         addresses: JSON.stringify(addressPayload),
         galleryUrls: JSON.stringify(galleryUrls),
+        ...customFields.reduce<Record<string, string>>((payload, field) => {
+          payload[field.name] = customFormValue[field.name]?.trim() || "";
+          return payload;
+        }, {}),
       });
 
       toast.success(t(isRecruiter ? "recruiterVerification.toast.updateSuccess" : "recruiterVerification.toast.success"));
@@ -539,17 +636,19 @@ const RecruiterVerification: React.FC = () => {
           </Button>
           <div className="max-w-3xl">
             <div className="mb-3 inline-flex rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5 text-sm font-semibold text-blue-700">
-              {t(isRecruiter ? "recruiterVerification.updateBadge" : "recruiterVerification.badge")}
+              {uiText(isRecruiter ? "recruiterVerification.updateBadge" : "recruiterVerification.badge", t(isRecruiter ? "recruiterVerification.updateBadge" : "recruiterVerification.badge"))}
             </div>
             <h1 className="text-3xl font-bold text-slate-950">
-              {t(isRecruiter ? "recruiterVerification.updateTitle" : "recruiterVerification.title")}
+              {uiText(isRecruiter ? "recruiterVerification.updateTitle" : "recruiterVerification.title", t(isRecruiter ? "recruiterVerification.updateTitle" : "recruiterVerification.title"))}
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              {t(isRecruiter ? "recruiterVerification.updateDescription" : "recruiterVerification.description")}
+              {uiText(isRecruiter ? "recruiterVerification.updateDescription" : "recruiterVerification.description", t(isRecruiter ? "recruiterVerification.updateDescription" : "recruiterVerification.description"))}
             </p>
           </div>
         </div>
       </section>
+
+      <SanityPageSections routePath="/recruiter-verification" placement="afterHero" />
 
       <section className="container mx-auto px-4 py-8">
         <form className="space-y-6" onSubmit={handleSubmit}>
@@ -557,7 +656,7 @@ const RecruiterVerification: React.FC = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
                 <ImageIcon className="h-5 w-5 text-primary" />
-                {t("recruiterVerification.sections.branding")}
+                {uiText("recruiterVerification.sections.branding", t("recruiterVerification.sections.branding"))}
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
@@ -603,11 +702,50 @@ const RecruiterVerification: React.FC = () => {
             </CardContent>
           </Card>
 
+          {customFields.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <Building2 className="h-5 w-5 text-primary" />
+                  {uiText("admin.categories.verificationTab", t("admin.categories.verificationTab"))}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 md:grid-cols-2">
+                {customFields.map((field) => (
+                  <div key={field.id} data-error-key={`custom.${field.name}`} className={field.name.toLowerCase().includes("intro") || field.name.toLowerCase().includes("description") ? "md:col-span-2" : ""}>
+                    <Label htmlFor={`custom-${field.name}`}>
+                      {field.label}
+                      {field.required && <span className="text-destructive"> *</span>}
+                    </Label>
+                    {field.name.toLowerCase().includes("intro") || field.name.toLowerCase().includes("description") ? (
+                      <Textarea
+                        id={`custom-${field.name}`}
+                        value={customFormValue[field.name] || ""}
+                        placeholder={field.placeholder || undefined}
+                        onChange={(event) => updateCustomFormValue(field.name, event.target.value)}
+                        className={cn("min-h-28", fieldClassName(`custom.${field.name}`))}
+                      />
+                    ) : (
+                      <Input
+                        id={`custom-${field.name}`}
+                        value={customFormValue[field.name] || ""}
+                        placeholder={field.placeholder || undefined}
+                        onChange={(event) => updateCustomFormValue(field.name, event.target.value)}
+                        className={fieldClassName(`custom.${field.name}`)}
+                      />
+                    )}
+                    {renderError(`custom.${field.name}`)}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
                 <Building2 className="h-5 w-5 text-primary" />
-                {t("recruiterVerification.sections.legal")}
+                {uiText("recruiterVerification.sections.legal", t("recruiterVerification.sections.legal"))}
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
@@ -668,7 +806,7 @@ const RecruiterVerification: React.FC = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
                 <MapPin className="h-5 w-5 text-primary" />
-                {t("recruiterVerification.sections.addresses")}
+                {uiText("recruiterVerification.sections.addresses", t("recruiterVerification.sections.addresses"))}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -737,7 +875,7 @@ const RecruiterVerification: React.FC = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
                 <ImageIcon className="h-5 w-5 text-primary" />
-                {t("recruiterVerification.sections.gallery")}
+                {uiText("recruiterVerification.sections.gallery", t("recruiterVerification.sections.gallery"))}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -769,11 +907,12 @@ const RecruiterVerification: React.FC = () => {
           <div className="flex justify-end">
             <Button type="submit" variant="cta" disabled={submitting}>
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Building2 className="h-4 w-4" />}
-              {t(isRecruiter ? "recruiterVerification.actions.submitUpdate" : "recruiterVerification.actions.submit")}
+              {uiText(isRecruiter ? "recruiterVerification.actions.submitUpdate" : "recruiterVerification.actions.submit", t(isRecruiter ? "recruiterVerification.actions.submitUpdate" : "recruiterVerification.actions.submit"))}
             </Button>
           </div>
         </form>
       </section>
+      <SanityPageSections routePath="/recruiter-verification" placement="bottom" />
     </main>
   );
 };

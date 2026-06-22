@@ -171,6 +171,7 @@
     "searchPlaceholder": "Ví dụ: Frontend, Data, Sales...",
     "searchButton": "Tìm kiếm",
     "aboutTitle": "Giới thiệu dự án",
+    "aboutLead": "ĐÂY LÀ DỰ ÁN CỦA MỘT SỐ SINH VIÊN HCMUT VÀ SGU",
     "aboutIntro": "Đây là dự án thực tập của nhóm sinh viên Trường Đại học Bách Khoa TP.HCM (HCMUT) và Đại học Sài Gòn (SGU) khi làm việc tại doanh nghiệp MSC Center. Lấy cảm hứng từ LinkedIn và TopCV, InternHiring được triển khai nhằm hỗ trợ người dùng tìm kiếm cơ hội việc làm, đặc biệt là các vị trí thực tập cho sinh viên Việt Nam, thông qua nền tảng web song ngữ, thân thiện.",
     "aboutIntroLong": "InternHiring được phát triển trong khuôn khổ thực tập hợp tác cùng MSC Center bởi sinh viên HCMUT và SGU. Nền tảng được lấy cảm hứng từ các dịch vụ nghề nghiệp như LinkedIn và TopCV, tập trung vào các tính năng thực tiễn: giao diện song ngữ, xác thực nhà tuyển dụng, hiển thị đối tác, và danh sách việc làm/tuyển dụng được tuyển chọn để hỗ trợ sinh viên tìm cơ hội phù hợp.",
     "aboutCardProjectTitle": "Dự án",

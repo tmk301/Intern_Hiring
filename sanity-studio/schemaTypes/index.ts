@@ -18,10 +18,27 @@ import {
   pageTextSection,
 } from './pageSections'
 import {registerHero} from './registerHero'
+import {headerMenuItem, siteHeader} from './siteHeader'
+import {
+  adminPageContent,
+  applicationsPageContent,
+  jobsPageContent,
+  moderatorPageContent,
+  recruiterPageContent,
+  verificationPageContent,
+} from './builtInPageContent'
 
 export const schemaTypes = [
   loginHero,
   registerHero,
+  siteHeader,
+  headerMenuItem,
+  jobsPageContent,
+  applicationsPageContent,
+  verificationPageContent,
+  adminPageContent,
+  recruiterPageContent,
+  moderatorPageContent,
   managedPage,
   managedInterfaceText,
   pageCtaButton,

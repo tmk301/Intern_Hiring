@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GoogleMapsEmbedLocationFilter } from "./GoogleMapsEmbedLocationFilter";
+import { useSanityManagedInterface } from "@/lib/sanityInterfaceText";
 import {
   Select,
   SelectContent,
@@ -128,6 +129,7 @@ export function JobSearchFilters({
   onReset,
 }: JobSearchFiltersProps) {
   const { t } = useTranslation();
+  const { text: uiText, pageContent } = useSanityManagedInterface("/jobs");
   const [internalValue, setInternalValue] = useState<JobFilterValue>(emptyJobFilterValue);
   const [isFiltersOpen, setIsFiltersOpen] = useState(true);
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
@@ -181,7 +183,15 @@ export function JobSearchFilters({
     : t("jobs.filters.wardPlaceholder");
 
   return (
-    <div className="rounded-lg border bg-white p-5 shadow-sm md:p-6">
+    <div
+      id="bo-loc-tim-kiem"
+      className="rounded-lg border bg-white p-5 shadow-sm md:p-6"
+      style={{
+        backgroundColor: pageContent.filterBackgroundColor ? String(pageContent.filterBackgroundColor) : undefined,
+        borderColor: pageContent.filterBorderColor ? String(pageContent.filterBorderColor) : undefined,
+        color: pageContent.filterTextColor ? String(pageContent.filterTextColor) : undefined,
+      }}
+    >
       <button
         type="button"
         className="flex w-full items-center justify-between gap-4 text-left"
@@ -190,7 +200,7 @@ export function JobSearchFilters({
       >
         <span className="flex items-center gap-3">
           <SlidersHorizontal className="h-5 w-5 text-primary" />
-          <span className="text-xl font-semibold text-foreground">{t("jobs.filters.title")}</span>
+          <span className="text-xl font-semibold" style={{color: pageContent.filterTextColor ? String(pageContent.filterTextColor) : undefined}}>{uiText("jobs.filters.title", t("jobs.filters.title"))}</span>
         </span>
         {isFiltersOpen ? (
           <ChevronUp className="h-5 w-5 text-muted-foreground" />
@@ -203,36 +213,38 @@ export function JobSearchFilters({
         <>
           <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
             <div className="space-y-2">
-              <Label htmlFor="job-keyword-filter">{t("jobs.filters.keyword")}</Label>
+              <Label htmlFor="job-keyword-filter">{uiText("jobs.filters.keyword", t("jobs.filters.keyword"))}</Label>
               <Input
                 id="job-keyword-filter"
                 value={filterValue.keyword}
                 onChange={(event) => updateValue("keyword", event.target.value)}
-                placeholder={t("jobs.filters.keywordPlaceholder")}
+                placeholder={uiText("jobs.filters.keywordPlaceholder", t("jobs.filters.keywordPlaceholder"))}
                 className="h-12 bg-white"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="job-company-filter">{t("jobs.filters.company")}</Label>
+              <Label htmlFor="job-company-filter">{uiText("jobs.filters.company", t("jobs.filters.company"))}</Label>
               <Input
                 id="job-company-filter"
                 value={filterValue.company}
                 onChange={(event) => updateValue("company", event.target.value)}
-                placeholder={t("jobs.filters.companyPlaceholder")}
+                placeholder={uiText("jobs.filters.companyPlaceholder", t("jobs.filters.companyPlaceholder"))}
                 className="h-12 bg-white"
               />
             </div>
 
             <SelectFilter
-              label={t("jobs.filters.workMode")}
+              label={uiText("jobs.filters.workMode", t("jobs.filters.workMode"))}
+              placeholder={uiText("jobs.filters.all", t("jobs.filters.all"))}
               value={filterValue.workMode}
               options={filterOptions.workModes}
               onChange={(nextValue) => updateValue("workMode", nextValue)}
             />
 
             <SelectFilter
-              label={t("jobs.filters.jobType")}
+              label={uiText("jobs.filters.jobType", t("jobs.filters.jobType"))}
+              placeholder={uiText("jobs.filters.all", t("jobs.filters.all"))}
               value={filterValue.jobType}
               options={filterOptions.jobTypes}
               onChange={(nextValue) => updateValue("jobType", nextValue)}
@@ -247,7 +259,7 @@ export function JobSearchFilters({
           >
             <span className="flex items-center gap-3">
               <SlidersHorizontal className="h-4 w-4 text-primary" />
-              {t("jobs.filters.advanced")}
+              {uiText("jobs.filters.advanced", t("jobs.filters.advanced"))}
             </span>
             {isAdvancedOpen ? (
               <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -259,14 +271,15 @@ export function JobSearchFilters({
           {isAdvancedOpen && (
             <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
               <SelectFilter
-                label={t("jobs.filters.city")}
+                label={uiText("jobs.filters.city", t("jobs.filters.city"))}
+                placeholder={uiText("jobs.filters.all", t("jobs.filters.all"))}
                 value={filterValue.city}
                 options={filterOptions.cities}
                 onChange={(nextValue) => updateValue("city", nextValue)}
               />
 
               <SelectFilter
-                label={t("jobs.filters.ward")}
+                label={uiText("jobs.filters.ward", t("jobs.filters.ward"))}
                 value={filterValue.ward}
                 options={filterOptions.wards}
                 placeholder={wardPlaceholder}
@@ -283,24 +296,25 @@ export function JobSearchFilters({
               </div>
 
               <SelectFilter
-                label={t("jobs.filters.currency")}
+                label={uiText("jobs.filters.currency", t("jobs.filters.currency"))}
+                placeholder={uiText("jobs.filters.all", t("jobs.filters.all"))}
                 value={filterValue.currency}
                 options={filterOptions.currencies}
                 onChange={(nextValue) => updateValue("currency", nextValue)}
               />
 
               <div className="space-y-2">
-                <Label>{t("jobs.filters.salary")}</Label>
+                <Label>{uiText("jobs.filters.salary", t("jobs.filters.salary"))}</Label>
                 <Select
                   value={filterValue.salaryRange || ALL_VALUE}
                   onValueChange={(nextValue) => updateSalaryRange(nextValue === ALL_VALUE ? "" : nextValue)}
                 >
                   <SelectTrigger className="h-12 bg-white transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground">
-                    <SelectValue placeholder={t("jobs.filters.all")} />
+                    <SelectValue placeholder={uiText("jobs.filters.all", t("jobs.filters.all"))} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL_VALUE} className="focus:bg-primary focus:text-primary-foreground">
-                      {t("jobs.filters.all")}
+                      {uiText("jobs.filters.all", t("jobs.filters.all"))}
                     </SelectItem>
                     {SALARY_RANGE_OPTIONS.map((option) => (
                       <SelectItem
@@ -316,7 +330,8 @@ export function JobSearchFilters({
               </div>
 
               <SelectFilter
-                label={t("jobs.filters.experience")}
+                label={uiText("jobs.filters.experience", t("jobs.filters.experience"))}
+                placeholder={uiText("jobs.filters.all", t("jobs.filters.all"))}
                 value={filterValue.experience}
                 options={filterOptions.experience}
                 onChange={(nextValue) => updateValue("experience", nextValue)}
@@ -327,7 +342,7 @@ export function JobSearchFilters({
           <div className="mt-6 flex justify-end">
             <Button type="button" variant="outline" onClick={resetFilters}>
               <RotateCcw className="h-4 w-4" />
-              {t("jobs.filters.reset")}
+              {uiText("jobs.filters.reset", t("jobs.filters.reset"))}
             </Button>
           </div>
         </>

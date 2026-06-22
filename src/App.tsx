@@ -1,14 +1,16 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Navbar from "./components/ui/Navbar";
 import Home from "./pages/Home";
 import Jobs from "./pages/Jobs";
+import JobDetail from "./pages/JobDetail";
 import Auth from "./pages/Auth";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -17,12 +19,15 @@ import ResetPasswordPage from "./pages/ResetPassword";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminCompanyReview from "./pages/AdminCompanyReview";
 import AdminUserProfile from "./pages/AdminUserProfile";
+import CompanyProfile from "./pages/CompanyProfile";
 import RecruiterDashboard from "./pages/RecruiterDashboard";
 import RecruiterVerification from "./pages/RecruiterVerification";
 import ModeratorDashboard from "./pages/ModeratorDashboard.tsx";
 import Applications from "./pages/Applications";
 import NotFound from "./pages/NotFound";
 import { isAdminRole, isCandidateRole, isModeratorRole, isRecruiterRole } from "./lib/roles";
+import { SanityCustomSections } from "./components/sanity/SanityPageSections";
+import { useSanityManagedInterface } from "./lib/sanityInterfaceText";
 const queryClient = new QueryClient();
 
 const AdminRoute = ({ children }: { children: JSX.Element }) => {
@@ -65,6 +70,28 @@ const ModeratorRoute = ({ children }: { children: JSX.Element }) => {
   }
 
   if (!isModeratorRole(user?.role)) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+};
+
+const AdminOrModeratorRoute = ({ children }: { children: JSX.Element }) => {
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!isAdminRole(user?.role) && !isModeratorRole(user?.role)) {
     return <Navigate to="/" replace />;
   }
 
@@ -153,6 +180,37 @@ const RestrictedAccountBanner = () => {
   );
 };
 
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+};
+
+const managedPageRoutes = new Set([
+  "/", "/jobs", "/profile", "/applications", "/recruiter-verification", "/admin", "/recruiter", "/moderator",
+]);
+
+const SanityContentGate = ({children}: {children: React.ReactNode}) => {
+  const {pathname} = useLocation();
+  const routePath = managedPageRoutes.has(pathname) ? pathname : "/";
+  const homeInterface = useSanityManagedInterface("/");
+  const routeInterface = useSanityManagedInterface(routePath);
+
+  if (homeInterface.isLoading || routeInterface.isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50" aria-label="Đang tải giao diện">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -160,26 +218,32 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Navbar />
-          <RestrictedAccountBanner />
-          <Routes>
+          <ScrollToTop />
+          <SanityContentGate>
+            <Navbar />
+            <RestrictedAccountBanner />
+            <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/jobs" element={<Jobs />} />
+            <Route path="/jobs/:jobId" element={<JobDetail />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/companies/:companyId" element={<CompanyProfile />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/admin/users/:userId" element={<AdminRoute><AdminUserProfile /></AdminRoute>} />
-            <Route path="/admin/company-reviews/:applicationId" element={<AdminRoute><AdminCompanyReview /></AdminRoute>} />
+            <Route path="/admin/company-reviews/:applicationId" element={<AdminOrModeratorRoute><AdminCompanyReview /></AdminOrModeratorRoute>} />
             <Route path="/recruiter" element={<RecruiterRoute><RecruiterDashboard /></RecruiterRoute>} />
             <Route path="/recruiter-verification" element={<CandidateOrRecruiterRoute><RecruiterVerification /></CandidateOrRecruiterRoute>} />
             <Route path="/moderator" element={<ModeratorRoute><ModeratorDashboard /></ModeratorRoute>} />
             <Route path="/applications" element={<CandidateRoute><Applications /></CandidateRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
-          </Routes>
+            </Routes>
+            <SanityCustomSections />
+          </SanityContentGate>
         </BrowserRouter>
       </AuthProvider>
     </TooltipProvider>

@@ -1,4 +1,6 @@
 import React, { CSSProperties, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useLocation } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +35,17 @@ type SanityPageSectionsProps = {
 const sectionStyle = (section: SanityPageSection): CSSProperties => ({
   backgroundColor: section.backgroundColor || undefined,
   color: section.textColor || undefined,
+  borderColor: section.borderColor || undefined,
+  borderWidth: section.borderColor ? "1px" : undefined,
+  borderStyle: section.borderColor ? "solid" : undefined,
+});
+
+const titleStyle = (source: { titleTextColor?: string }): CSSProperties => ({
+  color: source.titleTextColor || undefined,
+});
+
+const bodyStyle = (source: { bodyTextColor?: string }): CSSProperties => ({
+  color: source.bodyTextColor || undefined,
 });
 
 const descriptionStyle = (source: {
@@ -122,6 +135,9 @@ const gridColumnsClassName = (columns?: number) => {
 const itemStyle = (item: SanityFlexibleItem): CSSProperties => ({
   backgroundColor: item.backgroundColor || undefined,
   color: item.textColor || undefined,
+  borderColor: item.borderColor || undefined,
+  borderWidth: item.borderColor ? "1px" : undefined,
+  borderStyle: item.borderColor ? "solid" : undefined,
   padding: item.padding ? `${item.padding}px` : undefined,
 });
 
@@ -339,7 +355,7 @@ const HeroSection = ({ section, language }: { section: SanityHeroSection; langua
       <div className="container relative z-10 mx-auto px-4">
         <div className="max-w-3xl">
           {eyebrow && <Badge className="mb-4">{eyebrow}</Badge>}
-          {title && <h2 className="text-4xl font-bold leading-tight md:text-6xl">{title}</h2>}
+          {title && <h2 className="text-4xl font-bold leading-tight md:text-6xl" style={titleStyle(section)}>{title}</h2>}
           {description && (
             <p className={cn("mt-5 leading-8", !section.descriptionTextColor && "text-lg opacity-90")} style={descriptionStyle(section)}>
               {renderLines(description)}
@@ -366,8 +382,8 @@ const TextSection = ({ section, language }: { section: SanityTextSection; langua
     <section id={section.anchorId} className="py-14" style={sectionStyle(section)}>
       <div className="container mx-auto px-4">
         <div className={cn("max-w-4xl", section.align === "left" ? "" : "mx-auto text-center")}>
-          {title && <h2 className="text-3xl font-bold md:text-4xl">{title}</h2>}
-          {body && <p className="mt-4 text-base leading-8 opacity-80">{renderLines(body)}</p>}
+          {title && <h2 className="text-3xl font-bold md:text-4xl" style={titleStyle(section)}>{title}</h2>}
+          {body && <p className="mt-4 text-base leading-8 opacity-80" style={bodyStyle(section)}>{renderLines(body)}</p>}
         </div>
       </div>
     </section>
@@ -382,7 +398,7 @@ const CardGridSection = ({ section, language }: { section: SanityCardGridSection
     <section id={section.anchorId} className="py-14" style={sectionStyle(section)}>
       <div className="container mx-auto px-4">
         <div className="mx-auto mb-8 max-w-3xl text-center">
-          {title && <h2 className="text-3xl font-bold md:text-4xl">{title}</h2>}
+          {title && <h2 className="text-3xl font-bold md:text-4xl" style={titleStyle(section)}>{title}</h2>}
           {description && (
             <p className={cn("mt-3 leading-7", !section.descriptionTextColor && "text-base opacity-80")} style={descriptionStyle(section)}>
               {renderLines(description)}
@@ -390,12 +406,15 @@ const CardGridSection = ({ section, language }: { section: SanityCardGridSection
           )}
         </div>
         <div className="grid gap-5 md:grid-cols-3">
-          {section.cards?.map((card) => {
+          {section.cards?.filter((card) => card.isVisible !== false).map((card) => {
             const cardTitle = pickLocalizedText(card.title, card.titleVi, card.titleEn, language);
             const cardDescription = pickLocalizedText(card.description, card.descriptionVi, card.descriptionEn, language);
             const linkLabel = pickLocalizedText(card.linkLabel, card.linkLabelVi, card.linkLabelEn, language);
             const cardContent = (
-              <Card className={cn("h-full overflow-hidden transition", card.cardHref && "cursor-pointer hover:shadow-md")}>
+              <Card
+                className={cn("h-full overflow-hidden transition", card.cardHref && "cursor-pointer hover:shadow-md")}
+                style={{backgroundColor: card.backgroundColor, borderColor: card.borderColor, color: card.textColor}}
+              >
                 {card.imageUrl && (
                   card.cardHref ? (
                     <div className="flex h-44 w-full items-center justify-center bg-slate-50">
@@ -422,7 +441,7 @@ const CardGridSection = ({ section, language }: { section: SanityCardGridSection
                   )
                 )}
                 <CardContent className="p-6">
-                  {cardTitle && <h3 className="text-lg font-semibold text-slate-950">{cardTitle}</h3>}
+                  {cardTitle && <h3 className="text-lg font-semibold" style={titleStyle(card)}>{cardTitle}</h3>}
                   {cardDescription && (
                     <p
                       className={cn("mt-2 leading-6", !card.descriptionTextColor && "text-sm text-muted-foreground")}
@@ -478,8 +497,8 @@ const ImageTextSection = ({ section, language }: { section: SanityImageTextSecti
             </a>
           )}
           <div>
-            {title && <h2 className="text-3xl font-bold md:text-4xl">{title}</h2>}
-            {body && <p className="mt-4 text-base leading-8 opacity-80">{renderLines(body)}</p>}
+            {title && <h2 className="text-3xl font-bold md:text-4xl" style={titleStyle(section)}>{title}</h2>}
+            {body && <p className="mt-4 text-base leading-8 opacity-80" style={bodyStyle(section)}>{renderLines(body)}</p>}
             {section.button && (
               <div className="mt-6">
                 <SectionButton button={section.button} language={language} />
@@ -505,7 +524,7 @@ const ImageGallerySection = ({ section, language }: { section: SanityImageGaller
       <div className="container mx-auto px-4">
         {(title || description) && (
           <div className="mx-auto mb-6 max-w-3xl text-center">
-            {title && <h2 className="text-2xl font-bold md:text-3xl">{title}</h2>}
+            {title && <h2 className="text-2xl font-bold md:text-3xl" style={titleStyle(section)}>{title}</h2>}
             {description && <p className="mt-3 text-base leading-7 opacity-80">{renderLines(description)}</p>}
           </div>
         )}
@@ -549,7 +568,7 @@ const CtaSection = ({ section, language }: { section: SanityCtaSection; language
   return (
     <section id={section.anchorId} className="py-14" style={sectionStyle(section)}>
       <div className="container mx-auto px-4 text-center">
-        {title && <h2 className="text-3xl font-bold md:text-4xl">{title}</h2>}
+        {title && <h2 className="text-3xl font-bold md:text-4xl" style={titleStyle(section)}>{title}</h2>}
         {description && (
           <p className={cn("mx-auto mt-3 max-w-2xl leading-7", !section.descriptionTextColor && "text-base opacity-80")} style={descriptionStyle(section)}>
             {renderLines(description)}
@@ -677,6 +696,92 @@ export const SanityPageSections = ({ routePath, placement }: SanityPageSectionsP
           </div>
         );
       })}
+    </>
+  );
+};
+
+type CustomSectionPortal = {
+  section: SanityPageSection;
+  host: HTMLDivElement;
+};
+
+export const SanityCustomSections = () => {
+  const { pathname } = useLocation();
+  const { i18n } = useTranslation();
+  const [portals, setPortals] = useState<CustomSectionPortal[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let hosts: HTMLDivElement[] = [];
+    let timer: number | undefined;
+
+    loadSanityPageSections(pathname, "custom").then((sections) => {
+      if (cancelled) return;
+
+      timer = window.setTimeout(() => {
+        if (cancelled) return;
+
+        const afterCursor = new Map<Element, Node>();
+        const insideStartBoundary = new Map<Element, ChildNode | null>();
+        const nextPortals = sections.flatMap<CustomSectionPortal>((section) => {
+          if (!section.targetSelector) return [];
+
+          let target: Element | null = null;
+          try {
+            target = document.querySelector(section.targetSelector);
+          } catch {
+            console.warn("CSS selector không hợp lệ cho Sanity section:", section.targetSelector);
+            return [];
+          }
+          if (!target) {
+            console.warn("Không tìm thấy phần tử đích cho Sanity section:", section.targetSelector);
+            return [];
+          }
+
+          const host = document.createElement("div");
+          host.dataset.sanityCustomSection = section._key || section._type;
+          const position = section.insertPosition || "after";
+
+          if (position === "insideStart") {
+            if (!insideStartBoundary.has(target)) insideStartBoundary.set(target, target.firstChild);
+            target.insertBefore(host, insideStartBoundary.get(target) || null);
+          }
+          else if (position === "insideEnd") target.append(host);
+          else if (position === "before") target.parentNode?.insertBefore(host, target);
+          else {
+            const cursor = afterCursor.get(target) || target;
+            cursor.parentNode?.insertBefore(host, cursor.nextSibling);
+            afterCursor.set(target, host);
+          }
+
+          if (!host.isConnected) return [];
+          hosts.push(host);
+          return [{section, host}];
+        });
+
+        setPortals(nextPortals);
+      }, 0);
+    });
+
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+      hosts.forEach((host) => host.remove());
+      hosts = [];
+    };
+  }, [pathname]);
+
+  return (
+    <>
+      {portals.map(({section, host}, index) =>
+        createPortal(
+          <div className={cn("sanity-section-shell", section._type === "pageSpacerSection" && "sanity-section-shell-spacer")}>
+            {renderSection(section, i18n.language)}
+          </div>,
+          host,
+          section._key || `${section._type}-${index}`,
+        ),
+      )}
     </>
   );
 };
