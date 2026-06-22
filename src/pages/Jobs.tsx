@@ -523,13 +523,9 @@ const Jobs: React.FC = () => {
                   )}
                 </CardContent>
                 <CardFooter className="bg-slate-50/50 border-t p-4 flex justify-end">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => setUpdateCoordJob(job)}
-                  >
+                  {/* <Button variant="ghost" size="icon" onClick={() => setUpdateCoordJob(job)}    >
                     <MoreVertical className="h-4 w-4" />
-                  </Button>
+                  </Button> */}
                   <Button onClick={() => handleOpenApplyModal(job.id)}>
                     Nộp đơn ứng tuyển
                   </Button>
