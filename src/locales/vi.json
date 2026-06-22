@@ -423,6 +423,7 @@
       "approve": "Duyệt",
       "reject": "Từ chối",
       "title": "Hồ sơ ứng tuyển",
+      "searchPlaceholder": "Tìm kiếm ứng viên, công việc...",
       "empty": "Chưa có ứng viên nào nộp hồ sơ.",
       "applicant": "Ứng viên",
       "jobTitle": "Vị trí ứng tuyển",
@@ -678,6 +679,7 @@
     },
     "users": {
       "title": "Danh sách tài khoản người dùng",
+      "searchPlaceholder": "Tìm kiếm email, họ tên...",
       "fullName": "Họ tên",
       "restricted": "Hạn chế",
       "active": "Hoạt động",

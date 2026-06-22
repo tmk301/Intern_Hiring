@@ -13,6 +13,7 @@ import {
   Loader2,
   PlusCircle,
   RefreshCw,
+  Search,
   Trash2,
   Users,
   CheckCircle2,
@@ -311,6 +312,8 @@ const RecruiterDashboard: React.FC = () => {
   // State bộ lọc hồ sơ ứng tuyển
   const [appFilterStatus, setAppFilterStatus] = useState<string>("ALL");
   const [appFilterAppliedAt, setAppFilterAppliedAt] = useState<string>("");
+  const [jobSearch, setJobSearch] = useState("");
+  const [appSearch, setAppSearch] = useState("");
 
   // Refs to cards for scrolling
   const jobListRef = useRef<HTMLDivElement>(null);
@@ -370,6 +373,16 @@ const RecruiterDashboard: React.FC = () => {
 
   const filteredJobs = useMemo(() => {
     return sortedJobs.filter((job) => {
+      if (jobSearch) {
+        const query = jobSearch.toLowerCase();
+        if (
+          !job.title?.toLowerCase().includes(query) &&
+          !job.company?.toLowerCase().includes(query)
+        ) {
+          return false;
+        }
+      }
+
       if (jobFilterStatus !== "ALL") {
         const hidden = isHiddenJob(job);
         if (jobFilterStatus === "VISIBLE") {
@@ -396,7 +409,7 @@ const RecruiterDashboard: React.FC = () => {
 
       return true;
     });
-  }, [sortedJobs, jobFilterStatus, jobFilterCreatedAt, jobFilterDeadline]);
+  }, [sortedJobs, jobFilterStatus, jobFilterCreatedAt, jobFilterDeadline, jobSearch]);
 
   const sortedApplications = useMemo(
     () =>
@@ -408,6 +421,17 @@ const RecruiterDashboard: React.FC = () => {
 
   const filteredApplications = useMemo(() => {
     return sortedApplications.filter((app) => {
+      if (appSearch) {
+        const query = appSearch.toLowerCase();
+        if (
+          !app.applicantName?.toLowerCase().includes(query) &&
+          !app.applicantEmail?.toLowerCase().includes(query) &&
+          !app.jobTitle?.toLowerCase().includes(query)
+        ) {
+          return false;
+        }
+      }
+
       if (appFilterStatus !== "ALL") {
         if (appFilterStatus === "ACCEPTED") {
           if (app.status !== "ACCEPTED") return false;
@@ -426,7 +450,7 @@ const RecruiterDashboard: React.FC = () => {
 
       return true;
     });
-  }, [sortedApplications, appFilterStatus, appFilterAppliedAt]);
+  }, [sortedApplications, appFilterStatus, appFilterAppliedAt, appSearch]);
 
   const paginatedJobs = useMemo(
     () => paginateItems(filteredJobs, jobPage, jobPageSize),
@@ -455,11 +479,11 @@ const RecruiterDashboard: React.FC = () => {
 
   useEffect(() => {
     setJobPage(1);
-  }, [jobSort.direction, jobSort.key, jobFilterStatus, jobFilterCreatedAt, jobFilterDeadline]);
+  }, [jobSort.direction, jobSort.key, jobFilterStatus, jobFilterCreatedAt, jobFilterDeadline, jobSearch]);
 
   useEffect(() => {
     setApplicationPage(1);
-  }, [applicationSort.direction, applicationSort.key, appFilterStatus, appFilterAppliedAt]);
+  }, [applicationSort.direction, applicationSort.key, appFilterStatus, appFilterAppliedAt, appSearch]);
 
   useEffect(() => {
     if (!token) {
@@ -1190,49 +1214,64 @@ const RecruiterDashboard: React.FC = () => {
             ) : (
               <>
                 {jobs.length > 0 && (
-                  <div className="mb-4 flex flex-wrap items-center justify-end gap-2 border-b pb-4">
-                    <Select value={jobFilterStatus} onValueChange={setJobFilterStatus}>
-                      <SelectTrigger id="job-filter-status" className="w-full sm:w-40 h-10 bg-white">
-                        <SelectValue placeholder={t("recruiter.jobs.status")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ALL">{t("recruiter.jobs.allStatuses")}</SelectItem>
-                        <SelectItem value="VISIBLE">{t("recruiter.stats.visible")}</SelectItem>
-                        <SelectItem value="HIDDEN">{t("recruiter.status.HIDDEN")}</SelectItem>
-                        <SelectItem value="PENDING">{t("recruiter.status.PENDING")}</SelectItem>
-                        <SelectItem value="APPROVED">{t("recruiter.status.APPROVED")}</SelectItem>
-                        <SelectItem value="REJECTED">{t("recruiter.status.REJECTED")}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      id="job-filter-created-at"
-                      type="date"
-                      value={jobFilterCreatedAt}
-                      onChange={(e) => setJobFilterCreatedAt(e.target.value)}
-                      className="w-full sm:w-40 h-10 bg-white"
-                      aria-label={t("recruiter.jobs.createdAt")}
-                    />
-                    <Input
-                      id="job-filter-deadline"
-                      type="date"
-                      value={jobFilterDeadline}
-                      onChange={(e) => setJobFilterDeadline(e.target.value)}
-                      className="w-full sm:w-40 h-10 bg-white"
-                      aria-label={t("recruiter.jobs.applicationDeadline")}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setJobFilterStatus("ALL");
-                        setJobFilterCreatedAt("");
-                        setJobFilterDeadline("");
-                      }}
-                      className="h-10"
-                      disabled={jobFilterStatus === "ALL" && !jobFilterCreatedAt && !jobFilterDeadline}
-                    >
-                      {t("jobs.filters.reset")}
-                    </Button>
+                  <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end border-b pb-4">
+                    <div className="flex flex-1 items-center gap-2 max-w-md">
+                      <div className="relative w-full">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          placeholder={t("moderator.jobs.searchPlaceholder", { defaultValue: "Tìm kiếm tiêu đề, công ty..." })}
+                          value={jobSearch}
+                          onChange={(e) => setJobSearch(e.target.value)}
+                          className="pl-9 h-10 bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Select value={jobFilterStatus} onValueChange={setJobFilterStatus}>
+                        <SelectTrigger id="job-filter-status" className="w-full sm:w-40 h-10 bg-white">
+                          <SelectValue placeholder={t("recruiter.jobs.status")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ALL">{t("recruiter.jobs.allStatuses")}</SelectItem>
+                          <SelectItem value="VISIBLE">{t("recruiter.stats.visible")}</SelectItem>
+                          <SelectItem value="HIDDEN">{t("recruiter.status.HIDDEN")}</SelectItem>
+                          <SelectItem value="PENDING">{t("recruiter.status.PENDING")}</SelectItem>
+                          <SelectItem value="APPROVED">{t("recruiter.status.APPROVED")}</SelectItem>
+                          <SelectItem value="REJECTED">{t("recruiter.status.REJECTED")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        id="job-filter-created-at"
+                        type="date"
+                        value={jobFilterCreatedAt}
+                        onChange={(e) => setJobFilterCreatedAt(e.target.value)}
+                        className="w-full sm:w-40 h-10 bg-white"
+                        aria-label={t("recruiter.jobs.createdAt")}
+                      />
+                      <Input
+                        id="job-filter-deadline"
+                        type="date"
+                        value={jobFilterDeadline}
+                        onChange={(e) => setJobFilterDeadline(e.target.value)}
+                        className="w-full sm:w-40 h-10 bg-white"
+                        aria-label={t("recruiter.jobs.applicationDeadline")}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setJobSearch("");
+                          setJobFilterStatus("ALL");
+                          setJobFilterCreatedAt("");
+                          setJobFilterDeadline("");
+                        }}
+                        className="h-10 border-slate-200 hover:bg-slate-50"
+                        disabled={!jobSearch && jobFilterStatus === "ALL" && !jobFilterCreatedAt && !jobFilterDeadline}
+                      >
+                        {t("jobs.filters.reset")}
+                      </Button>
+                    </div>
                   </div>
                 )}
 
@@ -1260,15 +1299,15 @@ const RecruiterDashboard: React.FC = () => {
 
                     return (
                       <TableRow key={job.id} className="cursor-pointer hover:bg-slate-50/50" onClick={() => navigate(`/jobs/${job.id}`)}>
-                        <TableCell className="min-w-56 font-medium">{job.title || "-"}</TableCell>
+                        <TableCell className="font-semibold text-slate-900 max-w-[200px] truncate" title={job.title || undefined}>{job.title || "-"}</TableCell>
                         <TableCell>{job.type || "-"}</TableCell>
-                        <TableCell className="text-center">{formatDateOnly(job.applicationDeadline, dateLocale)}</TableCell>
+                        <TableCell className="text-slate-500 text-xs text-center">{formatDateOnly(job.applicationDeadline, dateLocale)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={getReviewStatusBadgeClassName(job.status)}>
                             {t(`recruiter.status.${status}`, { defaultValue: status })}
                           </Badge>
                         </TableCell>
-                        <TableCell>{formatDate(job.created_at, dateLocale)}</TableCell>
+                        <TableCell className="text-slate-500 text-xs">{formatDate(job.created_at, dateLocale)}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap justify-center gap-2">
                             {hidden ? (
@@ -1357,38 +1396,53 @@ const RecruiterDashboard: React.FC = () => {
             ) : (
               <>
                 {applications.length > 0 && (
-                  <div className="mb-4 flex flex-wrap items-center justify-end gap-2 border-b pb-4">
-                    <Select value={appFilterStatus} onValueChange={setAppFilterStatus}>
-                      <SelectTrigger id="app-filter-status" className="w-full sm:w-40 h-10 bg-white">
-                        <SelectValue placeholder={t("common.status")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ALL">{t("recruiter.applications.allStatuses")}</SelectItem>
-                        <SelectItem value="PENDING">{t("recruiter.applications.statuses.PENDING")}</SelectItem>
-                        <SelectItem value="ACCEPTED">{t("recruiter.applications.statuses.APPROVED")}</SelectItem>
-                        <SelectItem value="REJECTED">{t("recruiter.applications.statuses.REJECTED")}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      id="app-filter-applied-at"
-                      type="date"
-                      value={appFilterAppliedAt}
-                      onChange={(e) => setAppFilterAppliedAt(e.target.value)}
-                      className="w-full sm:w-40 h-10 bg-white"
-                      aria-label={t("recruiter.applications.appliedAt")}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setAppFilterStatus("ALL");
-                        setAppFilterAppliedAt("");
-                      }}
-                      className="h-10"
-                      disabled={appFilterStatus === "ALL" && !appFilterAppliedAt}
-                    >
-                      {t("jobs.filters.reset")}
-                    </Button>
+                  <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end border-b pb-4">
+                    <div className="flex flex-1 items-center gap-2 max-w-md">
+                      <div className="relative w-full">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          placeholder={t("recruiter.applications.searchPlaceholder", { defaultValue: "Tìm kiếm ứng viên, công việc..." })}
+                          value={appSearch}
+                          onChange={(e) => setAppSearch(e.target.value)}
+                          className="pl-9 h-10 bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Select value={appFilterStatus} onValueChange={setAppFilterStatus}>
+                        <SelectTrigger id="app-filter-status" className="w-full sm:w-40 h-10 bg-white">
+                          <SelectValue placeholder={t("common.status")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ALL">{t("recruiter.applications.allStatuses")}</SelectItem>
+                          <SelectItem value="PENDING">{t("recruiter.applications.statuses.PENDING")}</SelectItem>
+                          <SelectItem value="ACCEPTED">{t("recruiter.applications.statuses.APPROVED")}</SelectItem>
+                          <SelectItem value="REJECTED">{t("recruiter.applications.statuses.REJECTED")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        id="app-filter-applied-at"
+                        type="date"
+                        value={appFilterAppliedAt}
+                        onChange={(e) => setAppFilterAppliedAt(e.target.value)}
+                        className="w-full sm:w-40 h-10 bg-white"
+                        aria-label={t("recruiter.applications.appliedAt")}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setAppSearch("");
+                          setAppFilterStatus("ALL");
+                          setAppFilterAppliedAt("");
+                        }}
+                        className="h-10 border-slate-200 hover:bg-slate-50"
+                        disabled={!appSearch && appFilterStatus === "ALL" && !appFilterAppliedAt}
+                      >
+                        {t("jobs.filters.reset")}
+                      </Button>
+                    </div>
                   </div>
                 )}
 
@@ -1412,9 +1466,9 @@ const RecruiterDashboard: React.FC = () => {
                 <TableBody>
                   {paginatedApplications.items.map((app) => (
                     <TableRow key={app.id}>
-                      <TableCell>
-                        <div className="font-medium">{app.applicantName || t("recruiter.applications.applicant")}</div>
-                        <div className="text-xs text-muted-foreground">{app.applicantEmail}</div>
+                      <TableCell className="max-w-[200px] truncate">
+                        <div className="font-medium truncate" title={app.applicantName || undefined}>{app.applicantName || t("recruiter.applications.applicant")}</div>
+                        <div className="text-xs text-muted-foreground truncate" title={app.applicantEmail}>{app.applicantEmail}</div>
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate" title={app.jobTitle}>
                         {app.jobTitle}
@@ -1435,7 +1489,7 @@ const RecruiterDashboard: React.FC = () => {
                           {t(`recruiter.applications.statuses.${getReviewStatusTranslationKey(app.status)}`)}
                         </Badge>
                       </TableCell>
-                      <TableCell>{formatDate(app.appliedAt, dateLocale)}</TableCell>
+                      <TableCell className="text-slate-500 text-xs">{formatDate(app.appliedAt, dateLocale)}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap justify-center gap-2">
                           {app.status !== "ACCEPTED" && renderApplicationAction(app, "ACCEPTED")}

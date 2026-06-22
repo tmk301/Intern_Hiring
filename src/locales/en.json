@@ -410,6 +410,7 @@
       "approve": "Approve",
       "reject": "Reject",
       "title": "Applications",
+      "searchPlaceholder": "Search applicant, job title...",
       "empty": "No candidates have applied yet.",
       "applicant": "Candidate",
       "jobTitle": "Applied position",
@@ -654,6 +655,7 @@
     },
     "users": {
       "title": "User account list",
+      "searchPlaceholder": "Search email, full name...",
       "fullName": "Full name",
       "restricted": "Restricted",
       "active": "Active",

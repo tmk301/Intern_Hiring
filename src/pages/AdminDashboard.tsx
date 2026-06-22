@@ -19,6 +19,7 @@ import {
   RefreshCw,
   RotateCcw,
   Save,
+  Search,
   Settings2,
   ShieldAlert,
   Trash2,
@@ -376,6 +377,8 @@ const AdminDashboard: React.FC = () => {
   });
   const [userRoleFilter, setUserRoleFilter] = useState<UserRoleFilter>("ALL");
   const [userStatusFilter, setUserStatusFilter] = useState<UserStatusFilter>("ALL");
+  const [jobSearch, setJobSearch] = useState("");
+  const [userSearch, setUserSearch] = useState("");
 
           
   const setUrlPage = (key: string, page: number) => {
@@ -406,10 +409,14 @@ const AdminDashboard: React.FC = () => {
         jobHiddenFilter === "TRASH" ||
         (jobHiddenFilter === "HIDDEN" ? Boolean(job.hidden) : !job.hidden);
       const dateMatches = !jobDateFilter || job.createdAt?.slice(0, 10) === jobDateFilter;
+      const searchMatches =
+        !jobSearch ||
+        job.title.toLowerCase().includes(jobSearch.toLowerCase()) ||
+        (job.company || "").toLowerCase().includes(jobSearch.toLowerCase());
 
-      return statusMatches && hiddenMatches && dateMatches;
+      return statusMatches && hiddenMatches && dateMatches && searchMatches;
     }),
-    [jobDateFilter, jobHiddenFilter, jobStatusFilter],
+    [jobDateFilter, jobHiddenFilter, jobStatusFilter, jobSearch],
   );
   const filteredActiveJobs = useMemo(() => applyJobFilters(activeJobs), [activeJobs, applyJobFilters]);
   const filteredTrashedJobs = useMemo(() => applyJobFilters(trashedJobs), [applyJobFilters, trashedJobs]);
@@ -460,6 +467,14 @@ const AdminDashboard: React.FC = () => {
           const restricted = isRestrictedUser(account);
           return userStatusFilter === "RESTRICTED" ? restricted : !restricted;
         })
+        .filter((account) => {
+          const fullName = `${account.lastName ?? ""} ${account.firstName ?? ""}`.trim();
+          return (
+            !userSearch ||
+            account.email.toLowerCase().includes(userSearch.toLowerCase()) ||
+            fullName.toLowerCase().includes(userSearch.toLowerCase())
+          );
+        })
         .sort((first, second) => {
           switch (userSort.key) {
             case "email":
@@ -478,7 +493,7 @@ const AdminDashboard: React.FC = () => {
               return 0;
           }
         }),
-    [userRoleFilter, userSort.direction, userSort.key, userStatusFilter, users],
+    [userRoleFilter, userSort.direction, userSort.key, userStatusFilter, users, userSearch],
   );
           const paginatedUsers = useMemo(
     () => paginateItems(sortedUsers, userPage, userPageSize),
@@ -670,12 +685,12 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     setUserPage(1);
-  }, [userRoleFilter, userSort.direction, userSort.key, userStatusFilter]);
+  }, [userRoleFilter, userSort.direction, userSort.key, userStatusFilter, userSearch]);
 
   useEffect(() => {
     setActiveJobPage(1);
     setTrashedJobPage(1);
-  }, [jobDateFilter, jobHiddenFilter, jobSort.direction, jobSort.key, jobStatusFilter]);
+  }, [jobDateFilter, jobHiddenFilter, jobSort.direction, jobSort.key, jobStatusFilter, jobSearch]);
 
   const requireConfirm = (message: string) => window.confirm(message);
 
@@ -1147,8 +1162,20 @@ const AdminDashboard: React.FC = () => {
                   <CardTitle>{t("admin.users.title")}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+                    <div className="flex flex-1 items-center gap-2 max-w-md">
+                      <div className="relative w-full">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          placeholder={t("admin.users.searchPlaceholder", { defaultValue: "Tìm kiếm email, họ tên..." })}
+                          value={userSearch}
+                          onChange={(e) => setUserSearch(e.target.value)}
+                          className="pl-9 h-10 bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
                       <Select value={userRoleFilter} onValueChange={(value) => setUserRoleFilter(value as UserRoleFilter)}>
                         <SelectTrigger className="w-full sm:w-40 h-10 bg-white">
                           <SelectValue placeholder={t("common.role")} />
@@ -1176,11 +1203,12 @@ const AdminDashboard: React.FC = () => {
                         type="button"
                         variant="outline"
                         onClick={() => {
+                          setUserSearch("");
                           setUserRoleFilter("ALL");
                           setUserStatusFilter("ALL");
                         }}
-                        className="h-10"
-                        disabled={userRoleFilter === "ALL" && userStatusFilter === "ALL"}
+                        className="h-10 border-slate-200 hover:bg-slate-50"
+                        disabled={!userSearch && userRoleFilter === "ALL" && userStatusFilter === "ALL"}
                       >
                         {t("jobs.filters.reset")}
                       </Button>
@@ -1203,8 +1231,8 @@ const AdminDashboard: React.FC = () => {
 
                         return (
                           <TableRow key={account.id}>
-                            <TableCell>{account.email}</TableCell>
-                            <TableCell>
+                            <TableCell className="max-w-[200px] truncate" title={account.email}>{account.email}</TableCell>
+                            <TableCell className="max-w-[150px] truncate" title={`${account.lastName ?? ""} ${account.firstName ?? ""}`.trim()}>
                               {account.lastName} {account.firstName}
                             </TableCell>
                             <TableCell>
@@ -1284,6 +1312,18 @@ const AdminDashboard: React.FC = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+                    <div className="flex flex-1 items-center gap-2 max-w-md">
+                      <div className="relative w-full">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          placeholder={t("moderator.jobs.searchPlaceholder", { defaultValue: "Tìm kiếm tiêu đề, công ty..." })}
+                          value={jobSearch}
+                          onChange={(e) => setJobSearch(e.target.value)}
+                          className="pl-9 h-10 bg-white"
+                        />
+                      </div>
+                    </div>
+
                     <div className="flex flex-wrap items-center gap-2">
                       <Select value={jobStatusFilter} onValueChange={(value) => setJobStatusFilter(value as JobStatusFilter)}>
                         <SelectTrigger className="w-full sm:w-40 h-10 bg-white">
@@ -1318,12 +1358,13 @@ const AdminDashboard: React.FC = () => {
                         type="button"
                         variant="outline"
                         onClick={() => {
+                          setJobSearch("");
                           setJobStatusFilter("ALL");
                           setJobHiddenFilter("ALL");
                           setJobDateFilter("");
                         }}
-                        className="h-10"
-                        disabled={jobStatusFilter === "ALL" && jobHiddenFilter === "ALL" && !jobDateFilter}
+                        className="h-10 border-slate-200 hover:bg-slate-50"
+                        disabled={!jobSearch && jobStatusFilter === "ALL" && jobHiddenFilter === "ALL" && !jobDateFilter}
                       >
                         {t("jobs.filters.reset")}
                       </Button>
@@ -1343,9 +1384,9 @@ const AdminDashboard: React.FC = () => {
                         <TableBody>
                           {paginatedTrashedJobs.items.map((job) => (
                             <TableRow key={job.id}>
-                              <TableCell className="font-medium">{job.title}</TableCell>
-                              <TableCell>{job.company || "-"}</TableCell>
-                              <TableCell>{formatAdminDate(job.deletedAt)}</TableCell>
+                              <TableCell className="font-semibold text-slate-900 max-w-[200px] truncate" title={job.title}>{job.title}</TableCell>
+                              <TableCell className="text-slate-700 max-w-[150px] truncate" title={job.company ?? undefined}>{job.company || "-"}</TableCell>
+                              <TableCell className="text-slate-500 text-xs">{formatAdminDate(job.deletedAt)}</TableCell>
                               <TableCell>
                                 <div className="flex justify-center gap-2">
                                   <ActionIconButton
@@ -1400,10 +1441,10 @@ const AdminDashboard: React.FC = () => {
 
                             return (
                               <TableRow key={job.id} className="cursor-pointer" onClick={() => navigate(`/jobs/${job.id}`)}>
-                                <TableCell className="font-medium">{job.title}</TableCell>
-                                <TableCell>{job.company || "-"}</TableCell>
-                                <TableCell>{job.employerEmail || job.employerName || "-"}</TableCell>
-                                <TableCell>{formatAdminDate(job.createdAt)}</TableCell>
+                                <TableCell className="font-semibold text-slate-900 max-w-[200px] truncate" title={job.title}>{job.title}</TableCell>
+                                <TableCell className="text-slate-700 max-w-[150px] truncate" title={job.company ?? undefined}>{job.company || "-"}</TableCell>
+                                <TableCell className="text-slate-600 max-w-[150px] truncate" title={job.employerEmail || job.employerName || undefined}>{job.employerEmail || job.employerName || "-"}</TableCell>
+                                <TableCell className="text-slate-500 text-xs">{formatAdminDate(job.createdAt)}</TableCell>
                                 <TableCell>
                                   <Badge variant="outline" className={getReviewStatusBadgeClassName(job.status)}>
                                     {t(`admin.jobs.statuses.${jobStatus}`)}
