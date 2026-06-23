@@ -79,6 +79,8 @@ import {
   defaultJobFilterOptions
 } from "@/components/jobs/jobFilterConfig";
 import { supabase } from "@/lib/supabase";
+import { SanityPageSections } from "@/components/sanity/SanityPageSections";
+import { useSanityManagedInterface } from "@/lib/sanityInterfaceText";
 
 type AdminSection = "users" | "jobs" | "employer-requests" | "categories" | "audit-logs" | "email-format";
 type JobStatusFilter = "ALL" | "PENDING" | "APPROVED" | "REJECTED";
@@ -233,6 +235,16 @@ const safeUploadFileName = (name: string) =>
 
 const AdminDashboard: React.FC = () => {
   const { t, i18n } = useTranslation();
+  const {text: uiText, pageContent, theme} = useSanityManagedInterface("/admin");
+  const adminCardStyle = (name: string): React.CSSProperties => ({
+    backgroundColor: pageContent[`${name}CardBackgroundColor`] ? String(pageContent[`${name}CardBackgroundColor`]) : undefined,
+    borderColor: pageContent[`${name}CardBorderColor`] ? String(pageContent[`${name}CardBorderColor`]) : undefined,
+    color: pageContent[`${name}CardTextColor`] ? String(pageContent[`${name}CardTextColor`]) : undefined,
+  });
+  const adminCardTextStyle = (name: string): React.CSSProperties => ({
+    color: pageContent[`${name}CardTextColor`] ? String(pageContent[`${name}CardTextColor`]) : undefined,
+  });
+  const adminCardImage = (name: string) => pageContent[`${name}CardImageUrl`] ? String(pageContent[`${name}CardImageUrl`]) : "";
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -507,6 +519,18 @@ const AdminDashboard: React.FC = () => {
     () => paginateItems(sortedTrashedJobs, trashedJobPage, jobPageSize),
     [jobPageSize, sortedTrashedJobs, trashedJobPage],
   );
+          const paginatedUsers = useMemo(
+    () => paginateItems(sortedUsers, userPage, userPageSize),
+    [sortedUsers, userPage, userPageSize],
+  );
+  const paginatedActiveJobs = useMemo(
+    () => paginateItems(sortedActiveJobs, activeJobPage, jobPageSize),
+    [activeJobPage, jobPageSize, sortedActiveJobs],
+  );
+  const paginatedTrashedJobs = useMemo(
+    () => paginateItems(sortedTrashedJobs, trashedJobPage, jobPageSize),
+    [jobPageSize, sortedTrashedJobs, trashedJobPage],
+  );
   const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
   const formatAdminDate = useCallback((value?: string | null) => formatDate(value, dateLocale), [dateLocale]);
   const selectedUserCvUrl = useMemo(
@@ -685,12 +709,12 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     setUserPage(1);
-  }, [userRoleFilter, userSort.direction, userSort.key, userStatusFilter, userSearch]);
+  }, [userRoleFilter, userSort.direction, userSort.key, userStatusFilter]);
 
   useEffect(() => {
     setActiveJobPage(1);
     setTrashedJobPage(1);
-  }, [jobDateFilter, jobHiddenFilter, jobSort.direction, jobSort.key, jobStatusFilter, jobSearch]);
+  }, [jobDateFilter, jobHiddenFilter, jobSort.direction, jobSort.key, jobStatusFilter]);
 
   const requireConfirm = (message: string) => window.confirm(message);
 
@@ -1040,16 +1064,25 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <section className="hero-gradient text-white py-8 shadow-sm">
+      <SanityPageSections routePath="/admin" placement="top" />
+      {pageContent.heroVisible !== false && <section
+        className="hero-gradient flex min-h-[220px] items-center bg-cover bg-center bg-no-repeat py-8 text-white shadow-sm md:min-h-[300px]"
+        style={theme.headerImageUrl ? {
+          backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.72), rgba(30, 64, 175, 0.72)), url(${theme.headerImageUrl})`,
+          backgroundSize: "cover",
+          backgroundPosition: theme.headerImagePosition || "center",
+          backgroundRepeat: "no-repeat",
+        } : undefined}
+      >
         <div className="container mx-auto px-4 max-w-6xl">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <Badge variant="outline" className={`mb-3 px-5 py-2 text-sm ${getRoleBadgeDarkClassName(USER_ROLES.ADMIN)}`}>
-                {t("role.ADMIN")}
+                {uiText("role.ADMIN", t("role.ADMIN"))}
               </Badge>
-              <h1 className="text-3xl font-bold text-white">{t("admin.title")}</h1>
+              <h1 className="text-3xl font-bold text-white">{uiText("admin.title", t("admin.title"))}</h1>
               <p className="mt-2 text-sm text-blue-100/90">
-                {t("admin.description")}
+                {uiText("admin.description", t("admin.description"))}
               </p>
             </div>
             <Button variant="outline" className="bg-white text-slate-900 hover:bg-slate-50 border-transparent shadow-sm w-auto" onClick={loadData} disabled={loadingData}>
@@ -1058,94 +1091,102 @@ const AdminDashboard: React.FC = () => {
             </Button>
           </div>
         </div>
-      </section>
+      </section>}
+
+      <SanityPageSections routePath="/admin" placement="afterHero" />
 
       <section className="container mx-auto space-y-6 px-4 py-8 max-w-6xl">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-          <Card
+          {pageContent.usersCardVisible !== false && <Card
             className={`cursor-pointer transition hover:shadow-md ${activeSection === "users" ? "border-primary" : ""}`}
+            style={adminCardStyle("users")}
             onClick={() => openSection("users")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("admin.stats.usersTitle")}</CardTitle>
-              <Users className="h-5 w-5 text-primary" />
+              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("users")}>{uiText("admin.stats.usersTitle", t("admin.stats.usersTitle"))}</CardTitle>
+              {adminCardImage("users") ? <img src={adminCardImage("users")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Users className="h-5 w-5 text-primary" />}
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{users.length}</div>
-              <p className="text-xs text-muted-foreground">{t("admin.stats.usersDescription")}</p>
+              <p className="text-xs text-muted-foreground" style={adminCardTextStyle("users")}>{uiText("admin.stats.usersDescription", t("admin.stats.usersDescription"))}</p>
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card
+          {pageContent.jobsCardVisible !== false && <Card
             className={`cursor-pointer transition hover:shadow-md ${activeSection === "jobs" ? "border-primary" : ""}`}
+            style={adminCardStyle("jobs")}
             onClick={() => openSection("jobs")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("admin.stats.jobsTitle")}</CardTitle>
-              <Briefcase className="h-5 w-5 text-primary" />
+              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("jobs")}>{uiText("admin.stats.jobsTitle", t("admin.stats.jobsTitle"))}</CardTitle>
+              {adminCardImage("jobs") ? <img src={adminCardImage("jobs")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Briefcase className="h-5 w-5 text-primary" />}
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{jobs.length}</div>
-              <p className="text-xs text-muted-foreground">{t("admin.stats.trashCount", { count: trashedJobs.length })}</p>
+              <p className="text-xs text-muted-foreground" style={adminCardTextStyle("jobs")}>{t("admin.stats.trashCount", { count: trashedJobs.length })}</p>
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card
+          {pageContent.categoriesCardVisible !== false && <Card
             className={`cursor-pointer transition hover:shadow-md ${activeSection === "categories" ? "border-primary" : ""}`}
+            style={adminCardStyle("categories")}
             onClick={() => openSection("categories")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("admin.stats.categoriesTitle")}</CardTitle>
-              <Settings2 className="h-5 w-5 text-amber-600" />
+              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("categories")}>{uiText("admin.stats.categoriesTitle", t("admin.stats.categoriesTitle"))}</CardTitle>
+              {adminCardImage("categories") ? <img src={adminCardImage("categories")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Settings2 className="h-5 w-5 text-amber-600" />}
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">{t("admin.stats.categoriesDescription")}</p>
+              <p className="text-sm text-muted-foreground" style={adminCardTextStyle("categories")}>{uiText("admin.stats.categoriesDescription", t("admin.stats.categoriesDescription"))}</p>
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card
+          {pageContent.auditLogsCardVisible !== false && <Card
             className={`cursor-pointer transition hover:shadow-md ${activeSection === "audit-logs" ? "border-primary" : ""}`}
+            style={adminCardStyle("auditLogs")}
             onClick={() => openSection("audit-logs")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("admin.stats.auditLogsTitle")}</CardTitle>
-              <ClipboardList className="h-5 w-5 text-red-600" />
+              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("auditLogs")}>{uiText("admin.stats.auditLogsTitle", t("admin.stats.auditLogsTitle"))}</CardTitle>
+              {adminCardImage("auditLogs") ? <img src={adminCardImage("auditLogs")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <ClipboardList className="h-5 w-5 text-red-600" />}
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{auditTotal}</div>
-              <p className="text-xs text-muted-foreground">{t("admin.stats.auditLogsDescription")}</p>
+              <p className="text-xs text-muted-foreground" style={adminCardTextStyle("auditLogs")}>{uiText("admin.stats.auditLogsDescription", t("admin.stats.auditLogsDescription"))}</p>
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card
+          {pageContent.emailFormatCardVisible !== false && <Card
             className={`cursor-pointer transition hover:shadow-md ${activeSection === "email-format" ? "border-primary" : ""}`}
+            style={adminCardStyle("emailFormat")}
             onClick={() => openSection("email-format")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {t("admin.stats.emailFormatTitle", { defaultValue: "Email format" })}
+              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("emailFormat")}>
+                {uiText("admin.stats.emailFormatTitle", t("admin.stats.emailFormatTitle", { defaultValue: "Email format" }))}
               </CardTitle>
-              <Mail className="h-5 w-5 text-emerald-600" />
+              {adminCardImage("emailFormat") ? <img src={adminCardImage("emailFormat")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Mail className="h-5 w-5 text-emerald-600" />}
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                {t("admin.stats.emailFormatDescription", { defaultValue: "Colors, font size, header image" })}
+              <p className="text-sm text-muted-foreground" style={adminCardTextStyle("emailFormat")}>
+                {uiText("admin.stats.emailFormatDescription", t("admin.stats.emailFormatDescription", { defaultValue: "Colors, font size, header image" }))}
               </p>
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card
+          {pageContent.loginBrandingCardVisible !== false && <Card
             className="cursor-pointer transition hover:border-primary hover:shadow-md"
+            style={adminCardStyle("loginBranding")}
             onClick={openLoginBrandingStudio}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("admin.stats.loginBrandingTitle")}</CardTitle>
-              <Palette className="h-5 w-5 text-amber-600" />
+              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("loginBranding")}>{uiText("admin.stats.loginBrandingTitle", t("admin.stats.loginBrandingTitle"))}</CardTitle>
+              {adminCardImage("loginBranding") ? <img src={adminCardImage("loginBranding")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Palette className="h-5 w-5 text-amber-600" />}
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">{t("admin.stats.loginBrandingDescription")}</p>
+              <p className="text-sm text-muted-foreground" style={adminCardTextStyle("loginBranding")}>{uiText("admin.stats.loginBrandingDescription", t("admin.stats.loginBrandingDescription"))}</p>
             </CardContent>
-          </Card>
+          </Card>}
         </div>
 
         {loadingData ? (
@@ -1156,26 +1197,18 @@ const AdminDashboard: React.FC = () => {
           </Card>
         ) : (
           <>
-            {activeSection === "users" && (
-              <Card>
+            {activeSection === "users" && pageContent.usersPanelVisible !== false && (
+              <Card style={{
+                backgroundColor: pageContent.usersPanelBackgroundColor ? String(pageContent.usersPanelBackgroundColor) : undefined,
+                borderColor: pageContent.usersPanelBorderColor ? String(pageContent.usersPanelBorderColor) : undefined,
+                color: pageContent.usersPanelTextColor ? String(pageContent.usersPanelTextColor) : undefined,
+              }}>
                 <CardHeader>
-                  <CardTitle>{t("admin.users.title")}</CardTitle>
+                  <CardTitle style={{color: pageContent.usersPanelTextColor ? String(pageContent.usersPanelTextColor) : undefined}}>{uiText("admin.users.title", t("admin.users.title"))}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
-                    <div className="flex flex-1 items-center gap-2 max-w-md">
-                      <div className="relative w-full">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <Input
-                          placeholder={t("admin.users.searchPlaceholder", { defaultValue: "Tìm kiếm email, họ tên..." })}
-                          value={userSearch}
-                          onChange={(e) => setUserSearch(e.target.value)}
-                          className="pl-9 h-10 bg-white"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
+                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                       <Select value={userRoleFilter} onValueChange={(value) => setUserRoleFilter(value as UserRoleFilter)}>
                         <SelectTrigger className="w-full sm:w-40 h-10 bg-white">
                           <SelectValue placeholder={t("common.role")} />
@@ -1203,12 +1236,11 @@ const AdminDashboard: React.FC = () => {
                         type="button"
                         variant="outline"
                         onClick={() => {
-                          setUserSearch("");
                           setUserRoleFilter("ALL");
                           setUserStatusFilter("ALL");
                         }}
-                        className="h-10 border-slate-200 hover:bg-slate-50"
-                        disabled={!userSearch && userRoleFilter === "ALL" && userStatusFilter === "ALL"}
+                        className="h-10"
+                        disabled={userRoleFilter === "ALL" && userStatusFilter === "ALL"}
                       >
                         {t("jobs.filters.reset")}
                       </Button>
@@ -1305,25 +1337,13 @@ const AdminDashboard: React.FC = () => {
               </Card>
             )}
 
-            {activeSection === "jobs" && (
+            {activeSection === "jobs" && pageContent.jobsPanelVisible !== false && (
               <Card>
                 <CardHeader>
-                  <CardTitle>{t("admin.jobs.title")}</CardTitle>
+                  <CardTitle>{uiText("admin.jobs.title", t("admin.jobs.title"))}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
-                    <div className="flex flex-1 items-center gap-2 max-w-md">
-                      <div className="relative w-full">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <Input
-                          placeholder={t("moderator.jobs.searchPlaceholder", { defaultValue: "Tìm kiếm tiêu đề, công ty..." })}
-                          value={jobSearch}
-                          onChange={(e) => setJobSearch(e.target.value)}
-                          className="pl-9 h-10 bg-white"
-                        />
-                      </div>
-                    </div>
-
                     <div className="flex flex-wrap items-center gap-2">
                       <Select value={jobStatusFilter} onValueChange={(value) => setJobStatusFilter(value as JobStatusFilter)}>
                         <SelectTrigger className="w-full sm:w-40 h-10 bg-white">
@@ -1358,13 +1378,12 @@ const AdminDashboard: React.FC = () => {
                         type="button"
                         variant="outline"
                         onClick={() => {
-                          setJobSearch("");
                           setJobStatusFilter("ALL");
                           setJobHiddenFilter("ALL");
                           setJobDateFilter("");
                         }}
-                        className="h-10 border-slate-200 hover:bg-slate-50"
-                        disabled={!jobSearch && jobStatusFilter === "ALL" && jobHiddenFilter === "ALL" && !jobDateFilter}
+                        className="h-10"
+                        disabled={jobStatusFilter === "ALL" && jobHiddenFilter === "ALL" && !jobDateFilter}
                       >
                         {t("jobs.filters.reset")}
                       </Button>
@@ -1384,9 +1403,9 @@ const AdminDashboard: React.FC = () => {
                         <TableBody>
                           {paginatedTrashedJobs.items.map((job) => (
                             <TableRow key={job.id}>
-                              <TableCell className="font-semibold text-slate-900 max-w-[200px] truncate" title={job.title}>{job.title}</TableCell>
-                              <TableCell className="text-slate-700 max-w-[150px] truncate" title={job.company ?? undefined}>{job.company || "-"}</TableCell>
-                              <TableCell className="text-slate-500 text-xs">{formatAdminDate(job.deletedAt)}</TableCell>
+                              <TableCell className="font-medium">{job.title}</TableCell>
+                              <TableCell>{job.company || "-"}</TableCell>
+                              <TableCell>{formatAdminDate(job.deletedAt)}</TableCell>
                               <TableCell>
                                 <div className="flex justify-center gap-2">
                                   <ActionIconButton
@@ -1441,10 +1460,10 @@ const AdminDashboard: React.FC = () => {
 
                             return (
                               <TableRow key={job.id} className="cursor-pointer" onClick={() => navigate(`/jobs/${job.id}`)}>
-                                <TableCell className="font-semibold text-slate-900 max-w-[200px] truncate" title={job.title}>{job.title}</TableCell>
-                                <TableCell className="text-slate-700 max-w-[150px] truncate" title={job.company ?? undefined}>{job.company || "-"}</TableCell>
-                                <TableCell className="text-slate-600 max-w-[150px] truncate" title={job.employerEmail || job.employerName || undefined}>{job.employerEmail || job.employerName || "-"}</TableCell>
-                                <TableCell className="text-slate-500 text-xs">{formatAdminDate(job.createdAt)}</TableCell>
+                                <TableCell className="font-medium">{job.title}</TableCell>
+                                <TableCell>{job.company || "-"}</TableCell>
+                                <TableCell>{job.employerEmail || job.employerName || "-"}</TableCell>
+                                <TableCell>{formatAdminDate(job.createdAt)}</TableCell>
                                 <TableCell>
                                   <Badge variant="outline" className={getReviewStatusBadgeClassName(job.status)}>
                                     {t(`admin.jobs.statuses.${jobStatus}`)}
@@ -1505,14 +1524,14 @@ const AdminDashboard: React.FC = () => {
               </Card>
             )}
 
-            {activeSection === "categories" && token && (
+            {activeSection === "categories" && token && pageContent.categoriesPanelVisible !== false && (
               <CategoryManagementPanel token={token} />
             )}
 
-            {activeSection === "email-format" && (
+            {activeSection === "email-format" && pageContent.emailPanelVisible !== false && (
               <Card>
                 <CardHeader>
-                  <CardTitle>{t("admin.emailFormat.title", { defaultValue: "Email format" })}</CardTitle>
+                  <CardTitle>{uiText("admin.emailFormat.title", t("admin.emailFormat.title", { defaultValue: "Email format" }))}</CardTitle>
                 </CardHeader>
                 <CardContent className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
                    <div className="grid gap-4 sm:grid-cols-2">
@@ -1757,10 +1776,10 @@ const AdminDashboard: React.FC = () => {
               </Card>
             )}
 
-            {activeSection === "audit-logs" && (
+            {activeSection === "audit-logs" && pageContent.auditPanelVisible !== false && (
               <Card>
                 <CardHeader>
-                  <CardTitle>{t("admin.auditLogs.title")}</CardTitle>
+                  <CardTitle>{uiText("admin.auditLogs.title", t("admin.auditLogs.title"))}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
@@ -1977,6 +1996,7 @@ const AdminDashboard: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <SanityPageSections routePath="/admin" placement="bottom" />
     </main>
   );
 };

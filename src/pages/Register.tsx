@@ -74,14 +74,20 @@ const Register = () => {
   const [registerHero, setRegisterHero] = useState<RegisterHeroConfig>(
     defaultManagedSiteConfig.registerHero,
   );
+  const [isHeroLoading, setIsHeroLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     let isMounted = true;
 
-    loadRegisterHeroConfig().then((config) => {
-      if (isMounted) setRegisterHero(config);
-    });
+    setIsHeroLoading(true);
+    loadRegisterHeroConfig()
+      .then((config) => {
+        if (isMounted) setRegisterHero(config);
+      })
+      .finally(() => {
+        if (isMounted) setIsHeroLoading(false);
+      });
 
     return () => {
       isMounted = false;
@@ -202,6 +208,14 @@ const Register = () => {
     tokenForm.reset();
   };
 
+  if (isHeroLoading) {
+    return (
+      <main className="flex h-[calc(100dvh-4rem)] items-center justify-center bg-gradient-subtle">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </main>
+    );
+  }
+
   return (
     <main className="h-[calc(100dvh-4rem)] overflow-hidden bg-gradient-subtle">
       <div className="container mx-auto flex h-full items-center justify-center px-4 py-3">
@@ -253,12 +267,12 @@ const Register = () => {
                 </Badge>
               </div>
               <CardTitle className="text-2xl font-bold text-foreground">
-                {pendingEmail ? t("register.verifyTitle") : t("register.title")}
+                {pendingEmail ? t("register.verifyTitle") : registerHero.formTitle || t("register.title")}
               </CardTitle>
               <CardDescription>
                 {pendingEmail
                   ? t("register.verifyDescription", { email: pendingEmail })
-                  : t("register.description")}
+                  : registerHero.formDescription || t("register.description")}
               </CardDescription>
             </CardHeader>
             <CardContent className="px-5 pb-3 sm:px-7">
@@ -339,11 +353,15 @@ const Register = () => {
                         name="lastName"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>{t("profile.last_name")}</FormLabel>
+                            <FormLabel>{registerHero.lastNameLabel || t("profile.last_name")}</FormLabel>
                             <FormControl>
                               <div className="relative">
                                 <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                                <Input placeholder="Nguyen" className="h-9 pl-10" {...field} />
+                                <Input
+                                  placeholder={registerHero.lastNamePlaceholder || "Nguyen"}
+                                  className="h-9 pl-10"
+                                  {...field}
+                                />
                               </div>
                             </FormControl>
                             <FormMessage />
@@ -355,11 +373,15 @@ const Register = () => {
                         name="firstName"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>{t("profile.first_name")}</FormLabel>
+                            <FormLabel>{registerHero.firstNameLabel || t("profile.first_name")}</FormLabel>
                             <FormControl>
                               <div className="relative">
                                 <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                                <Input placeholder="An" className="h-9 pl-10" {...field} />
+                                <Input
+                                  placeholder={registerHero.firstNamePlaceholder || "An"}
+                                  className="h-9 pl-10"
+                                  {...field}
+                                />
                               </div>
                             </FormControl>
                             <FormMessage />
@@ -370,14 +392,14 @@ const Register = () => {
                     <FormField
                       control={form.control}
                       name="email"
-                      render={({ field }) => (
+                        render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Email</FormLabel>
+                          <FormLabel>{registerHero.emailLabel || "Email"}</FormLabel>
                           <FormControl>
                             <div className="relative">
                               <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                               <Input
-                                placeholder="ten@example.com"
+                                placeholder={registerHero.emailPlaceholder || "ten@example.com"}
                                 className="h-9 pl-10"
                                 {...field}
                               />
@@ -392,11 +414,15 @@ const Register = () => {
                       name="phoneNumber"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>{t("profile.phone")}</FormLabel>
+                          <FormLabel>{registerHero.phoneLabel || t("profile.phone")}</FormLabel>
                           <FormControl>
                             <div className="relative">
                               <Phone className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                              <Input placeholder="0901234567" className="h-9 pl-10" {...field} />
+                              <Input
+                                placeholder={registerHero.phonePlaceholder || "0901234567"}
+                                className="h-9 pl-10"
+                                {...field}
+                              />
                             </div>
                           </FormControl>
                           <FormMessage />
@@ -408,13 +434,13 @@ const Register = () => {
                       name="password"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>{t("common.password")}</FormLabel>
+                          <FormLabel>{registerHero.passwordLabel || t("common.password")}</FormLabel>
                           <FormControl>
                             <div className="relative">
                               <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                               <Input
                                 type={showPassword ? "text" : "password"}
-                                placeholder={t("register.passwordPlaceholder")}
+                                placeholder={registerHero.passwordPlaceholder || t("register.passwordPlaceholder")}
                                 className="h-9 pl-10 pr-10"
                                 {...field}
                               />

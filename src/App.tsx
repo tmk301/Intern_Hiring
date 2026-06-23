@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Navbar from "./components/ui/Navbar";
 import Home from "./pages/Home";
@@ -26,6 +26,8 @@ import ModeratorDashboard from "./pages/ModeratorDashboard.tsx";
 import Applications from "./pages/Applications";
 import NotFound from "./pages/NotFound";
 import { isAdminRole, isCandidateRole, isModeratorRole, isRecruiterRole } from "./lib/roles";
+import { SanityCustomSections } from "./components/sanity/SanityPageSections";
+import { useSanityManagedInterface } from "./lib/sanityInterfaceText";
 const queryClient = new QueryClient();
 
 const AdminRoute = ({ children }: { children: JSX.Element }) => {
@@ -188,6 +190,27 @@ const ScrollToTop = () => {
   return null;
 };
 
+const managedPageRoutes = new Set([
+  "/", "/jobs", "/profile", "/applications", "/recruiter-verification", "/admin", "/recruiter", "/moderator",
+]);
+
+const SanityContentGate = ({children}: {children: React.ReactNode}) => {
+  const {pathname} = useLocation();
+  const routePath = managedPageRoutes.has(pathname) ? pathname : "/";
+  const homeInterface = useSanityManagedInterface("/");
+  const routeInterface = useSanityManagedInterface(routePath);
+
+  if (homeInterface.isLoading || routeInterface.isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50" aria-label="Đang tải giao diện">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -196,9 +219,10 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <ScrollToTop />
-          <Navbar />
-          <RestrictedAccountBanner />
-          <Routes>
+          <SanityContentGate>
+            <Navbar />
+            <RestrictedAccountBanner />
+            <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/jobs" element={<Jobs />} />
             <Route path="/jobs/:jobId" element={<JobDetail />} />
@@ -217,7 +241,9 @@ const App = () => (
             <Route path="/applications" element={<CandidateRoute><Applications /></CandidateRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
-          </Routes>
+            </Routes>
+            <SanityCustomSections />
+          </SanityContentGate>
         </BrowserRouter>
       </AuthProvider>
     </TooltipProvider>

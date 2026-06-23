@@ -32,6 +32,8 @@ import { PaginationControls } from "@/components/ui/pagination-controls";
 import { paginateItems } from "@/lib/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SanityPageSections } from "@/components/sanity/SanityPageSections";
+import { useSanityInterfaceText } from "@/lib/sanityInterfaceText";
 
 const getOptionLabel = (
   options: Array<{ value: string; labelKey?: string }>,
@@ -177,6 +179,7 @@ const FavoriteJobCard = ({
 
 const EmptyState = ({ type }: { type: "submitted" | "accepted" | "rejected" | "favorites" }) => {
   const { t } = useTranslation();
+  const uiText = useSanityInterfaceText("/applications");
 
   const getIcon = () => {
     switch (type) {
@@ -202,7 +205,7 @@ const EmptyState = ({ type }: { type: "submitted" | "accepted" | "rejected" | "f
         return t("candidateDashboard.emptyFavoritesTitle");
       case "submitted":
       default:
-        return t("candidateDashboard.emptySubmittedTitle");
+        return uiText("applications.empty.submittedTitle", t("candidateDashboard.emptySubmittedTitle"));
     }
   };
 
@@ -233,7 +236,7 @@ const EmptyState = ({ type }: { type: "submitted" | "accepted" | "rejected" | "f
       </p>
       {(type === "submitted" || type === "favorites") && (
         <Button asChild variant="cta" className="mt-5 bg-primary text-primary-foreground hover:bg-primary-dark">
-          <Link to="/jobs">{t("candidateDashboard.findJobNow")}</Link>
+        <Link to="/jobs">{uiText("applications.empty.findJobsButton", t("candidateDashboard.findJobNow"))}</Link>
         </Button>
       )}
     </div>
@@ -254,6 +257,7 @@ const LoadingState = () => (
 
 const Applications = () => {
   const { t } = useTranslation();
+  const uiText = useSanityInterfaceText("/applications");
   const { token, user, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<"submitted" | "accepted" | "rejected" | "favorites">("submitted");
   
@@ -326,13 +330,14 @@ const Applications = () => {
         return t("candidateDashboard.favoritesListTitle");
       case "submitted":
       default:
-        return t("candidateDashboard.submittedListTitle");
+        return uiText("applications.tabs.submitted", t("candidateDashboard.submittedListTitle"));
 
     }
   };
 
   return (
     <main className="min-h-screen bg-slate-50">
+      <SanityPageSections routePath="/applications" placement="top" />
       <section className="hero-gradient text-white py-8 shadow-sm">
         <div className="container mx-auto px-4 max-w-6xl">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -340,9 +345,9 @@ const Applications = () => {
               <Badge variant="outline" className={`mb-3 px-5 py-2 text-sm ${getRoleBadgeDarkClassName(USER_ROLES.CANDIDATE)}`}>
                 {t("role.CANDIDATE")}
               </Badge>
-              <h1 className="text-3xl font-bold text-white">{t("candidateDashboard.title")}</h1>
+              <h1 className="text-3xl font-bold text-white">{uiText("applications.hero.title", t("candidateDashboard.title"))}</h1>
               <p className="mt-2 text-sm text-blue-100/90">
-                {t("candidateDashboard.description")}
+                {uiText("applications.hero.description", t("candidateDashboard.description"))}
               </p>
             </div>
             <Button variant="outline" className="bg-white text-slate-900 hover:bg-slate-50 border-transparent shadow-sm w-auto" onClick={() => { refetch(); refetchFavorites(); }} disabled={isLoading || isFavoritesLoading}>
@@ -353,6 +358,8 @@ const Applications = () => {
         </div>
       </section>
 
+      <SanityPageSections routePath="/applications" placement="afterHero" />
+
       <section className="container mx-auto space-y-6 px-4 py-8 max-w-6xl">
         <div className="flex flex-wrap gap-4">
           <Card
@@ -360,7 +367,7 @@ const Applications = () => {
             onClick={() => setActiveTab("submitted")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("candidateDashboard.submitted")}</CardTitle>
+              <CardTitle className="text-sm font-medium">{uiText("applications.tabs.submitted", t("candidateDashboard.submitted"))}</CardTitle>
               <Clock3 className="h-5 w-5 text-amber-600" />
             </CardHeader>
             <CardContent>
@@ -374,7 +381,7 @@ const Applications = () => {
             onClick={() => setActiveTab("accepted")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("candidateDashboard.accepted")}</CardTitle>
+              <CardTitle className="text-sm font-medium">{uiText("applications.tabs.accepted", t("candidateDashboard.accepted"))}</CardTitle>
               <CheckCircle2 className="h-5 w-5 text-emerald-600" />
             </CardHeader>
             <CardContent>
@@ -388,7 +395,7 @@ const Applications = () => {
             onClick={() => setActiveTab("rejected")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("candidateDashboard.rejected")}</CardTitle>
+              <CardTitle className="text-sm font-medium">{uiText("applications.tabs.rejected", t("candidateDashboard.rejected"))}</CardTitle>
               <XCircle className="h-5 w-5 text-red-600" />
             </CardHeader>
             <CardContent>
@@ -402,7 +409,7 @@ const Applications = () => {
             onClick={() => setActiveTab("favorites")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("candidateDashboard.favorites")}</CardTitle>
+              <CardTitle className="text-sm font-medium">{uiText("applications.tabs.favorites", t("candidateDashboard.favorites"))}</CardTitle>
               <Heart className="h-5 w-5 text-rose-600" />
             </CardHeader>
             <CardContent>
@@ -518,6 +525,7 @@ const Applications = () => {
           </Card>
         )}
       </section>
+      <SanityPageSections routePath="/applications" placement="bottom" />
     </main>
   );
 };

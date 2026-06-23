@@ -56,6 +56,8 @@ import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
+import { SanityPageSections } from "@/components/sanity/SanityPageSections";
+import { useSanityInterfaceText } from "@/lib/sanityInterfaceText";
 
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
@@ -106,6 +108,7 @@ type CompanyAddress = {
 
 const ModeratorDashboard: React.FC = () => {
   const { t, i18n } = useTranslation();
+  const uiText = useSanityInterfaceText("/moderator");
   const { user, token, isAuthenticated, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -489,6 +492,7 @@ const ModeratorDashboard: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-slate-50">
+      <SanityPageSections routePath="/moderator" placement="top" />
       {/* Hero Header */}
       <section className="hero-gradient text-white py-8 shadow-sm">
         <div className="container mx-auto px-4 max-w-6xl">
@@ -497,8 +501,8 @@ const ModeratorDashboard: React.FC = () => {
               <Badge variant="outline" className={`mb-3 px-5 py-2 text-sm ${getRoleBadgeDarkClassName(user?.role)}`}>
                 {t(`role.${normalizeRoleName(user?.role)}`, { defaultValue: t("moderator.badge") })}
               </Badge>
-              <h1 className="text-3xl font-bold text-white">{t("moderator.title")}</h1>
-              <p className="mt-2 text-sm text-blue-100/90">{t("moderator.description")}</p>
+              <h1 className="text-3xl font-bold text-white">{uiText("moderator.title", t("moderator.title"))}</h1>
+              <p className="mt-2 text-sm text-blue-100/90">{uiText("moderator.description", t("moderator.description"))}</p>
             </div>
 
             <Button
@@ -514,13 +518,15 @@ const ModeratorDashboard: React.FC = () => {
         </div>
       </section>
 
+      <SanityPageSections routePath="/moderator" placement="afterHero" />
+
       <section className="container mx-auto space-y-8 px-4 py-8 max-w-6xl">
         {/* Statistics Grid */}
         <div className="space-y-6">
           {/* Job posts stats */}
           <div className="space-y-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-              {t("moderator.stats.jobsTitle", { defaultValue: "THỐNG KÊ BÀI ĐĂNG" })}
+              {uiText("moderator.stats.jobsTitle", t("moderator.stats.jobsTitle", { defaultValue: "THỐNG KÊ BÀI ĐĂNG" }))}
             </h2>
             <div className="grid gap-4 md:grid-cols-3">
               <Card
@@ -585,7 +591,7 @@ const ModeratorDashboard: React.FC = () => {
           {/* Company stats */}
           <div className="space-y-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-              {t("moderator.stats.companiesTitle", { defaultValue: "THỐNG KÊ CÔNG TY" })}
+              {uiText("moderator.stats.companiesTitle", t("moderator.stats.companiesTitle", { defaultValue: "THỐNG KÊ CÔNG TY" }))}
             </h2>
             <div className="grid gap-4 md:grid-cols-3">
               <Card
@@ -1034,8 +1040,8 @@ const ModeratorDashboard: React.FC = () => {
                 </div>
               )}
             </CardContent>
-          )}
-        </Card>
+            )}
+          </Card>
         </div>
       </section>
 
@@ -1101,6 +1107,62 @@ const ModeratorDashboard: React.FC = () => {
                   {selectedJob.description || "-"}
                 </p>
               </div>
+
+              {/* Company Gallery */}
+              <div className="space-y-1.5 text-sm">
+                <span className="text-xs font-semibold text-slate-500 uppercase flex items-center gap-1.5">
+                  <Building2 className="h-4 w-4 text-slate-455" />
+                  {t("recruiterVerification.sections.gallery", { defaultValue: "Hình ảnh công ty" })}
+                </span>
+                <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
+                  {parseJsonArray<string>(selectedApplication.formData?.galleryUrls).map((url, i) => (
+                    <a key={i} href={url} target="_blank" rel="noreferrer" className="block group">
+                      <div className="aspect-video w-full rounded-lg border border-slate-100 overflow-hidden bg-slate-50 relative">
+                        <img
+                          src={url}
+                          alt={`Gallery ${i}`}
+                          className="w-full h-full object-cover transition duration-200 group-hover:scale-105"
+                        />
+                      </div>
+                    </a>
+                  ))}
+                  {parseJsonArray<string>(selectedApplication.formData?.galleryUrls).length === 0 && (
+                    <span className="text-slate-400 text-xs italic">
+                      {t("moderator.companies.emptyGallery", { defaultValue: "Không có hình ảnh." })}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Moderation Actions / Reason input */}
+              {normalizeReviewStatus(selectedApplication.status) === "PENDING" ? (
+                <div className="space-y-2 border-t border-slate-150 pt-4">
+                  <Label htmlFor="review-reason" className="font-bold text-slate-700">
+                    {t("moderator.companies.reviewNote", { defaultValue: "Ghi chú duyệt" })}
+                  </Label>
+                  <Textarea
+                    id="review-reason"
+                    value={reviewNote}
+                    onChange={(e) => setReviewNote(e.target.value)}
+                    placeholder={t("moderator.companies.reviewNotePlaceholder", {
+                      defaultValue: "Nhập lý do nếu từ chối yêu cầu...",
+                    })}
+                    rows={3}
+                    className="rounded-xl border-slate-200"
+                  />
+                </div>
+              ) : (
+                selectedApplication.reviewNote && (
+                  <div className="space-y-1.5 border-t border-slate-150 pt-4 text-sm">
+                    <span className="text-xs font-semibold text-slate-500 uppercase block">
+                      {t("moderator.companies.reviewNote", { defaultValue: "Ghi chú duyệt" })}
+                    </span>
+                    <p className="bg-slate-50 border border-slate-100 p-3 rounded-lg text-slate-700 text-xs whitespace-pre-wrap italic">
+                      {selectedApplication.reviewNote}
+                    </p>
+                  </div>
+                )
+              )}
             </div>
           )}
 
@@ -1408,6 +1470,7 @@ const ModeratorDashboard: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <SanityPageSections routePath="/moderator" placement="bottom" />
     </main>
   );
 };

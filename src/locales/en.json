@@ -188,6 +188,7 @@
     "searchPlaceholder": "Example: Frontend, Data, Sales...",
     "searchButton": "Search",
     "aboutTitle": "About this project",
+    "aboutLead": "THIS IS A PROJECT BY STUDENTS FROM HCMUT AND SGU",
     "aboutIntro": "This is an internship project by students from Ho Chi Minh University of Technology (HCMUT) and Saigon University (SGU) working at MSC Center. Inspired by LinkedIn and TopCV, InternHiring aims to help users find job opportunities, especially internships for Vietnamese students, through a simple bilingual web platform.",
     "aboutIntroLong": "InternHiring was developed during an industry-affiliated internship at MSC Center by students from HCMUT and SGU. The platform takes inspiration from established career services like LinkedIn and TopCV and focuses on practical features: a bilingual UI, employer verification, partner showcases, and curated internship listings to help students discover relevant opportunities.",
     "aboutCardProjectTitle": "The Project",

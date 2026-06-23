@@ -21,6 +21,8 @@ import {
     WORK_MODE_OPTIONS,
 } from "@/components/jobs/jobFilterConfig";
 import { FavoriteJobButton } from "@/components/jobs/FavoriteJobButton";
+import { SanityPageSections } from "@/components/sanity/SanityPageSections";
+import { useSanityManagedInterface } from "@/lib/sanityInterfaceText";
 
 const getOptionLabel = (
     options: Array<{ value: string; labelKey?: string }>,
@@ -35,6 +37,7 @@ const getOptionLabel = (
 const Home: React.FC = () => {
     const navigate = useNavigate();
     const { t, i18n } = useTranslation();
+    const { text: uiText, homeHero, homeContent } = useSanityManagedInterface("/");
     const { user, token, isAuthenticated } = useAuth();
     const [approvedCompanies, setApprovedCompanies] = useState<CompanyProfile[]>([]);
     const [featuredJobs, setFeaturedJobs] = useState<PublicJobPost[]>([]);
@@ -46,16 +49,13 @@ const Home: React.FC = () => {
     const canRequestRecruiterVerification = !isAuthenticated || isCandidateRole(user?.role);
     const numberFormatter = new Intl.NumberFormat(i18n.language?.startsWith("vi") ? "vi-VN" : "en-US");
     const paginatedFeaturedJobs = paginateItems(featuredJobs, featuredJobPage, featuredJobPageSize);
-    // split partners into multiple horizontal rows to increase vertical height
-    const rowsCount = 4;
-    const itemsPerRow = Math.max(1, Math.ceil(partnerList.length / rowsCount));
-    const partnerRows = Array.from({ length: rowsCount })
-        .map((_, idx) => {
-            const start = idx * itemsPerRow;
-            const partners = partnerList.slice(start, start + itemsPerRow);
-            return { partners, reverse: idx % 2 === 1 };
-        })
-        .filter((row) => row.partners.length > 0);
+    const partnerRows = partnerList.length > 0
+        ? [{ partners: partnerList, reverse: false }]
+        : [];
+    const hasVisibleAboutCard = homeContent.projectCardVisible !== false
+        || homeContent.missionCardVisible !== false
+        || homeContent.valuesCardVisible !== false;
+    const homeColor = (key: string) => typeof homeContent[key] === "string" ? homeContent[key] as string : undefined;
 
     useEffect(() => {
         let mounted = true;
@@ -137,11 +137,12 @@ const Home: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-background">
+            <SanityPageSections routePath="/" placement="top" />
             {/* Hero: Job search */}
-            <section id="trang-chu" className="relative scroll-mt-24 overflow-hidden py-20">
+            {homeHero.isVisible !== false && <section id="trang-chu" className="relative scroll-mt-24 overflow-hidden py-20">
                 <div
                     className="absolute inset-0 bg-cover bg-center bg-no-repeat hero-bg-zoom"
-                    style={{ backgroundImage: `url(${mscBackground})` }}
+                    style={{ backgroundImage: `url(${homeHero.imageUrl || mscBackground})` }}
                     aria-hidden="true"
                 />
                 <div className="absolute inset-0 bg-white/75" aria-hidden="true" />
@@ -150,75 +151,87 @@ const Home: React.FC = () => {
                 <div className="relative z-10 container mx-auto px-4 text-center flex flex-col items-center justify-center min-h-[420px] md:min-h-[520px]">
                     <div className="mb-6">
                         <h1 className="text-5xl md:text-7xl font-extrabold mb-2 text-primary">
-                            InternHiring
+                            {homeHero.title || "InternHiring"}
                         </h1>
                         <p className="text-2xl md:text-3xl font-medium text-black">
-                            {t("home.heroSubtitle")}
+                            {homeHero.subtitle || uiText("home.heroSubtitle", t("home.heroSubtitle"))}
                         </p>
                     </div>
 
                     <p className="text-lg text-black mb-8 max-w-3xl mx-auto">
-                        {t("home.heroDescription")}
+                        {homeHero.description || uiText("home.heroDescription", t("home.heroDescription"))}
                     </p>
                 </div>
-            </section>
+            </section>}
+
+            <SanityPageSections routePath="/" placement="afterHero" />
 
             {/* Featured Jobs */}
             {/* About / Introduction */}
-            <section id="gioi-thieu" className="scroll-mt-24 py-12 bg-white">
+            {homeContent.aboutVisible !== false && <section
+                id="gioi-thieu"
+                className="scroll-mt-24 border-y py-12"
+                style={{
+                    backgroundColor: homeColor("aboutSectionBackgroundColor") || "#ffffff",
+                    borderColor: homeColor("aboutSectionBorderColor") || undefined,
+                }}
+            >
                 <div className="container mx-auto px-4">
-                    <div className="max-w-4xl mx-auto text-center mb-6">
-                        <h2 className="text-3xl md:text-4xl font-bold mb-2">{t("home.aboutTitle")}</h2>
-                        <p className="text-lg text-muted-foreground mb-4">{t("home.aboutIntro")}</p>
-                        <p className="text-sm text-muted-foreground">{t("home.aboutIntroLong")}</p>
-                    </div>
+                    <div
+                        className="mx-auto max-w-6xl rounded-lg border shadow-sm"
+                        style={{
+                            backgroundColor: homeColor("aboutCardBackgroundColor") || undefined,
+                            borderColor: homeColor("aboutCardBorderColor") || undefined,
+                        }}
+                    >
+                        <div className="p-6 text-center md:p-8">
+                            <h2 className="text-3xl font-bold md:text-4xl" style={{color: homeColor("aboutTitleTextColor")}}>{uiText("home.aboutTitle", t("home.aboutTitle"))}</h2>
+                            <p className="mt-3 text-sm font-semibold uppercase" style={{color: homeColor("aboutLeadTextColor")}}>{uiText("home.aboutLead", t("home.aboutLead"))}</p>
+                            <p className="mx-auto mt-5 max-w-4xl text-base leading-7 text-muted-foreground" style={{color: homeColor("aboutBodyTextColor")}}>{uiText("home.aboutIntro", t("home.aboutIntro"))}</p>
+                            <p className="mx-auto mt-4 max-w-4xl text-sm leading-7 text-muted-foreground" style={{color: homeColor("aboutBodyTextColor")}}>{uiText("home.aboutIntroLong", t("home.aboutIntroLong"))}</p>
+                        </div>
 
-                    <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="rounded-xl p-[1px] bg-gradient-to-br from-primary-light to-primary">
-                            <div className="bg-card rounded-lg p-6 relative border border-primary/20">
-                                <div className="absolute -top-6 left-6 inline-flex items-center justify-center h-12 w-12 rounded-full bg-white text-primary shadow-md ring-1 ring-primary/10 z-10">
+                        {hasVisibleAboutCard && <div className="grid grid-cols-1 border-t border-primary/10 md:grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
+                        {homeContent.projectCardVisible !== false && <div className="border-b p-6 last:border-b-0 md:border-b-0 md:border-r md:last:border-r-0" style={{backgroundColor: homeColor("projectCardBackgroundColor"), borderColor: homeColor("projectCardBorderColor")}}>
+                                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-white text-primary shadow-md ring-1 ring-primary/10">
                                     <Briefcase className="h-6 w-6" />
                                 </div>
-                                <div className="pt-8">
-                                    <h3 className="text-lg font-semibold mb-2">{t("home.aboutCardProjectTitle")}</h3>
-                                    <p className="text-sm text-muted-foreground">{t("home.aboutCardProjectBody")}</p>
+                                <div>
+                                    <h3 className="text-lg font-semibold mb-2" style={{color: homeColor("projectCardTitleColor")}}>{uiText("home.aboutCardProjectTitle", t("home.aboutCardProjectTitle"))}</h3>
+                                    <p className="text-sm text-muted-foreground" style={{color: homeColor("projectCardBodyColor")}}>{uiText("home.aboutCardProjectBody", t("home.aboutCardProjectBody"))}</p>
                                 </div>
-                            </div>
-                        </div>
+                        </div>}
 
-                        <div className="rounded-xl p-[1px] bg-gradient-to-br from-primary-light to-primary">
-                            <div className="bg-card rounded-lg p-6 relative border border-primary/20">
-                                <div className="absolute -top-6 left-6 inline-flex items-center justify-center h-12 w-12 rounded-full bg-white text-primary shadow-md ring-1 ring-primary/10 z-10">
+                        {homeContent.missionCardVisible !== false && <div className="border-b p-6 last:border-b-0 md:border-b-0 md:border-r md:last:border-r-0" style={{backgroundColor: homeColor("missionCardBackgroundColor"), borderColor: homeColor("missionCardBorderColor")}}>
+                                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-white text-primary shadow-md ring-1 ring-primary/10">
                                     <Users className="h-6 w-6" />
                                 </div>
-                                <div className="pt-8">
-                                    <h3 className="text-lg font-semibold mb-2">{t("home.aboutMissionTitle")}</h3>
-                                    <p className="text-sm text-muted-foreground">{t("home.aboutMission")}</p>
+                                <div>
+                                    <h3 className="text-lg font-semibold mb-2" style={{color: homeColor("missionCardTitleColor")}}>{uiText("home.aboutMissionTitle", t("home.aboutMissionTitle"))}</h3>
+                                    <p className="text-sm text-muted-foreground" style={{color: homeColor("missionCardBodyColor")}}>{uiText("home.aboutMission", t("home.aboutMission"))}</p>
                                 </div>
-                            </div>
-                        </div>
+                        </div>}
 
-                        <div className="rounded-xl p-[1px] bg-gradient-to-br from-primary-light to-primary">
-                            <div className="bg-card rounded-lg p-6 relative border border-primary/20">
-                                <div className="absolute -top-6 left-6 inline-flex items-center justify-center h-12 w-12 rounded-full bg-white text-primary shadow-md ring-1 ring-primary/10 z-10">
+                        {homeContent.valuesCardVisible !== false && <div className="border-b p-6 last:border-b-0 md:border-b-0 md:border-r md:last:border-r-0" style={{backgroundColor: homeColor("valuesCardBackgroundColor"), borderColor: homeColor("valuesCardBorderColor")}}>
+                                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-white text-primary shadow-md ring-1 ring-primary/10">
                                     <Award className="h-6 w-6" />
                                 </div>
-                                <div className="pt-8">
-                                    <h3 className="text-lg font-semibold mb-2">{t("home.aboutValuesTitle")}</h3>
-                                    <p className="text-sm text-muted-foreground">{t("home.aboutValues")}</p>
+                                <div>
+                                    <h3 className="text-lg font-semibold mb-2" style={{color: homeColor("valuesCardTitleColor")}}>{uiText("home.aboutValuesTitle", t("home.aboutValuesTitle"))}</h3>
+                                    <p className="text-sm text-muted-foreground" style={{color: homeColor("valuesCardBodyColor")}}>{uiText("home.aboutValues", t("home.aboutValues"))}</p>
                                 </div>
-                            </div>
-                        </div>
+                        </div>}
+                        </div>}
                     </div>
                 </div>
-            </section>
+            </section>}
 
             {/* Featured Jobs */}
-            <section id="viec-lam-noi-bat" className="scroll-mt-24 py-16">
+            {homeContent.featuredJobsVisible !== false && <section id="viec-lam-noi-bat" className="scroll-mt-24 py-16">
                 <div className="container mx-auto px-4">
                     <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-2xl font-bold">{t("home.featuredJobsTitle")}</h2>
-                        <Button variant="cta" size="lg" className="flex items-center gap-2" onClick={() => navigate("/jobs")}>{t("home.viewAll")} <ArrowRight className="ml-1 h-4 w-4" /></Button>
+                        <h2 className="text-2xl font-bold">{uiText("home.featuredJobsTitle", t("home.featuredJobsTitle"))}</h2>
+                        <Button variant="cta" size="lg" className="flex items-center gap-2" onClick={() => navigate("/jobs")}>{uiText("home.viewAll", t("home.viewAll"))} <ArrowRight className="ml-1 h-4 w-4" /></Button>
                     </div>
                     {featuredJobs.length > 0 ? (
                         <>
@@ -304,22 +317,22 @@ const Home: React.FC = () => {
                     ) : (
                         <Card>
                             <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                                {t("home.featuredJobsEmpty")}
+                                {uiText("home.featuredJobsEmpty", t("home.featuredJobsEmpty"))}
                             </CardContent>
                         </Card>
                     )}
                 </div>
-            </section>
+            </section>}
 
             {/* Partners (keep) */}
-            <section id="doi-tac" className="scroll-mt-24 py-14 bg-white">
+            {homeContent.partnersVisible !== false && <section id="doi-tac" className="scroll-mt-24 py-14 bg-white">
                 <div className="container mx-auto px-4">
                     <div className="text-center mb-8">
                         <h2 className="text-4xl md:text-5xl font-extrabold mb-2 text-primary">
-                            {t("home.partnersTitle")}
+                            {uiText("home.partnersTitle", t("home.partnersTitle"))}
                         </h2>
                         <p className="text-2xl md:text-3xl font-medium text-black">
-                            {t("home.partnersSubtitle")}
+                            {uiText("home.partnersSubtitle", t("home.partnersSubtitle"))}
                         </p>
                     </div>
                     {partnerRows.length > 0 ? (
@@ -365,32 +378,34 @@ const Home: React.FC = () => {
                     ) : (
                         <Card className="mt-8">
                             <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                                {t("home.partnersEmpty")}
+                                {uiText("home.partnersEmpty", t("home.partnersEmpty"))}
                             </CardContent>
                         </Card>
                     )}
                 </div>
-            </section>
+            </section>}
 
             {/* CTA */}
-            {canRequestRecruiterVerification && (
+            {canRequestRecruiterVerification && homeContent.recruiterCtaVisible !== false && (
                 <section id="tuyen-dung" className="scroll-mt-24 py-16 hero-gradient">
                     <div className="container mx-auto px-4 text-center text-white">
                         <h2 className="text-3xl font-bold mb-4">
-                            {t("home.recruiterCtaTitle")}
+                            {uiText("home.recruiterCtaTitle", t("home.recruiterCtaTitle"))}
                         </h2>
                         <div className="flex justify-center mt-6">
-                            <Button variant="secondary" onClick={openEmployerRequestPage}>{t("home.recruiterCtaButton")}</Button>
+                            <Button variant="secondary" onClick={openEmployerRequestPage}>{uiText("home.recruiterCtaButton", t("home.recruiterCtaButton"))}</Button>
                         </div>
                     </div>
                 </section>
             )}
 
-            <footer className="border-t bg-white py-6">
+            {homeContent.footerVisible !== false && <footer className="border-t bg-white py-6">
                 <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-                    {t("home.footer")}
+                    {uiText("home.footer", t("home.footer"))}
                 </div>
-            </footer>
+            </footer>}
+
+            <SanityPageSections routePath="/" placement="bottom" />
 
         </div>
     );

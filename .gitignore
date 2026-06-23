@@ -108,3 +108,12 @@ dist-ssr
 *.env
 
 .codegraph/
+
+# Local tooling, credentials, generated builds, and service state
+.tools/
+gh.zip
+gh-release.json
+dist-check*/
+dist-header-check/
+sanity-studio/.config/
+supabase/.temp/

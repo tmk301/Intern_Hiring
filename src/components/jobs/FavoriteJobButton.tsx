@@ -57,8 +57,8 @@ export const FavoriteJobButton = ({
       variant="outline"
       size="icon"
       className={cn(
-        "h-9 w-9 rounded-full bg-white text-slate-600 shadow-sm hover:bg-white hover:text-rose-600",
-        isFavorited && "border-rose-200 bg-white text-rose-600 hover:bg-white hover:text-rose-600",
+        "h-9 w-9 rounded-full bg-white/95 text-slate-600 shadow-sm hover:text-rose-600",
+        isFavorited && "border-rose-200 bg-rose-50 text-rose-600",
         className,
       )}
       aria-label={t(isFavorited ? "jobs.favorite.removeAria" : "jobs.favorite.addAria")}

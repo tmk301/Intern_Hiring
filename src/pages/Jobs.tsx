@@ -38,6 +38,8 @@ import { getVietnamProvinceOptions, getVietnamWardOptions } from "@/lib/vietnamP
 import { paginateItems } from "@/lib/pagination";
 import { useAuth } from "@/context/AuthContext"; // MỚI THÊM
 import { useToast } from "@/hooks/use-toast"; // MỚI THÊM
+import { SanityPageSections } from "@/components/sanity/SanityPageSections";
+import { useSanityManagedInterface } from "@/lib/sanityInterfaceText";
 
 const normalizeText = (value?: string | number | null) =>
   String(value ?? "")
@@ -291,6 +293,7 @@ const Jobs: React.FC = () => {
   const { user, token } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { text: uiText, pageContent } = useSanityManagedInterface("/jobs");
   const [applyJobId, setApplyJobId] = useState<string | number | null>(null);
   const [selectedCvId, setSelectedCvId] = useState<string>("");
   const [isApplying, setIsApplying] = useState(false);
@@ -479,24 +482,31 @@ const Jobs: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <section className="hero-gradient text-white py-8 shadow-sm">
+      <SanityPageSections routePath="/jobs" placement="top" />
+      {pageContent.heroVisible !== false && <section
+        className="hero-gradient text-white py-8 shadow-sm"
+        style={pageContent.heroBackgroundColor ? {background: String(pageContent.heroBackgroundColor)} : undefined}
+      >
         <div className="container mx-auto px-4">
-          <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl text-white">{t("jobs.page.title")}</h1>
-          <p className="mt-2 max-w-3xl text-sm text-blue-100/90">{t("jobs.page.description")}</p>
+          <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl text-white" style={{color: String(pageContent.heroTextColor || "#ffffff")}}>{uiText("jobs.page.title", t("jobs.page.title"))}</h1>
+          <p className="mt-2 max-w-3xl text-sm text-blue-100/90" style={{color: String(pageContent.heroTextColor || "#ffffff")}}>{uiText("jobs.page.description", t("jobs.page.description"))}</p>
         </div>
-      </section>
+      </section>}
 
-      <section className="container mx-auto space-y-6 px-4 py-8">
-        <JobSearchFilters
+      <SanityPageSections routePath="/jobs" placement="afterHero" />
+
+      {(pageContent.filtersVisible !== false || pageContent.resultsVisible !== false) && <section className="container mx-auto space-y-6 px-4 py-8" style={{backgroundColor: pageContent.contentBackgroundColor ? String(pageContent.contentBackgroundColor) : undefined}}>
+        {pageContent.filtersVisible !== false && <JobSearchFilters
           options={filterOptions}
           value={filterValue}
           onChange={handleFilterChange}
           onReset={() => handleFilterChange(emptyJobFilterValue)}
-        />
+        />}
 
+        {pageContent.resultsVisible !== false && <div id="ket-qua-tim-kiem" className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold text-slate-950">
-            {t("jobs.page.resultsTitle")} ({filteredJobs.length})
+            {uiText("jobs.page.resultsTitle", t("jobs.page.resultsTitle"))} ({filteredJobs.length})
           </h2>
         </div>
 
@@ -514,14 +524,21 @@ const Jobs: React.FC = () => {
           <Card>
             <CardContent className="py-12 text-center">
               <Briefcase className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
-              <h3 className="font-semibold text-slate-950">{t("jobs.page.emptyTitle")}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{t("jobs.page.emptyDescription")}</p>
+              <h3 className="font-semibold text-slate-950">{uiText("jobs.page.emptyTitle", t("jobs.page.emptyTitle"))}</h3>
+              <p className="mt-2 text-sm text-muted-foreground">{uiText("jobs.page.emptyDescription", t("jobs.page.emptyDescription"))}</p>
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-4">
             {paginatedJobs.items.map((job) => (
-              <Card key={job.id} className="group relative overflow-hidden flex flex-col h-full hover:shadow-medium shadow-soft border bg-card transition-smooth hover:-translate-y-1">
+              <Card
+                key={job.id}
+                className="group relative overflow-hidden flex flex-col h-full hover:shadow-medium shadow-soft border bg-card transition-smooth hover:-translate-y-1"
+                style={{
+                  backgroundColor: pageContent.jobCardBackgroundColor ? String(pageContent.jobCardBackgroundColor) : undefined,
+                  borderColor: pageContent.jobCardBorderColor ? String(pageContent.jobCardBorderColor) : undefined,
+                }}
+              >
                 <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-primary-light" />
                 <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary/10 transition-smooth group-hover:scale-125" />
                 <div
@@ -531,8 +548,8 @@ const Jobs: React.FC = () => {
                   <CardHeader className="space-y-3">
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                       <div>
-                        <CardTitle className="text-xl">{job.title || t("jobs.page.untitled")}</CardTitle>
-                        <p className="mt-1 text-sm font-medium text-slate-700">
+                        <CardTitle className="text-xl" style={{color: pageContent.jobCardTitleColor ? String(pageContent.jobCardTitleColor) : undefined}}>{job.title || t("jobs.page.untitled")}</CardTitle>
+                        <p className="mt-1 text-sm font-medium text-slate-700" style={{color: pageContent.jobCardTextColor ? String(pageContent.jobCardTextColor) : undefined}}>
                           {job.company || job.employerName || t("jobs.page.notProvided")}
                         </p>
                       </div>
@@ -559,7 +576,7 @@ const Jobs: React.FC = () => {
                       {job.applicationDeadline && (
                         <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
                           <CalendarDays className="h-4 w-4 text-primary" />
-                          {t("jobs.page.applicationDeadline")}: {formatDateOnly(job.applicationDeadline, dateLocale)}
+                          {uiText("jobs.page.applicationDeadline", t("jobs.page.applicationDeadline"))}: {formatDateOnly(job.applicationDeadline, dateLocale)}
                         </span>
                       )}
                     </div>
@@ -576,7 +593,7 @@ const Jobs: React.FC = () => {
                       {job.experience && <Badge variant="secondary" className="rounded-full px-3 py-1">{defaultJobFilterOptions.experience.find(o => o.value === job.experience)?.labelKey ? t(defaultJobFilterOptions.experience.find(o => o.value === job.experience)!.labelKey!) : job.experience}</Badge>}
                     </div>
                     {job.description && (
-                      <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">
+                      <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-600" style={{color: pageContent.jobCardTextColor ? String(pageContent.jobCardTextColor) : undefined}}>
                         {job.description}
                       </p>
                     )}
@@ -584,13 +601,19 @@ const Jobs: React.FC = () => {
                 </div>
                 
                 {/* MỚI THÊM: Nút nộp đơn */}
-                {(!user || user.role === "CANDIDATE") && (
-                  <CardFooter className="relative bg-slate-50/50 border-t p-4 flex justify-end z-10">
-                    <Button variant="cta" className="bg-primary text-primary-foreground hover:bg-primary-dark w-auto px-5" onClick={() => handleOpenApplyModal(job.id)}>
-                      {t("jobs.apply.button")}
-                    </Button>
-                  </CardFooter>
-                )}
+                <CardFooter className="relative bg-slate-50/50 border-t p-4 flex justify-end z-10">
+                  <Button
+                    variant="cta"
+                    className="bg-primary text-primary-foreground hover:bg-primary-dark w-auto px-5"
+                    style={{
+                      backgroundColor: pageContent.applyButtonBackgroundColor ? String(pageContent.applyButtonBackgroundColor) : undefined,
+                      color: pageContent.applyButtonTextColor ? String(pageContent.applyButtonTextColor) : undefined,
+                    }}
+                    onClick={() => handleOpenApplyModal(job.id)}
+                  >
+                    {uiText("jobs.apply.button", t("jobs.apply.button"))}
+                  </Button>
+                </CardFooter>
               </Card>
             ))}
             <PaginationControls
@@ -602,7 +625,8 @@ const Jobs: React.FC = () => {
             />
           </div>
         )}
-      </section>
+        </div>}
+      </section>}
 
       {/* MỚI THÊM: Giao diện Modal Chọn CV nộp đơn */}
       <Dialog 
@@ -651,10 +675,8 @@ const Jobs: React.FC = () => {
                       <p title={cv.name} className={`block max-w-full truncate text-sm font-semibold ${selectedCvId === cv.id ? "text-primary" : "text-slate-900"}`}>
                         {cv.name}
                       </p>
-                      <p className="mt-1 max-w-full truncate text-xs text-slate-500">
-                        <span className="truncate">
-                          {t("profile.cv_upload_time")}: {new Date(cv.uploadedAt).toLocaleDateString(dateLocale)}
-                        </span>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {t("profile.cv_upload_time")}: {new Date(cv.uploadedAt).toLocaleDateString(dateLocale)}
                         {cv.isDefault && <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">Default</span>}
                       </p>
                     </div>
@@ -681,6 +703,7 @@ const Jobs: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <SanityPageSections routePath="/jobs" placement="bottom" />
     </main>
   );
 };
