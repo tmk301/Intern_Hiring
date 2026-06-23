@@ -94,31 +94,6 @@ export const filterCategoryLabels: Record<FilterCategoryKey, string> = {
   experience: "Experience",
 };
 
-export const defaultCorporatePartners: ManagedPartner[] = [
-  { id: "asl", name: "ASL", logo: "/carousel/ASL.webp" },
-  { id: "binemo", name: "Binemo", logo: "/carousel/Binemo.webp" },
-  { id: "cp", name: "CP Group", logo: "/carousel/CP.webp" },
-  { id: "greenfeed", name: "Greenfeed", logo: "/carousel/Greenfeed.webp" },
-  { id: "happyland", name: "Happy Land", logo: "/carousel/Happyland.webp" },
-  { id: "hto-group", name: "HTO Group", logo: "/carousel/HTOGroup.webp" },
-  { id: "nab", name: "NAB", logo: "/carousel/NAB.webp" },
-  { id: "richs", name: "Richs Vietnam", logo: "/carousel/Richs.webp" },
-  { id: "satra", name: "Satra", logo: "/carousel/Satra.webp" },
-  { id: "schindler", name: "Schindler", logo: "/carousel/Schindler.webp" },
-  { id: "sgc", name: "SGC", logo: "/carousel/SGC.webp" },
-  { id: "sgf", name: "SGF", logo: "/carousel/SGF.webp" },
-  { id: "sggg", name: "SGGG", logo: "/carousel/SGGG.webp" },
-  { id: "sgl", name: "SGL", logo: "/carousel/SGL.webp" },
-  { id: "shinhan", name: "Shinhan Bank", logo: "/carousel/Shinhan.webp" },
-  { id: "smar", name: "Smar", logo: "/carousel/Smar.webp" },
-  { id: "smentor", name: "Smentor", logo: "/carousel/Smentor.webp" },
-  { id: "sp", name: "SP", logo: "/carousel/SP.webp" },
-  { id: "tc", name: "Tam Chau", logo: "/carousel/TC.webp" },
-  { id: "vnpt", name: "VNPT", logo: "/carousel/VNPT.webp" },
-  { id: "wk", name: "WK", logo: "/carousel/WK.webp" },
-  { id: "yesco", name: "YESCO", logo: "/carousel/YESCO.webp" },
-];
-
 export const defaultEmployerVerificationFields: EmployerVerificationField[] = [
   {
     id: "company-name",
@@ -191,19 +166,19 @@ export const defaultRegisterHeroConfig: RegisterHeroConfig = {
 };
 
 export const defaultEmailTemplateConfig: EmailTemplateConfig = {
-  brandName: "InternHiring",
+  brandName: "",
   headerImageUrl: "",
   backgroundColor: "#f8fafc",
   cardColor: "#ffffff",
   textColor: "#334155",
   accentColor: "#2563eb",
   fontSize: 15,
-  footerText: "Email nay duoc gui tu he thong thong bao InternHiring.",
+  footerText: "",
 };
 
 export const defaultManagedSiteConfig: ManagedSiteConfig = {
   filters: defaultJobFilterOptions,
-  partners: defaultCorporatePartners,
+  partners: [],
   employerVerificationFields: defaultEmployerVerificationFields,
   loginHero: defaultLoginHeroConfig,
   registerHero: defaultRegisterHeroConfig,

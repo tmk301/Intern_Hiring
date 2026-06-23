@@ -1107,6 +1107,62 @@ const ModeratorDashboard: React.FC = () => {
                   {selectedJob.description || "-"}
                 </p>
               </div>
+
+              {/* Company Gallery */}
+              <div className="space-y-1.5 text-sm">
+                <span className="text-xs font-semibold text-slate-500 uppercase flex items-center gap-1.5">
+                  <Building2 className="h-4 w-4 text-slate-455" />
+                  {t("recruiterVerification.sections.gallery", { defaultValue: "Hình ảnh công ty" })}
+                </span>
+                <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
+                  {parseJsonArray<string>(selectedApplication.formData?.galleryUrls).map((url, i) => (
+                    <a key={i} href={url} target="_blank" rel="noreferrer" className="block group">
+                      <div className="aspect-video w-full rounded-lg border border-slate-100 overflow-hidden bg-slate-50 relative">
+                        <img
+                          src={url}
+                          alt={`Gallery ${i}`}
+                          className="w-full h-full object-cover transition duration-200 group-hover:scale-105"
+                        />
+                      </div>
+                    </a>
+                  ))}
+                  {parseJsonArray<string>(selectedApplication.formData?.galleryUrls).length === 0 && (
+                    <span className="text-slate-400 text-xs italic">
+                      {t("moderator.companies.emptyGallery", { defaultValue: "Không có hình ảnh." })}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Moderation Actions / Reason input */}
+              {normalizeReviewStatus(selectedApplication.status) === "PENDING" ? (
+                <div className="space-y-2 border-t border-slate-150 pt-4">
+                  <Label htmlFor="review-reason" className="font-bold text-slate-700">
+                    {t("moderator.companies.reviewNote", { defaultValue: "Ghi chú duyệt" })}
+                  </Label>
+                  <Textarea
+                    id="review-reason"
+                    value={reviewNote}
+                    onChange={(e) => setReviewNote(e.target.value)}
+                    placeholder={t("moderator.companies.reviewNotePlaceholder", {
+                      defaultValue: "Nhập lý do nếu từ chối yêu cầu...",
+                    })}
+                    rows={3}
+                    className="rounded-xl border-slate-200"
+                  />
+                </div>
+              ) : (
+                selectedApplication.reviewNote && (
+                  <div className="space-y-1.5 border-t border-slate-150 pt-4 text-sm">
+                    <span className="text-xs font-semibold text-slate-500 uppercase block">
+                      {t("moderator.companies.reviewNote", { defaultValue: "Ghi chú duyệt" })}
+                    </span>
+                    <p className="bg-slate-50 border border-slate-100 p-3 rounded-lg text-slate-700 text-xs whitespace-pre-wrap italic">
+                      {selectedApplication.reviewNote}
+                    </p>
+                  </div>
+                )
+              )}
             </div>
           )}
 

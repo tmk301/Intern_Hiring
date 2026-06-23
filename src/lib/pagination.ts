@@ -9,6 +9,7 @@ export const paginateItems = <T,>(items: T[], page: number, pageSize = DEFAULT_P
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
   const safePage = Math.min(Math.max(page, 1), totalPages);
   const start = (safePage - 1) * pageSize;
+
   return {
     items: items.slice(start, start + pageSize),
     page: safePage,

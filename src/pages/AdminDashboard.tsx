@@ -19,6 +19,7 @@ import {
   RefreshCw,
   RotateCcw,
   Save,
+  Search,
   Settings2,
   ShieldAlert,
   Trash2,
@@ -388,6 +389,8 @@ const AdminDashboard: React.FC = () => {
   });
   const [userRoleFilter, setUserRoleFilter] = useState<UserRoleFilter>("ALL");
   const [userStatusFilter, setUserStatusFilter] = useState<UserStatusFilter>("ALL");
+  const [jobSearch, setJobSearch] = useState("");
+  const [userSearch, setUserSearch] = useState("");
 
           
   const setUrlPage = (key: string, page: number) => {
@@ -418,10 +421,14 @@ const AdminDashboard: React.FC = () => {
         jobHiddenFilter === "TRASH" ||
         (jobHiddenFilter === "HIDDEN" ? Boolean(job.hidden) : !job.hidden);
       const dateMatches = !jobDateFilter || job.createdAt?.slice(0, 10) === jobDateFilter;
+      const searchMatches =
+        !jobSearch ||
+        job.title.toLowerCase().includes(jobSearch.toLowerCase()) ||
+        (job.company || "").toLowerCase().includes(jobSearch.toLowerCase());
 
-      return statusMatches && hiddenMatches && dateMatches;
+      return statusMatches && hiddenMatches && dateMatches && searchMatches;
     }),
-    [jobDateFilter, jobHiddenFilter, jobStatusFilter],
+    [jobDateFilter, jobHiddenFilter, jobStatusFilter, jobSearch],
   );
   const filteredActiveJobs = useMemo(() => applyJobFilters(activeJobs), [activeJobs, applyJobFilters]);
   const filteredTrashedJobs = useMemo(() => applyJobFilters(trashedJobs), [applyJobFilters, trashedJobs]);
@@ -472,6 +479,14 @@ const AdminDashboard: React.FC = () => {
           const restricted = isRestrictedUser(account);
           return userStatusFilter === "RESTRICTED" ? restricted : !restricted;
         })
+        .filter((account) => {
+          const fullName = `${account.lastName ?? ""} ${account.firstName ?? ""}`.trim();
+          return (
+            !userSearch ||
+            account.email.toLowerCase().includes(userSearch.toLowerCase()) ||
+            fullName.toLowerCase().includes(userSearch.toLowerCase())
+          );
+        })
         .sort((first, second) => {
           switch (userSort.key) {
             case "email":
@@ -490,7 +505,19 @@ const AdminDashboard: React.FC = () => {
               return 0;
           }
         }),
-    [userRoleFilter, userSort.direction, userSort.key, userStatusFilter, users],
+    [userRoleFilter, userSort.direction, userSort.key, userStatusFilter, users, userSearch],
+  );
+          const paginatedUsers = useMemo(
+    () => paginateItems(sortedUsers, userPage, userPageSize),
+    [sortedUsers, userPage, userPageSize],
+  );
+  const paginatedActiveJobs = useMemo(
+    () => paginateItems(sortedActiveJobs, activeJobPage, jobPageSize),
+    [activeJobPage, jobPageSize, sortedActiveJobs],
+  );
+  const paginatedTrashedJobs = useMemo(
+    () => paginateItems(sortedTrashedJobs, trashedJobPage, jobPageSize),
+    [jobPageSize, sortedTrashedJobs, trashedJobPage],
   );
           const paginatedUsers = useMemo(
     () => paginateItems(sortedUsers, userPage, userPageSize),
@@ -1236,8 +1263,8 @@ const AdminDashboard: React.FC = () => {
 
                         return (
                           <TableRow key={account.id}>
-                            <TableCell>{account.email}</TableCell>
-                            <TableCell>
+                            <TableCell className="max-w-[200px] truncate" title={account.email}>{account.email}</TableCell>
+                            <TableCell className="max-w-[150px] truncate" title={`${account.lastName ?? ""} ${account.firstName ?? ""}`.trim()}>
                               {account.lastName} {account.firstName}
                             </TableCell>
                             <TableCell>

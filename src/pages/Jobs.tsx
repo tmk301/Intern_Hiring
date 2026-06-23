@@ -638,7 +638,7 @@ const Jobs: React.FC = () => {
           }
         }}
       >
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-[500px] overflow-hidden">
           <DialogHeader>
             <DialogTitle>{t("jobs.apply.dialogTitle")}</DialogTitle>
             <DialogDescription>
@@ -646,7 +646,7 @@ const Jobs: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="py-4">
+          <div className="min-w-0 py-4">
             {!user?.cvList || user.cvList.length === 0 ? (
               <div className="text-center py-6 border-2 border-dashed rounded-lg bg-slate-50">
                 <FileText className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
@@ -657,22 +657,22 @@ const Jobs: React.FC = () => {
                 </Button>
               </div>
             ) : (
-              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+              <div className="max-h-[300px] w-full min-w-0 space-y-3 overflow-x-hidden overflow-y-auto pr-2">
                 {user.cvList.map((cv) => (
                   <div
                     key={cv.id}
                     onClick={() => setSelectedCvId(cv.id)}
-                    className={`flex items-center gap-4 p-4 border rounded-xl cursor-pointer transition-all ${
+                    className={`flex w-full min-w-0 max-w-full items-center gap-4 overflow-hidden p-4 border rounded-xl cursor-pointer transition-all ${
                       selectedCvId === cv.id 
                         ? "border-primary bg-primary/5 shadow-sm" 
                         : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
                     }`}
                   >
-                    <div className={`p-2 rounded-lg ${selectedCvId === cv.id ? "bg-primary/10 text-primary" : "bg-slate-100 text-slate-500"}`}>
+                    <div className={`shrink-0 p-2 rounded-lg ${selectedCvId === cv.id ? "bg-primary/10 text-primary" : "bg-slate-100 text-slate-500"}`}>
                       <FileText className="h-6 w-6" />
                     </div>
-                    <div className="flex-1 overflow-hidden">
-                      <p className={`text-sm font-semibold truncate ${selectedCvId === cv.id ? "text-primary" : "text-slate-900"}`}>
+                    <div className="min-w-0 flex-1 basis-0 overflow-hidden">
+                      <p title={cv.name} className={`block max-w-full truncate text-sm font-semibold ${selectedCvId === cv.id ? "text-primary" : "text-slate-900"}`}>
                         {cv.name}
                       </p>
                       <p className="text-xs text-slate-500 mt-1">

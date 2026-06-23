@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,14 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { isAdminRole, isCandidateRole, isModeratorRole, isRecruiterRole } from "@/lib/roles";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "./LanguageSwitcher";
@@ -39,7 +47,14 @@ const Navbar = () => {
   const showApplicationsLink = isCandidateRole(user?.role) && location.pathname !== "/applications";
   const showRecruitmentNavItem = !isAuthenticated || isCandidateRole(user?.role);
 
-  const handleLogout = () => {
+  const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
+
+  const handleLogoutClick = () => {
+    setIsLogoutDialogOpen(true);
+  };
+
+  const confirmLogout = () => {
+    setIsLogoutDialogOpen(false);
     logout();
     navigate("/");
   };
@@ -103,7 +118,7 @@ const Navbar = () => {
         <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 xl:flex 2xl:gap-10">
           {navItems.map((item) => (
             <button
-              key={"path" in item ? item.path : item.targetId}
+              key={String("path" in item ? item.path : item.targetId)}
               type="button"
               onClick={() => handleNavItem(item)}
               className="whitespace-nowrap px-2 text-center text-sm font-semibold text-black transition hover:text-primary"
@@ -149,7 +164,7 @@ const Navbar = () => {
                     )}
                     {showApplicationsLink && (
                       <DropdownMenuItem asChild>
-                        <Link to="/applications">Ứng tuyển</Link>
+                        <Link to="/applications">{t("nav.applications")}</Link>
                       </DropdownMenuItem>
                     )}
                     {showProfileLink && (
@@ -157,7 +172,13 @@ const Navbar = () => {
                         <Link to="/profile">{t("nav.profile")}</Link>
                       </DropdownMenuItem>
                     )}
-                    <DropdownMenuItem onClick={handleLogout}>
+                    <DropdownMenuItem
+                      className="focus:bg-red-600 focus:text-white hover:bg-red-600 hover:text-white dark:focus:bg-red-700 dark:hover:bg-red-700 cursor-pointer text-slate-700 dark:text-slate-200"
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        handleLogoutClick();
+                      }}
+                    >
                       <LogOut className="h-4 w-4 mr-2" />
                       {t("nav.logout")}
                     </DropdownMenuItem>
@@ -200,7 +221,7 @@ const Navbar = () => {
                   <LanguageSwitcher />
 
                   {navItems.map((item) => (
-                    <SheetClose asChild key={"path" in item ? item.path : item.targetId}>
+                    <SheetClose asChild key={String("path" in item ? item.path : item.targetId)}>
                       <button
                         type="button"
                         onClick={() => handleNavItem(item)}
@@ -239,7 +260,7 @@ const Navbar = () => {
                         {showApplicationsLink && (
                           <Link to="/applications" className="mb-2 flex items-center gap-2 rounded-md p-2 hover:bg-muted transition">
                             <UserIcon className="h-4 w-4" />
-                            <span className="text-sm font-medium">Ứng tuyển</span>
+                            <span className="text-sm font-medium">{t("nav.applications")}</span>
                           </Link>
                         )}
                         {showProfileLink && (
@@ -253,9 +274,11 @@ const Navbar = () => {
                             <span className="text-sm font-medium">{user?.firstName}</span>
                           </Link>
                         )}
-                        <Button onClick={handleLogout} className="w-full">
-                          {t("nav.logout")}
-                        </Button>
+                        <SheetClose asChild>
+                          <Button onClick={handleLogoutClick} className="w-full">
+                            {t("nav.logout")}
+                          </Button>
+                        </SheetClose>
                       </>
                     ) : (
                       <>
@@ -282,6 +305,27 @@ const Navbar = () => {
           </div>
         </div>
       </div>
+
+      <Dialog open={isLogoutDialogOpen} onOpenChange={setIsLogoutDialogOpen}>
+        <DialogContent className="max-w-[400px] rounded-xl" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold">
+              {t("nav.logoutConfirmTitle", { defaultValue: "Xác nhận đăng xuất" })}
+            </DialogTitle>
+            <DialogDescription className="text-sm mt-1 text-slate-500">
+              {t("nav.logoutConfirmDescription", { defaultValue: "Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?" })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4 flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setIsLogoutDialogOpen(false)} className="w-auto px-4 border-slate-200 hover:bg-slate-50 hover:text-slate-900">
+              {t("common.cancel", { defaultValue: "Hủy" })}
+            </Button>
+            <Button variant="destructive" onClick={confirmLogout} className="w-auto px-4 bg-red-600 hover:bg-red-700 text-white border-transparent">
+              {t("nav.logout")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </nav>
   );
 };

@@ -265,7 +265,7 @@ export function CategoryManagementPanel({ token }: CategoryManagementPanelProps)
                             icon={Trash2}
                             label={t("admin.categories.deleteOptionAria", { label: option.label })}
                             variantStyle="delete"
-                            onClick={() => deleteFilterOption(key, option.id)}
+                            onClick={() => deleteFilterOption(key, Number(option.id))}
                             disabled={saving}
                           />
                         </div>
@@ -314,7 +314,7 @@ export function CategoryManagementPanel({ token }: CategoryManagementPanelProps)
                           icon={Trash2}
                           label={t("admin.categories.deleteField")}
                           variantStyle="delete"
-                          onClick={() => deleteFormField(field.id)}
+                          onClick={() => deleteFormField(Number(field.id))}
                           disabled={saving}
                         />
                       </div>

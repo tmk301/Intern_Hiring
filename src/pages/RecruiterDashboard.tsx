@@ -13,6 +13,7 @@ import {
   Loader2,
   PlusCircle,
   RefreshCw,
+  Search,
   Trash2,
   Users,
   CheckCircle2,
@@ -270,6 +271,7 @@ const RecruiterDashboard: React.FC = () => {
   const [formValue, setFormValue] = useState<JobFormValue>(emptyJobFormValue);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
+  const [pendingCompanyApplication, setPendingCompanyApplication] = useState<RecruiterApplication | undefined>();
   const [loadingCompanyProfile, setLoadingCompanyProfile] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [actionId, setActionId] = useState<string | number | null>(null);
@@ -465,6 +467,7 @@ const RecruiterDashboard: React.FC = () => {
   useEffect(() => {
     if (!token) {
       setCompanyProfile(null);
+      setPendingCompanyApplication(undefined);
       setLoadingCompanyProfile(false);
       return;
     }
@@ -472,15 +475,24 @@ const RecruiterDashboard: React.FC = () => {
     let mounted = true;
     setLoadingCompanyProfile(true);
 
-    recruiterApi.getCompanyProfile(token)
-      .then((profile) => {
-        if (mounted) setCompanyProfile(profile);
-      })
-      .catch((error: unknown) => {
-        if (mounted) setCompanyProfile(null);
-        if (!isApiError(error) || (error.status !== 400 && error.status !== 404)) {
-          toast.error(error instanceof Error ? error.message : t("recruiter.toast.companyProfileLoadError"));
+    Promise.allSettled([
+      recruiterApi.getCompanyProfile(token),
+      recruiterApi.getPendingApplication(token),
+    ])
+      .then(([companyResult, pendingResult]) => {
+        if (!mounted) return;
+
+        if (companyResult.status === "fulfilled") {
+          setCompanyProfile(companyResult.value);
+        } else {
+          setCompanyProfile(null);
+          const error = companyResult.reason as unknown;
+          if (!isApiError(error) || (error.status !== 400 && error.status !== 404)) {
+            toast.error(error instanceof Error ? error.message : t("recruiter.toast.companyProfileLoadError"));
+          }
         }
+
+        setPendingCompanyApplication(pendingResult.status === "fulfilled" ? pendingResult.value : undefined);
       })
       .finally(() => {
         if (mounted) setLoadingCompanyProfile(false);
@@ -1251,7 +1263,7 @@ const RecruiterDashboard: React.FC = () => {
                             {t(`recruiter.status.${status}`, { defaultValue: status })}
                           </Badge>
                         </TableCell>
-                        <TableCell>{formatDate(job.created_at, dateLocale)}</TableCell>
+                        <TableCell className="text-slate-500 text-xs">{formatDate(job.created_at, dateLocale)}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap justify-center gap-2">
                             {hidden ? (
@@ -1395,9 +1407,9 @@ const RecruiterDashboard: React.FC = () => {
                 <TableBody>
                   {paginatedApplications.items.map((app) => (
                     <TableRow key={app.id}>
-                      <TableCell>
-                        <div className="font-medium">{app.applicantName || t("recruiter.applications.applicant")}</div>
-                        <div className="text-xs text-muted-foreground">{app.applicantEmail}</div>
+                      <TableCell className="max-w-[200px] truncate">
+                        <div className="font-medium truncate" title={app.applicantName || undefined}>{app.applicantName || t("recruiter.applications.applicant")}</div>
+                        <div className="text-xs text-muted-foreground truncate" title={app.applicantEmail}>{app.applicantEmail}</div>
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate" title={app.jobTitle}>
                         {app.jobTitle}
@@ -1418,7 +1430,7 @@ const RecruiterDashboard: React.FC = () => {
                           {t(`recruiter.applications.statuses.${getReviewStatusTranslationKey(app.status)}`)}
                         </Badge>
                       </TableCell>
-                      <TableCell>{formatDate(app.appliedAt, dateLocale)}</TableCell>
+                      <TableCell className="text-slate-500 text-xs">{formatDate(app.appliedAt, dateLocale)}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap justify-center gap-2">
                           {app.status !== "ACCEPTED" && renderApplicationAction(app, "ACCEPTED")}

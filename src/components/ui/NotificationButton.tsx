@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { Bell } from "lucide-react";
+import { Bell, CheckSquare, Trash2, X } from "lucide-react";
 import { notificationApi, type ApiNotification, type ApiUser } from "@/lib/api";
+import { paginateItems } from "@/lib/pagination";
 import { isAdminRole, isCandidateRole, isModeratorRole, isRecruiterRole } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -26,8 +28,11 @@ type NotificationItem = {
   title: string;
   description: string;
   path: string;
+  source: "api" | "profile";
   read?: boolean;
 };
+
+const NOTIFICATIONS_PAGE_SIZE = 4;
 
 const normalizeNotificationResponse = (response: Awaited<ReturnType<typeof notificationApi.list>>) => {
   if (Array.isArray(response)) return response;
@@ -68,6 +73,7 @@ const mapApiNotification = (notification: ApiNotification, user?: ApiUser | null
     title: notification.title || "Notification",
     description: notification.message || notification.content || notification.description || "",
     path: getNotificationPath(notification, user),
+    source: "api",
     read,
   };
 };
@@ -76,6 +82,11 @@ export function NotificationButton({ user, token, mobile = false }: Notification
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [apiNotifications, setApiNotifications] = useState<NotificationItem[]>([]);
+  const [readProfileNotificationIds, setReadProfileNotificationIds] = useState<Set<string>>(new Set());
+  const [deletedProfileNotificationIds, setDeletedProfileNotificationIds] = useState<Set<string>>(new Set());
+  const [notificationPage, setNotificationPage] = useState(1);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedNotificationIds, setSelectedNotificationIds] = useState<Set<string>>(new Set());
 
   const loadNotifications = useCallback(() => {
     if (!token) {
@@ -113,45 +124,199 @@ export function NotificationButton({ user, token, mobile = false }: Notification
     const items: NotificationItem[] = [];
 
     if (isCandidateRole(user.role) && !user.cvList?.length) {
-      items.push({
-        id: "missing-cv",
-        title: t("notifications.missingCvTitle"),
-        description: t("notifications.missingCvDescription"),
-        path: "/profile",
-        read: false,
-      });
+      const id = "missing-cv";
+      if (!deletedProfileNotificationIds.has(id)) {
+        items.push({
+          id,
+          title: t("notifications.missingCvTitle"),
+          description: t("notifications.missingCvDescription"),
+          path: "/profile",
+          source: "profile",
+          read: readProfileNotificationIds.has(id),
+        });
+      }
     }
 
     if (!user.phoneNumber || !user.gender || !user.dob) {
-      items.push({
-        id: "incomplete-profile",
-        title: t("notifications.incompleteProfileTitle"),
-        description: t("notifications.incompleteProfileDescription"),
-        path: "/profile",
-        read: false,
-      });
+      const id = "incomplete-profile";
+      if (!deletedProfileNotificationIds.has(id)) {
+        items.push({
+          id,
+          title: t("notifications.incompleteProfileTitle"),
+          description: t("notifications.incompleteProfileDescription"),
+          path: "/profile",
+          source: "profile",
+          read: readProfileNotificationIds.has(id),
+        });
+      }
     }
 
     return items;
-  }, [t, user]);
+  }, [deletedProfileNotificationIds, readProfileNotificationIds, t, user]);
 
   const notifications = useMemo(
     () => [...apiNotifications, ...profileNotifications],
     [apiNotifications, profileNotifications],
   );
+  const paginatedNotifications = useMemo(
+    () => paginateItems(notifications, notificationPage, NOTIFICATIONS_PAGE_SIZE),
+    [notificationPage, notifications],
+  );
   const unreadCount = notifications.filter((notification) => !notification.read).length;
   const countLabel = unreadCount > 99 ? "99+" : String(unreadCount);
+  const selectedCount = selectedNotificationIds.size;
+  const allSelected = notifications.length > 0 && selectedCount === notifications.length;
+
+  useEffect(() => {
+    setNotificationPage((currentPage) => paginatedNotifications.page);
+  }, [paginatedNotifications.page]);
+
+  useEffect(() => {
+    setSelectedNotificationIds((current) => {
+      const existingIds = new Set(notifications.map((notification) => notification.id));
+      const next = new Set([...current].filter((id) => existingIds.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [notifications]);
+
+  useEffect(() => {
+    // 1. Dynamic Page Title
+    const titleEl = document.querySelector("title");
+    if (titleEl) {
+      const rawTitle = titleEl.textContent || "InternHiring";
+      const baseTitle = rawTitle.replace(/\s*\(\d+\)/g, "");
+      const targetTitle = unreadCount > 0 ? `${baseTitle} (${unreadCount})` : baseTitle;
+      if (titleEl.textContent !== targetTitle) {
+        titleEl.textContent = targetTitle;
+      }
+    }
+
+    // 2. Dynamic Favicon Dot
+    let faviconEl = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+    if (!faviconEl) {
+      faviconEl = document.createElement("link");
+      faviconEl.rel = "icon";
+      document.head.appendChild(faviconEl);
+    }
+
+    if (unreadCount === 0) {
+      faviconEl.href = "/favicon.ico";
+    } else {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = "/favicon.ico";
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 32;
+        canvas.height = 32;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, 32, 32);
+          
+          // Red dot top-right
+          const radius = 6;
+          const x = 32 - radius;
+          const y = radius;
+          
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, 2 * Math.PI, false);
+          ctx.fillStyle = "#ef4444";
+          ctx.fill();
+          
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = "#ffffff";
+          ctx.stroke();
+          
+          faviconEl.href = canvas.toDataURL("image/png");
+        }
+      };
+    }
+  }, [unreadCount]);
 
   const openNotification = async (notification: NotificationItem) => {
+    if (selectMode) {
+      toggleNotificationSelection(notification.id);
+      return;
+    }
+
     setApiNotifications((current) =>
       current.map((item) => (item.id === notification.id ? { ...item, read: true } : item)),
     );
 
-    if (token && !notification.read && !notification.id.startsWith("missing-") && !notification.id.startsWith("incomplete-")) {
+    if (notification.source === "profile") {
+      setReadProfileNotificationIds((current) => new Set(current).add(notification.id));
+    }
+
+    if (token && !notification.read && notification.source === "api") {
       notificationApi.markAsRead(token, notification.id).catch(() => undefined);
     }
 
     navigate(notification.path);
+  };
+
+  const toggleNotificationSelection = (notificationId: string) => {
+    setSelectedNotificationIds((current) => {
+      const next = new Set(current);
+      if (next.has(notificationId)) {
+        next.delete(notificationId);
+      } else {
+        next.add(notificationId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAllNotifications = () => {
+    setSelectedNotificationIds((current) =>
+      current.size === notifications.length ? new Set() : new Set(notifications.map((notification) => notification.id)),
+    );
+  };
+
+  const clearSelection = () => {
+    setSelectedNotificationIds(new Set());
+    setSelectMode(false);
+  };
+
+  const removeNotificationsLocally = (ids: Set<string>) => {
+    setApiNotifications((current) => current.filter((notification) => !ids.has(notification.id)));
+    setDeletedProfileNotificationIds((current) => {
+      const next = new Set(current);
+      ids.forEach((id) => {
+        if (id.startsWith("missing-") || id.startsWith("incomplete-")) next.add(id);
+      });
+      return next;
+    });
+    setSelectedNotificationIds((current) => new Set([...current].filter((id) => !ids.has(id))));
+  };
+
+  const deleteSelectedNotifications = () => {
+    if (selectedNotificationIds.size === 0) return;
+
+    const ids = new Set(selectedNotificationIds);
+    const selectedApiIds = notifications
+      .filter((notification) => ids.has(notification.id) && notification.source === "api")
+      .map((notification) => notification.id);
+
+    removeNotificationsLocally(ids);
+    setSelectMode(false);
+
+    if (token && selectedApiIds.length > 0) {
+      notificationApi.deleteMany(token, selectedApiIds).catch(() => loadNotifications());
+    }
+  };
+
+  const markAllAsRead = async () => {
+    setApiNotifications((current) => current.map((notification) => ({ ...notification, read: true })));
+    setReadProfileNotificationIds(new Set(profileNotifications.map((notification) => notification.id)));
+
+    if (!token) return;
+
+    notificationApi.markAllAsRead(token).catch(() => {
+      const unreadApiNotifications = apiNotifications.filter((notification) => !notification.read);
+      unreadApiNotifications.forEach((notification) => {
+        notificationApi.markAsRead(token, notification.id).catch(() => undefined);
+      });
+    });
   };
 
   return (
@@ -180,28 +345,111 @@ export function NotificationButton({ user, token, mobile = false }: Notification
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80">
-        <DropdownMenuLabel>{t("notifications.title")}</DropdownMenuLabel>
+        <DropdownMenuLabel className="flex items-center justify-between gap-3">
+          <span>{t("notifications.title")}</span>
+          <div className="flex items-center gap-1">
+            {unreadCount > 0 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-xs text-primary hover:bg-sky-50 hover:text-primary"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  markAllAsRead();
+                }}
+              >
+                {t("notifications.markAllRead")}
+              </Button>
+            )}
+            {notifications.length > 0 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
+                aria-label={selectMode ? t("common.cancel") : t("notifications.delete")}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  if (selectMode) {
+                    clearSelection();
+                  } else {
+                    setSelectMode(true);
+                  }
+                }}
+              >
+                {selectMode ? <X className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
+              </Button>
+            )}
+          </div>
+        </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {selectMode && notifications.length > 0 && (
+          <>
+            <div className="flex flex-wrap items-center gap-2 px-2 py-2">
+              <Button type="button" variant="outline" size="sm" className="h-8 gap-1 text-xs" onClick={toggleSelectAllNotifications}>
+                <CheckSquare className="h-3.5 w-3.5" />
+                {allSelected
+                  ? t("notifications.clearSelection")
+                  : t("notifications.selectAll")}
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="h-8 gap-1 text-xs"
+                disabled={selectedCount === 0}
+                onClick={deleteSelectedNotifications}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {t("notifications.deleteSelected")} ({selectedCount})
+              </Button>
+            </div>
+            <DropdownMenuSeparator />
+          </>
+        )}
         {notifications.length > 0 ? (
-          notifications.map((notification) => (
-            <DropdownMenuItem
-              key={notification.id}
-              className={cn(
-                "flex cursor-pointer flex-col items-start gap-1 whitespace-normal py-3",
-                notification.read ? "font-normal" : "font-semibold",
-              )}
-              onClick={() => openNotification(notification)}
-            >
-              <span className={notification.read ? "font-normal" : "font-semibold"}>{notification.title}</span>
-              <span className={cn("text-xs text-muted-foreground", notification.read ? "font-normal" : "font-semibold")}>
-                {notification.description}
-              </span>
-            </DropdownMenuItem>
-          ))
+          <>
+            <div className="max-h-[440px] overflow-y-auto">
+              {paginatedNotifications.items.map((notification) => (
+                <div key={notification.id} className="flex items-start gap-3 px-2 py-3 focus-within:bg-sky-50 hover:bg-sky-50">
+                  {selectMode && (
+                    <Checkbox
+                      className="mt-1"
+                      checked={selectedNotificationIds.has(notification.id)}
+                      onCheckedChange={() => toggleNotificationSelection(notification.id)}
+                      aria-label={t("notifications.selectNotification")}
+                    />
+                  )}
+                  <button
+                    type="button"
+                    className={cn(
+                      "min-w-0 flex-1 cursor-pointer whitespace-normal text-left focus:outline-none",
+                      notification.read ? "font-normal text-slate-900" : "font-semibold text-slate-950",
+                    )}
+                    onClick={() => openNotification(notification)}
+                  >
+                    <span className={cn("block", notification.read ? "font-normal" : "font-semibold")}>{notification.title}</span>
+                    <span className={cn("block text-xs", notification.read ? "font-normal text-slate-500" : "font-semibold text-slate-600")}>
+                      {notification.description}
+                    </span>
+                  </button>
+                </div>
+              ))}
+            </div>
+            <PaginationControls
+              page={paginatedNotifications.page}
+              totalPages={paginatedNotifications.totalPages}
+              onPageChange={setNotificationPage}
+              className="px-2 pb-2"
+            />
+          </>
         ) : (
-          <DropdownMenuItem disabled className="py-3 text-muted-foreground">
+          <div className="px-2 py-3 text-sm text-muted-foreground">
             {t("notifications.empty")}
-          </DropdownMenuItem>
+          </div>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
