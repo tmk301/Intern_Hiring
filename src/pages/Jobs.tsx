@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom"; // MỚI THÊM: useNavigate
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Briefcase, CalendarDays, Loader2, MapPin, FileText } from "lucide-react"; // MỚI THÊM: FileText
+import { Briefcase, CalendarDays, Loader2, MapPin, FileText, MoreVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"; // MỚI THÊM: CardFooter
-import { Button } from "@/components/ui/button"; // MỚI THÊM
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -12,11 +13,9 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@/components/ui/dialog"; // MỚI THÊM
+} from "@/components/ui/dialog";
 import { JobSearchFilters } from "@/components/jobs/JobSearchFilters";
-import { FavoriteJobButton } from "@/components/jobs/FavoriteJobButton";
-import { PaginationControls } from "@/components/ui/pagination-controls";
-import { jobApi, PublicJobPost, candidateApi } from "@/lib/api"; // MỚI THÊM: candidateApi
+import { jobApi, PublicJobPost, candidateApi } from "@/lib/api";
 import {
   defaultManagedSiteConfig,
   loadManagedSiteConfig,
@@ -24,12 +23,6 @@ import {
 } from "@/lib/siteConfig";
 import {
   emptyJobFilterValue,
-  defaultJobFilterOptions,
-  USD_TO_VND_RATE,
-  WORK_MODE_OPTIONS,
-  JOB_TYPE_OPTIONS,
-  CURRENCY_OPTIONS,
-  getSalaryRangeOption,
   type JobFilterOption,
   type JobFilterOptions,
   type JobFilterValue,
@@ -51,25 +44,12 @@ const normalizeText = (value?: string | number | null) =>
     .trim()
     .toLowerCase();
 
+const extractNumbers = (text: string) => {
+  return text.match(/\d+/g) ?? [];
+};
+
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
-
-const getLocalDateInputValue = (date = new Date()) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const isApplicationDeadlineExpired = (value?: string | null) =>
-  Boolean(value && value.slice(0, 10) < getLocalDateInputValue());
-
-const formatDateOnly = (value?: string | null, locale = "en-US") => {
-  if (!value) return "-";
-  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
-  if (!year || !month || !day) return value;
-  return new Date(year, month - 1, day).toLocaleDateString(locale);
-};
 
 const getSearchText = (job: PublicJobPost) =>
   [
@@ -80,9 +60,6 @@ const getSearchText = (job: PublicJobPost) =>
     job.location,
     job.type,
     job.salary,
-    job.currency,
-    job.mode,
-    job.experience,
     job.description,
   ].join(" ");
 
@@ -90,7 +67,6 @@ const parseNumberToken = (token: string) => {
   if (/^\d{1,3}([.,]\d{3})+$/.test(token)) {
     return Number(token.replace(/[.,]/g, ""));
   }
-
   return Number(token.replace(",", "."));
 };
 
@@ -98,18 +74,14 @@ const getSalaryNumbers = (value?: string | null) => {
   const normalizedValue = normalizeText(value);
   const hasMillionUnit = /\b(trieu|million|m)\b/.test(normalizedValue);
   const hasThousandUnit = /\b(k|nghin|thousand)\b/.test(normalizedValue);
-  const hasUsdCurrency = /\busd\b/.test(normalizedValue);
-
   return (
     value
       ?.match(/\d+(?:[.,]\d+)*/g)
       ?.map((item) => {
-        let parsedValue = parseNumberToken(item);
-
+        const parsedValue = parseNumberToken(item);
         if (!Number.isFinite(parsedValue)) return null;
-        if (hasMillionUnit && parsedValue < 1_000) parsedValue *= 1_000_000;
-        if (hasThousandUnit && parsedValue < 100_000) parsedValue *= 1_000;
-        if (hasUsdCurrency) parsedValue *= USD_TO_VND_RATE;
+        if (hasMillionUnit && parsedValue < 1_000) return parsedValue * 1_000_000;
+        if (hasThousandUnit && parsedValue < 100_000) return parsedValue * 1_000;
         return parsedValue;
       })
       .filter((item): item is number => item !== null) ?? []
@@ -118,33 +90,17 @@ const getSalaryNumbers = (value?: string | null) => {
 
 const matchesText = (source: string | null, selectedValue: string) => {
   if (!selectedValue) return true;
-
   const normalizedSource = normalizeText(source);
   const normalizedSelected = normalizeText(selectedValue);
-
   return Boolean(normalizedSelected && normalizedSource.includes(normalizedSelected));
 };
 
-const matchesSalaryRange = (
-  source: string | null,
-  selectedRange: string,
-  minSalary: number,
-  maxSalary: number,
-  isActive: boolean,
-) => {
+const matchesSalaryRange = (source: string | null, minSalary: number, maxSalary: number, isActive: boolean) => {
   if (!isActive) return true;
-
-  const sourceRange = getSalaryRangeOption(source ?? "");
-  if (sourceRange && selectedRange) {
-    return sourceRange.value === selectedRange;
-  }
-
   const salaryNumbers = getSalaryNumbers(source);
   if (salaryNumbers.length === 0) return false;
-
   const jobMinSalary = Math.min(...salaryNumbers);
   const jobMaxSalary = Math.max(...salaryNumbers);
-
   return jobMaxSalary >= minSalary && jobMinSalary <= maxSalary;
 };
 
@@ -153,10 +109,8 @@ const hasAnyPhrase = (source: string, phrases: string[]) =>
 
 const matchesExperience = (source: string | null, selectedValue: string) => {
   if (!selectedValue) return true;
-
   const normalizedSource = normalizeText(source);
   if (!normalizedSource) return false;
-
   switch (selectedValue) {
     case "no-experience":
       return hasAnyPhrase(normalizedSource, [
@@ -198,47 +152,73 @@ const matchesExperience = (source: string | null, selectedValue: string) => {
   }
 };
 
-const matchesOption = (
-  source: string | null,
-  selectedValue: string,
-  options: JobFilterOption[],
-  translate: (key: string) => string,
-) => {
-  if (!selectedValue) return true;
-
-  const normalizedSource = normalizeText(source);
-  if (!normalizedSource) return false;
-
-  const option = options.find((item) => item.value === selectedValue);
-  const candidates = option
-    ? [
-        option.value,
-        option.label,
-        option.labelKey ? translate(option.labelKey) : undefined,
-        ...(option.aliases ?? []),
-      ]
+const getCandidateTexts = (selectedValue: string, options: JobFilterOption[], translate: (key: string) => string) => {
+  const option = options.find((item) => item.value === selectedValue || item.label === selectedValue);
+  return option
+    ? [option.label, option.value, option.labelKey ? translate(option.labelKey) : undefined, ...(option.aliases ?? [])].filter(Boolean) as string[]
     : [selectedValue];
+};
 
+const matchesCity = (source: string | null, selectedValue: string, options: JobFilterOption[], translate: (key: string) => string) => {
+  if (!selectedValue) return true;
+  if (!source) return false;
+  const normalizedSource = normalizeText(source);
+  const candidates = getCandidateTexts(selectedValue, options, translate);
+  return candidates.some((candidate) => normalizedSource.includes(normalizeText(candidate)));
+};
+
+const matchesDistrict = (source: string | null, selectedValue: string, options: JobFilterOption[], translate: (key: string) => string) => {
+  if (!selectedValue) return true;
+  if (!source) return false;
+  const normalizedSource = normalizeText(source);
+  const candidates = getCandidateTexts(selectedValue, options, translate);
   return candidates.some((candidate) => {
     const normalizedCandidate = normalizeText(candidate);
-    return Boolean(normalizedCandidate && normalizedSource.includes(normalizedCandidate));
+    const numbers = extractNumbers(normalizedCandidate);
+    if (numbers.length === 1) {
+      const targetNum = numbers[0];
+      const districtRegex = new RegExp(`(?<!\\b(phuong|p|xa)\\s*\\.?\\s*)\\b(quan|q|huyen|h|tx|dist|district)\\s*\\.?\\s*${targetNum}\\b`, "i");
+      return districtRegex.test(normalizedSource);
+    }
+    return normalizedSource.includes(normalizedCandidate);
+  });
+};
+
+const matchesWard = (source: string | null, selectedValue: string, options: JobFilterOption[], translate: (key: string) => string) => {
+  if (!selectedValue) return true;
+  if (!source) return false;
+  const normalizedSource = normalizeText(source);
+  const candidates = getCandidateTexts(selectedValue, options, translate);
+  return candidates.some((candidate) => {
+    const normalizedCandidate = normalizeText(candidate);
+    const numbers = extractNumbers(normalizedCandidate);
+    if (numbers.length === 1) {
+      const targetNum = numbers[0];
+      const wardRegex = new RegExp(`(?<!\\b(quan|q|huyen|h|tx|dist|district)\\s*\\.?\\s*)\\b(phuong|p|xa|ward)\\s*\\.?\\s*${targetNum}\\b`, "i");
+      return wardRegex.test(normalizedSource);
+    }
+    return normalizedSource.includes(normalizedCandidate);
   });
 };
 
 const matchesLocationText = (source: string | null, selectedLocation: string) => {
   if (!selectedLocation) return true;
-
+  if (!source) return false;
   const normalizedSource = normalizeText(source);
   const normalizedSelected = normalizeText(selectedLocation);
-  if (!normalizedSource || !normalizedSelected) return false;
-
-  const selectedTokens = normalizedSelected.split(" ").filter((token) => token.length >= 3);
-
-  return (
-    normalizedSource.includes(normalizedSelected) ||
-    normalizedSelected.includes(normalizedSource) ||
-    selectedTokens.some((token) => normalizedSource.includes(token))
-  );
+  const numbers = extractNumbers(normalizedSelected);
+  if (numbers.length === 1) {
+    const targetNum = numbers[0];
+    if (normalizedSelected.includes("quan") || normalizedSelected.includes("q ") || /^q\d+$/.test(normalizedSelected) || normalizedSelected.includes("district")) {
+      const strictDistrictRegex = new RegExp(`(?<!\\b(phuong|p|xa)\\s*\\.?\\s*)\\b(quan|q|huyen|h|dist|district)\\s*\\.?\\s*${targetNum}\\b`, "i");
+      return strictDistrictRegex.test(normalizedSource);
+    }
+    if (normalizedSelected.includes("phuong") || normalizedSelected.includes("p ") || /^p\d+$/.test(normalizedSelected) || normalizedSelected.includes("ward")) {
+      const strictWardRegex = new RegExp(`(?<!\\b(quan|q|huyen|h|dist|district)\\s*\\.?\\s*)\\b(phuong|p|xa|ward)\\s*\\.?\\s*${targetNum}\\b`, "i");
+      return strictWardRegex.test(normalizedSource);
+    }
+  }
+  return normalizedSource.includes(normalizedSelected);
 };
 
 const filterJobs = (
@@ -250,24 +230,23 @@ const filterJobs = (
   jobs.filter((job) => {
     const searchText = normalizeText(getSearchText(job));
     const rawMinSalary = Number(value.salaryMin || 0);
-    const rawMaxSalary = value.salaryMax ? Number(value.salaryMax) : Number.POSITIVE_INFINITY;
+    const rawMaxSalary = Number(value.salaryMax || 50_000_000);
     const minSalary = Math.min(rawMinSalary, rawMaxSalary);
     const maxSalary = Math.max(rawMinSalary, rawMaxSalary);
-    const salaryFilterActive = Boolean(value.salaryRange || value.salaryMin || value.salaryMax);
-
+    const salaryFilterActive =
+      Boolean(value.salaryMin || value.salaryMax) && !(minSalary === 0 && maxSalary === 50_000_000);
     return (
       (!value.keyword || searchText.includes(normalizeText(value.keyword))) &&
-      matchesOption(job.location, value.city, options.cities, translate) &&
-      matchesOption(job.location, value.district, options.districts, translate) &&
-      matchesOption(job.location, value.ward, options.wards, translate) &&
+      matchesCity(job.location, value.city, options.cities, translate) &&
+      matchesDistrict(job.location, value.district, options.districts, translate) &&
+      matchesWard(job.location, value.ward, options.wards, translate) &&
       matchesLocationText(job.location, value.location) &&
-      matchesOption(job.mode, value.workMode, options.workModes, translate) &&
-      matchesOption(job.type, value.jobType, options.jobTypes, translate) &&
+      matchesText(`${job.type ?? ""} ${job.description ?? ""}`, value.workMode) &&
+      matchesText(job.type, value.jobType) &&
       matchesText(job.company, value.company) &&
-      matchesOption(`${job.currency ?? ""} ${job.salary ?? ""}`, value.currency, options.currencies, translate) &&
-      (matchesOption(job.experience, value.experience, options.experience, translate) ||
-        matchesExperience(job.description, value.experience)) &&
-      matchesSalaryRange(job.salary, value.salaryRange, minSalary, maxSalary, salaryFilterActive)
+      matchesText(job.salary, value.currency) &&
+      matchesExperience(job.description, value.experience) &&
+      matchesSalaryRange(job.salary, minSalary, maxSalary, salaryFilterActive)
     );
   });
 
@@ -279,17 +258,12 @@ const Jobs: React.FC = () => {
   const [provinceOptions, setProvinceOptions] = useState<JobFilterOption[]>([]);
   const [wardOptions, setWardOptions] = useState<JobFilterOption[]>([]);
   const [jobs, setJobs] = useState<PublicJobPost[]>([]);
-  const [favoriteJobIds, setFavoriteJobIds] = useState<Set<string | number>>(new Set());
   const [filterValue, setFilterValue] = useState<JobFilterValue>({
     ...emptyJobFilterValue,
     keyword: initialKeyword,
   });
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [jobPage, setJobPage] = useState(1);
-  const [jobPageSize, setJobPageSize] = useState(10);
-
-  // MỚI THÊM: Các state và hook cho phần nộp đơn
   const { user, token } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -298,9 +272,13 @@ const Jobs: React.FC = () => {
   const [selectedCvId, setSelectedCvId] = useState<string>("");
   const [isApplying, setIsApplying] = useState(false);
 
+  //làm tọa độ
+  const [updateCoordJob, setUpdateCoordJob] = useState<PublicJobPost | null>(null);
+  const [coords, setCoords] = useState({ lat: "", lng: "" });
+  const [isUpdating, setIsUpdating] = useState(false);
+
   useEffect(() => {
     setFilterValue((current) => ({ ...current, keyword: initialKeyword }));
-    setJobPage(1);
   }, [initialKeyword]);
 
   useEffect(() => {
@@ -320,14 +298,12 @@ const Jobs: React.FC = () => {
   useEffect(() => {
     let mounted = true;
     const selectedProvince = provinceOptions.find((option) => option.value === filterValue.city);
-
     if (!selectedProvince) {
       setWardOptions([]);
       return () => {
         mounted = false;
       };
     }
-
     setWardOptions([]);
     getVietnamWardOptions(filterValue.city)
       .then((options) => {
@@ -336,7 +312,6 @@ const Jobs: React.FC = () => {
       .catch(() => {
         if (mounted) setWardOptions([]);
       });
-
     return () => {
       mounted = false;
     };
@@ -354,7 +329,9 @@ const Jobs: React.FC = () => {
         ]);
         if (!mounted) return;
         setManagedConfig(config);
-        setJobs((jobsResult || []).filter((job) => !isApplicationDeadlineExpired(job.applicationDeadline)));
+        
+        // 🎯 ĐÃ ĐẢM BẢO SẠCH: Chỉ nhận dữ liệu trực tiếp trả về từ API Backend thật
+        setJobs(jobsResult || []);
       } catch (error: unknown) {
         if (!mounted) return;
         setErrorMessage(getErrorMessage(error, t("jobs.page.loadError")));
@@ -371,83 +348,79 @@ const Jobs: React.FC = () => {
     };
   }, [t]);
 
-  useEffect(() => {
-    if (!token || user?.role !== "CANDIDATE") {
-      setFavoriteJobIds(new Set());
-      return;
-    }
-
-    let mounted = true;
-    candidateApi.listFavoriteJobs(token)
-      .then((favoriteJobs) => {
-        if (mounted) setFavoriteJobIds(new Set(favoriteJobs.map((job) => job.id)));
-      })
-      .catch(() => {
-        if (mounted) setFavoriteJobIds(new Set());
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [token, user?.role]);
-
   const filterOptions = useMemo<JobFilterOptions>(() => {
-    const fixedOptions = {
-      workModes: managedConfig.filters.workModes.length ? managedConfig.filters.workModes : defaultJobFilterOptions.workModes,
-      jobTypes: managedConfig.filters.jobTypes.length ? managedConfig.filters.jobTypes : defaultJobFilterOptions.jobTypes,
-      currencies: managedConfig.filters.currencies.length ? managedConfig.filters.currencies : defaultJobFilterOptions.currencies,
-    };
-
-    if (provinceOptions.length === 0) {
-      return {
-        ...managedConfig.filters,
-        ...fixedOptions,
-      };
-    }
-
+    if (provinceOptions.length === 0) return managedConfig.filters;
     return {
       ...managedConfig.filters,
       cities: provinceOptions,
-      districts: [],
+      districts: managedConfig.filters.districts || [],
       wards: wardOptions,
-      ...fixedOptions,
     };
   }, [managedConfig.filters, provinceOptions, wardOptions]);
 
-  const filteredJobs = useMemo(
-    () => filterJobs(jobs, filterValue, filterOptions, t),
-    [jobs, filterValue, filterOptions, t],
-  );
-  const paginatedJobs = useMemo(
-    () => paginateItems(filteredJobs, jobPage, jobPageSize),
-    [filteredJobs, jobPage, jobPageSize],
-  );
+  const filteredJobs = useMemo(() => {
+    const baseFiltered = filterJobs(jobs, filterValue, filterOptions, t);
+    const activeWard = filterValue.ward;
+    const activeDistrict = filterValue.district;
+    if (activeWard) {
+      return [...baseFiltered].sort((a, b) => {
+        const aMatch = matchesWard(a.location, activeWard, filterOptions.wards, t);
+        const bMatch = matchesWard(b.location, activeWard, filterOptions.wards, t);
+        if (aMatch && !bMatch) return -1;
+        if (!aMatch && bMatch) return 1;
+        return 0;
+      });
+    }
+    if (activeDistrict) {
+      return [...baseFiltered].sort((a, b) => {
+        const aMatch = matchesDistrict(a.location, activeDistrict, filterOptions.districts, t);
+        const bMatch = matchesDistrict(b.location, activeDistrict, filterOptions.districts, t);
+        if (aMatch && !bMatch) return -1;
+        if (!aMatch && bMatch) return 1;
+        return 0;
+      });
+    }
+    return baseFiltered;
+  }, [jobs, filterValue, filterOptions, t]);
+
+  const mapCenterPosition = useMemo(() => {
+    if (filteredJobs.length > 0) {
+      const firstJob = filteredJobs[0];
+      if (firstJob.latitude && firstJob.longitude) {
+        return {
+          lat: Number(firstJob.latitude),
+          lng: Number(firstJob.longitude),
+        };
+      }
+    }
+    return null;
+  }, [filteredJobs]);
+
   const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
 
-  const handleFilterChange = (nextValue: JobFilterValue) => {
-    setFilterValue(nextValue);
-    setJobPage(1);
+  const handleUpdateCoords = async () => {
+    if (!updateCoordJob || !token) return;
+    setIsUpdating(true);
+    try {
+      await jobApi.updateJobCoordinates(token, updateCoordJob.id, Number(coords.lat), Number(coords.lng));
+      toast({ title: "Thành công", description: "Đã cập nhật tọa độ!" });
+      setUpdateCoordJob(null);
+      setCoords({ lat: "", lng: "" });
+    } catch (error) {
+      toast({ title: "Lỗi", description: "Không thể cập nhật tọa độ", variant: "destructive" });
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
-  const handleFavoriteChange = (updatedJob: PublicJobPost, isFavorited: boolean) => {
-    setFavoriteJobIds((current) => {
-      const next = new Set(current);
-      if (isFavorited) next.add(updatedJob.id);
-      else next.delete(updatedJob.id);
-      return next;
-    });
-    setJobs((current) => current.map((job) => (String(job.id) === String(updatedJob.id) ? updatedJob : job)));
-  };
-
-  // MỚI THÊM: Hàm xử lý mở popup nộp đơn
   const handleOpenApplyModal = (jobId: string | number) => {
     if (!user || !token) {
-      toast({ description: t("jobs.apply.loginRequired", { defaultValue: "Vui lòng đăng nhập để nộp đơn" }), variant: "default" });
+      toast({ description: "Vui lòng đăng nhập để nộp đơn", variant: "default" });
       navigate("/login");
       return;
     }
     if (user.role !== "CANDIDATE") {
-      toast({ description: t("jobs.apply.candidateOnly", { defaultValue: "Chỉ tài khoản Ứng viên mới có thể nộp đơn" }), variant: "destructive" });
+      toast({ description: "Chỉ tài khoản Ứng viên mới có thể nộp đơn", variant: "destructive" });
       return;
     }
     const defaultCv = user.cvList?.find((cv) => cv.isDefault) ?? user.cvList?.[0];
@@ -455,16 +428,12 @@ const Jobs: React.FC = () => {
     setApplyJobId(jobId);
   };
 
-  // MỚI THÊM: Hàm gọi API nộp đơn
   const submitApplication = async () => {
     if (!applyJobId || !selectedCvId || !token) return;
-    
     setIsApplying(true);
     try {
-      // Gọi xuống Backend với cvId (Theo đúng chuẩn bảo mật đã thiết kế)
       await candidateApi.applyJob(token, applyJobId, selectedCvId);
-      
-      toast({ title: t("toast.success"), description: t("jobs.apply.success", { defaultValue: "Đã nộp CV thành công cho công việc này." }) });
+      toast({ title: "Thành công!", description: "Đã nộp CV thành công cho công việc này." });
       setApplyJobId(null);
       setSelectedCvId("");
     } catch (error: unknown) {
@@ -509,7 +478,6 @@ const Jobs: React.FC = () => {
             {uiText("jobs.page.resultsTitle", t("jobs.page.resultsTitle"))} ({filteredJobs.length})
           </h2>
         </div>
-
         {loading ? (
           <Card>
             <CardContent className="flex items-center justify-center py-16">
@@ -596,6 +564,21 @@ const Jobs: React.FC = () => {
                       <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-600" style={{color: pageContent.jobCardTextColor ? String(pageContent.jobCardTextColor) : undefined}}>
                         {job.description}
                       </p>
+                    </div>
+                    {job.status && <Badge variant="secondary">{job.status}</Badge>}
+                  </div>
+                  <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+                    {job.location && (
+                      <span className="inline-flex items-center gap-1">
+                        <MapPin className="h-4 w-4" />
+                        {job.location}
+                      </span>
+                    )}
+                    {job.createdAt && (
+                      <span className="inline-flex items-center gap-1">
+                        <CalendarDays className="h-4 w-4" />
+                        {new Date(job.createdAt).toLocaleDateString(dateLocale)}
+                      </span>
                     )}
                   </CardContent>
                 </div>
@@ -616,13 +599,6 @@ const Jobs: React.FC = () => {
                 </CardFooter>
               </Card>
             ))}
-            <PaginationControls
-              page={paginatedJobs.page}
-              totalPages={paginatedJobs.totalPages}
-              onPageChange={setJobPage}
-              pageSize={jobPageSize}
-              onPageSizeChange={setJobPageSize}
-            />
           </div>
         )}
         </div>}
@@ -640,9 +616,9 @@ const Jobs: React.FC = () => {
       >
         <DialogContent className="w-[calc(100vw-2rem)] max-w-[500px] overflow-hidden">
           <DialogHeader>
-            <DialogTitle>{t("jobs.apply.dialogTitle")}</DialogTitle>
+            <DialogTitle>Chọn CV ứng tuyển</DialogTitle>
             <DialogDescription>
-              {t("jobs.apply.dialogDescription")}
+              Vui lòng chọn 1 CV từ hồ sơ của bạn để nộp cho vị trí này.
             </DialogDescription>
           </DialogHeader>
 
@@ -650,10 +626,10 @@ const Jobs: React.FC = () => {
             {!user?.cvList || user.cvList.length === 0 ? (
               <div className="text-center py-6 border-2 border-dashed rounded-lg bg-slate-50">
                 <FileText className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
-                <p className="text-sm font-medium text-slate-900">{t("jobs.apply.noCv")}</p>
-                <p className="text-sm text-muted-foreground mt-1 mb-4">{t("jobs.apply.noCvDesc")}</p>
+                <p className="text-sm font-medium text-slate-900">Bạn chưa có CV nào</p>
+                <p className="text-sm text-muted-foreground mt-1 mb-4">Vui lòng tải lên CV trước khi nộp đơn.</p>
                 <Button variant="outline" onClick={() => navigate("/profile")}>
-                  {t("jobs.apply.goToProfile", { defaultValue: "Tải lên CV" })}
+                  Đến trang cá nhân để tải lên CV
                 </Button>
               </div>
             ) : (
@@ -676,13 +652,12 @@ const Jobs: React.FC = () => {
                         {cv.name}
                       </p>
                       <p className="text-xs text-slate-500 mt-1">
-                        {t("profile.cv_upload_time")}: {new Date(cv.uploadedAt).toLocaleDateString(dateLocale)}
+                        Ngày tải lên: {new Date(cv.uploadedAt).toLocaleDateString('vi-VN')}
                         {cv.isDefault && <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">Default</span>}
                       </p>
                     </div>
-                    <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                      selectedCvId === cv.id ? "border-primary" : "border-slate-300"
-                    }`}>
+                    <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 ${selectedCvId === cv.id ? "border-primary" : "border-slate-300"
+                      }`}>
                       {selectedCvId === cv.id && <div className="h-2.5 w-2.5 rounded-full bg-primary" />}
                     </div>
                   </div>
@@ -690,22 +665,47 @@ const Jobs: React.FC = () => {
               </div>
             )}
           </div>
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => setApplyJobId(null)}>{t("common.cancel")}</Button>
-            <Button 
-              onClick={submitApplication} 
+            <Button variant="outline" onClick={() => setApplyJobId(null)}>Hủy bỏ</Button>
+            <Button
+              onClick={submitApplication}
               disabled={!selectedCvId || isApplying || !user?.cvList?.length}
             >
               {isApplying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {t("jobs.apply.submit")}
+              Gửi hồ sơ
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+         
+         <Dialog open={!!updateCoordJob} onOpenChange={(open) => !open && setUpdateCoordJob(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cập nhật tọa độ (x, y)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Input 
+              placeholder="Latitude (x)" 
+              value={coords.lat} 
+              onChange={e => setCoords(prev => ({...prev, lat: e.target.value}))} 
+            />
+            <Input 
+              placeholder="Longitude (y)" 
+              value={coords.lng} 
+              onChange={e => setCoords(prev => ({...prev, lng: e.target.value}))} 
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUpdateCoordJob(null)}>Hủy</Button>
+            <Button onClick={handleUpdateCoords} disabled={isUpdating}>
+              {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Lưu"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <SanityPageSections routePath="/jobs" placement="bottom" />
     </main>
   );
 };
-
 export default Jobs;

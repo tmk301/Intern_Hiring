@@ -10,6 +10,8 @@ import { Separator } from "@/components/ui/separator";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+const OTP_TIMEOUT_SECONDS = 60; // Đồng bộ thời gian hết hạn 60 giây
+
 const ResetPasswordPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [sessionActive, setSessionActive] = useState(false);
@@ -24,6 +26,20 @@ const ResetPasswordPage: React.FC = () => {
     useEffect(() => {
         let recoveredSession = false;
 
+        // 1. KIỂM TRA THỜI GIAN HẾT HẠN 60 GIÂY TỪ LOCAL STORAGE TRƯỚC
+        const sentTimeStr = localStorage.getItem("otp_sent_timestamp");
+        if (sentTimeStr) {
+            const sentTimestamp = parseInt(sentTimeStr, 10);
+            const elapsedSeconds = (Date.now() - sentTimestamp) / 1000;
+
+            if (elapsedSeconds > OTP_TIMEOUT_SECONDS) {
+                setErrorMsg("Liên kết đặt lại mật khẩu đã hết hiệu lực (Giới hạn trong 60 giây). Vui lòng yêu cầu mã mới.");
+                localStorage.removeItem("otp_sent_timestamp");
+                setLoading(false);
+                return; // Chặn không chạy các logic xác thực của Supabase bên dưới
+            }
+        }
+
         // Check for Supabase error query params (e.g. otp_expired, access_denied)
         const searchParams = new URLSearchParams(window.location.search);
         const errorCode = searchParams.get("error_code");
@@ -36,7 +52,7 @@ const ResetPasswordPage: React.FC = () => {
             };
             setSessionActive(false);
             setErrorMsg(messages[errorCode ?? ""] ?? errorDescription?.replace(/\+/g, " ") ?? t("resetPasswordPage.invalidLink"));
-            setLoading(false);
+            loadingFs();
             return;
         }
 
@@ -44,11 +60,24 @@ const ResetPasswordPage: React.FC = () => {
         // Listen for PASSWORD_RECOVERY event which fires after token exchange.
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             if (event === "PASSWORD_RECOVERY" && session) {
-                recoveredSession = true;
-                setSessionActive(true);
+                // Kiểm tra lại thời gian một lần nữa khi bắt được session
+                if (isOtpTimeValid()) {
+                    recoveredSession = true;
+                    setSessionActive(true);
+                } else {
+                    setErrorMsg("Liên kết đặt lại mật khẩu đã hết hiệu lực (Giới hạn trong 60 giây).");
+                    setSessionActive(false);
+                }
                 setLoading(false);
             }
         });
+
+        // Helper check thời gian nhanh
+        const isOtpTimeValid = (): boolean => {
+            const timeStr = localStorage.getItem("otp_sent_timestamp");
+            if (!timeStr) return true; // Nếu không có timestamp thì bỏ qua hoặc tùy hệ thống
+            return (Date.now() - parseInt(timeStr, 10)) / 1000 <= OTP_TIMEOUT_SECONDS;
+        };
 
         // Also check if session already exists (user may have landed with tokens already processed)
         const checkExisting = async () => {
@@ -56,14 +85,23 @@ const ResetPasswordPage: React.FC = () => {
             await new Promise((r) => setTimeout(r, 1500));
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
-                recoveredSession = true;
-                setSessionActive(true);
+                if (isOtpTimeValid()) {
+                    recoveredSession = true;
+                    setSessionActive(true);
+                } else {
+                    setErrorMsg("Liên kết đặt lại mật khẩu đã hết hiệu lực (Giới hạn trong 60 giây).");
+                    setSessionActive(false);
+                }
             } else if (!recoveredSession) {
                 setErrorMsg(t("resetPasswordPage.missingSession"));
             }
             setLoading(false);
         };
         checkExisting();
+
+        function loadingFs() {
+            setLoading(false);
+        }
 
         return () => subscription.unsubscribe();
     }, [t]);
@@ -82,6 +120,10 @@ const ResetPasswordPage: React.FC = () => {
         try {
             const { error } = await supabase.auth.updateUser({ password });
             if (error) throw error;
+            
+            // Thành công thì dọn dẹp bộ nhớ lưu trữ thời gian
+            localStorage.removeItem("otp_sent_timestamp");
+            
             toast({ title: t("toast.success"), description: t("resetPasswordPage.updateSuccess") });
             // After resetting password, redirect to login
             navigate("/login");
@@ -112,7 +154,7 @@ const ResetPasswordPage: React.FC = () => {
                             </div>
                         ) : errorMsg ? (
                             <div className="space-y-4">
-                                <p className="text-sm text-destructive">{errorMsg}</p>
+                                <p className="text-sm text-destructive font-medium">{errorMsg}</p>
                                 <div className="flex gap-2">
                                     <Button variant="outline" onClick={() => navigate("/login")}>
                                         {t("resetPasswordPage.backToLogin")}
@@ -124,11 +166,11 @@ const ResetPasswordPage: React.FC = () => {
                             <div className="space-y-4">
                                 <div>
                                     <Label>{t("resetPasswordPage.newPassword")}</Label>
-                                    <Input value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("resetPasswordPage.newPassword")} className="mt-2" />
+                                    <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("resetPasswordPage.newPassword")} className="mt-2" />
                                 </div>
                                 <div>
                                     <Label>{t("resetPasswordPage.confirmPassword")}</Label>
-                                    <Input value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder={t("resetPasswordPage.confirmPassword")} className="mt-2" />
+                                    <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder={t("resetPasswordPage.confirmPassword")} className="mt-2" />
                                 </div>
                                 <div className="flex justify-end">
                                     <Button onClick={handleSubmit} disabled={submitting}>

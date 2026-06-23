@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -22,6 +22,7 @@ type Props = {
 type ResetStep = "email" | "token" | "password";
 
 const RECOVERY_TOKEN_LENGTH = 8;
+const OTP_TIMEOUT_SECONDS = 60; // Thiết lập giới hạn 60 giây ở đây
 
 export default function ResetPasswordDialog({ open, onOpenChange }: Props) {
     const { t } = useTranslation();
@@ -33,6 +34,34 @@ export default function ResetPasswordDialog({ open, onOpenChange }: Props) {
     const [confirmPassword, setConfirmPassword] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isResending, setIsResending] = useState(false);
+    
+    // State để quản lý bộ đếm ngược 60 giây
+    const [timeLeft, setTimeLeft] = useState<number>(OTP_TIMEOUT_SECONDS);
+
+    // Xử lý đếm ngược thời gian thực khi đang ở bước nhập Token
+    useEffect(() => {
+        if (step !== "token" || !open) return;
+
+        const sentTimeStr = localStorage.getItem("otp_sent_timestamp");
+        if (!sentTimeStr) return;
+
+        const sentTimestamp = parseInt(sentTimeStr, 10);
+
+        const interval = setInterval(() => {
+            const currentTime = Date.now();
+            const elapsedSeconds = Math.floor((currentTime - sentTimestamp) / 1000);
+            const remaining = OTP_TIMEOUT_SECONDS - elapsedSeconds;
+
+            if (remaining <= 0) {
+                setTimeLeft(0);
+                clearInterval(interval);
+            } else {
+                setTimeLeft(remaining);
+            }
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [step, open]);
 
     const resetState = () => {
         setStep("email");
@@ -42,6 +71,8 @@ export default function ResetPasswordDialog({ open, onOpenChange }: Props) {
         setConfirmPassword("");
         setIsSubmitting(false);
         setIsResending(false);
+        setTimeLeft(OTP_TIMEOUT_SECONDS);
+        localStorage.removeItem("otp_sent_timestamp");
     };
 
     const handleOpenChange = (nextOpen: boolean) => {
@@ -66,6 +97,10 @@ export default function ResetPasswordDialog({ open, onOpenChange }: Props) {
             const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
             if (error) throw error;
 
+            // LƯU THỜI ĐIỂM GỬI MÃ VÀO LOCALSTORAGE
+            localStorage.setItem("otp_sent_timestamp", Date.now().toString());
+            setTimeLeft(OTP_TIMEOUT_SECONDS); // Reset bộ đếm trên UI về 60
+
             setToken("");
             setStep("token");
             toast.success(isResend ? t("resetPasswordDialog.tokenResent") : t("resetPasswordDialog.success"));
@@ -79,6 +114,18 @@ export default function ResetPasswordDialog({ open, onOpenChange }: Props) {
     };
 
     const handleVerifyToken = async () => {
+        // KIỂM TRA THỜI GIAN TRƯỚC KHI GỬI XÁC THỰC
+        const sentTimeStr = localStorage.getItem("otp_sent_timestamp");
+        if (sentTimeStr) {
+            const sentTimestamp = parseInt(sentTimeStr, 10);
+            const elapsedSeconds = (Date.now() - sentTimestamp) / 1000;
+
+            if (elapsedSeconds > OTP_TIMEOUT_SECONDS) {
+                toast.error("Mã OTP đã hết hiệu lực (Quá 60 giây). Vui lòng bấm gửi lại mã!");
+                return;
+            }
+        }
+
         const normalizedToken = token.trim();
         if (!new RegExp(`^\\d{${RECOVERY_TOKEN_LENGTH}}$`).test(normalizedToken)) {
             toast.error(t("resetPasswordDialog.tokenInvalid"));
@@ -96,6 +143,8 @@ export default function ResetPasswordDialog({ open, onOpenChange }: Props) {
             if (error) throw error;
             if (!data.session) throw new Error(t("resetPasswordDialog.missingSession"));
 
+            // Xác thực thành công thì xóa dấu thời gian đi
+            localStorage.removeItem("otp_sent_timestamp");
             setStep("password");
             toast.success(t("resetPasswordDialog.tokenVerified"));
         } catch (err: unknown) {
@@ -164,12 +213,18 @@ export default function ResetPasswordDialog({ open, onOpenChange }: Props) {
                 {step === "token" && (
                     <div className="space-y-4 py-2">
                         <div>
-                            <Label>{t("resetPasswordDialog.tokenLabel")}</Label>
+                            <div className="flex justify-between items-center">
+                                <Label>{t("resetPasswordDialog.tokenLabel")}</Label>
+                                {/* HIỂN THỊ SỐ GIÂY ĐẾM NGƯỢC */}
+                                <span className={`text-xs font-bold ${timeLeft === 0 ? "text-red-500" : "text-amber-500"}`}>
+                                    {timeLeft > 0 ? `Mã hết hạn sau: ${timeLeft}s` : "Mã đã hết hạn!"}
+                                </span>
+                            </div>
                             <InputOTP
                                 maxLength={RECOVERY_TOKEN_LENGTH}
                                 value={token}
                                 onChange={setToken}
-                                disabled={isSubmitting}
+                                disabled={isSubmitting || timeLeft === 0}
                                 containerClassName="mt-3 justify-center"
                             >
                                 <InputOTPGroup>
@@ -235,7 +290,11 @@ export default function ResetPasswordDialog({ open, onOpenChange }: Props) {
                                 )}
                                 {t("resetPasswordDialog.resendToken")}
                             </Button>
-                            <Button onClick={handleVerifyToken} disabled={isSubmitting}>
+                            <Button 
+                                onClick={handleVerifyToken} 
+                                // KHÓA NÚT XÁC NHẬN NẾU THỜI GIAN ĐÃ VỀ 0
+                                disabled={isSubmitting || timeLeft === 0}
+                            >
                                 {isSubmitting ? (
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 ) : (
