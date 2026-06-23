@@ -19,6 +19,7 @@ import {
   RefreshCw,
   RotateCcw,
   Save,
+  Search,
   Settings2,
   ShieldAlert,
   Trash2,
@@ -59,7 +60,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getReviewStatusBadgeClassName, getRoleBadgeClassName, normalizeRoleName } from "@/lib/dashboardStyles";
+import { getReviewStatusBadgeClassName, getRoleBadgeClassName, getRoleBadgeDarkClassName, normalizeRoleName } from "@/lib/dashboardStyles";
 import { getSafePage, paginateItems } from "@/lib/pagination";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
@@ -78,6 +79,8 @@ import {
   defaultJobFilterOptions
 } from "@/components/jobs/jobFilterConfig";
 import { supabase } from "@/lib/supabase";
+import { SanityPageSections } from "@/components/sanity/SanityPageSections";
+import { useSanityManagedInterface } from "@/lib/sanityInterfaceText";
 
 type AdminSection = "users" | "jobs" | "employer-requests" | "categories" | "audit-logs" | "email-format";
 type JobStatusFilter = "ALL" | "PENDING" | "APPROVED" | "REJECTED";
@@ -195,6 +198,33 @@ const adminSections: AdminSection[] = ["users", "jobs", "employer-requests", "ca
 const SANITY_STUDIO_URL = import.meta.env.VITE_SANITY_STUDIO_URL || "http://localhost:3333";
 const EMAIL_TEMPLATE_IMAGE_BUCKET = "company";
 const EMAIL_TEMPLATE_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
+const isDefaultBrandName = (name?: string) => {
+  if (!name) return true;
+  const normalized = name.trim().toLowerCase();
+  return normalized === "" || normalized === "internhiring" || normalized === "intern hiring";
+};
+
+const isDefaultFontSize = (size?: number) => {
+  return !size || size === 15;
+};
+
+const isDefaultFooterText = (text?: string) => {
+  if (!text) return true;
+  const normalized = text
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\u0111/g, "d")
+    .replace(/\u0110/g, "d");
+  
+  const textNormalized = normalized.replace(/[^a-z0-9]/g, "");
+  return (
+    textNormalized === "" ||
+    textNormalized.includes("emailnayduocguituhethong") ||
+    textNormalized.includes("thisemailwassentfrominternhiring")
+  );
+};
 
 const safeUploadFileName = (name: string) =>
   name
@@ -205,6 +235,16 @@ const safeUploadFileName = (name: string) =>
 
 const AdminDashboard: React.FC = () => {
   const { t, i18n } = useTranslation();
+  const {text: uiText, pageContent, theme} = useSanityManagedInterface("/admin");
+  const adminCardStyle = (name: string): React.CSSProperties => ({
+    backgroundColor: pageContent[`${name}CardBackgroundColor`] ? String(pageContent[`${name}CardBackgroundColor`]) : undefined,
+    borderColor: pageContent[`${name}CardBorderColor`] ? String(pageContent[`${name}CardBorderColor`]) : undefined,
+    color: pageContent[`${name}CardTextColor`] ? String(pageContent[`${name}CardTextColor`]) : undefined,
+  });
+  const adminCardTextStyle = (name: string): React.CSSProperties => ({
+    color: pageContent[`${name}CardTextColor`] ? String(pageContent[`${name}CardTextColor`]) : undefined,
+  });
+  const adminCardImage = (name: string) => pageContent[`${name}CardImageUrl`] ? String(pageContent[`${name}CardImageUrl`]) : "";
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -349,6 +389,8 @@ const AdminDashboard: React.FC = () => {
   });
   const [userRoleFilter, setUserRoleFilter] = useState<UserRoleFilter>("ALL");
   const [userStatusFilter, setUserStatusFilter] = useState<UserStatusFilter>("ALL");
+  const [jobSearch, setJobSearch] = useState("");
+  const [userSearch, setUserSearch] = useState("");
 
           
   const setUrlPage = (key: string, page: number) => {
@@ -367,6 +409,7 @@ const AdminDashboard: React.FC = () => {
   const [emailTemplate, setEmailTemplate] = useState<EmailTemplateConfig>(defaultEmailTemplateConfig);
   const [savingEmailTemplate, setSavingEmailTemplate] = useState(false);
   const [uploadingEmailImage, setUploadingEmailImage] = useState(false);
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
 
   const activeJobs = useMemo(() => jobs.filter((job) => !isTrashedJob(job)), [jobs]);
   const trashedJobs = useMemo(() => jobs.filter(isTrashedJob), [jobs]);
@@ -378,10 +421,14 @@ const AdminDashboard: React.FC = () => {
         jobHiddenFilter === "TRASH" ||
         (jobHiddenFilter === "HIDDEN" ? Boolean(job.hidden) : !job.hidden);
       const dateMatches = !jobDateFilter || job.createdAt?.slice(0, 10) === jobDateFilter;
+      const searchMatches =
+        !jobSearch ||
+        job.title.toLowerCase().includes(jobSearch.toLowerCase()) ||
+        (job.company || "").toLowerCase().includes(jobSearch.toLowerCase());
 
-      return statusMatches && hiddenMatches && dateMatches;
+      return statusMatches && hiddenMatches && dateMatches && searchMatches;
     }),
-    [jobDateFilter, jobHiddenFilter, jobStatusFilter],
+    [jobDateFilter, jobHiddenFilter, jobStatusFilter, jobSearch],
   );
   const filteredActiveJobs = useMemo(() => applyJobFilters(activeJobs), [activeJobs, applyJobFilters]);
   const filteredTrashedJobs = useMemo(() => applyJobFilters(trashedJobs), [applyJobFilters, trashedJobs]);
@@ -432,6 +479,14 @@ const AdminDashboard: React.FC = () => {
           const restricted = isRestrictedUser(account);
           return userStatusFilter === "RESTRICTED" ? restricted : !restricted;
         })
+        .filter((account) => {
+          const fullName = `${account.lastName ?? ""} ${account.firstName ?? ""}`.trim();
+          return (
+            !userSearch ||
+            account.email.toLowerCase().includes(userSearch.toLowerCase()) ||
+            fullName.toLowerCase().includes(userSearch.toLowerCase())
+          );
+        })
         .sort((first, second) => {
           switch (userSort.key) {
             case "email":
@@ -450,7 +505,19 @@ const AdminDashboard: React.FC = () => {
               return 0;
           }
         }),
-    [userRoleFilter, userSort.direction, userSort.key, userStatusFilter, users],
+    [userRoleFilter, userSort.direction, userSort.key, userStatusFilter, users, userSearch],
+  );
+          const paginatedUsers = useMemo(
+    () => paginateItems(sortedUsers, userPage, userPageSize),
+    [sortedUsers, userPage, userPageSize],
+  );
+  const paginatedActiveJobs = useMemo(
+    () => paginateItems(sortedActiveJobs, activeJobPage, jobPageSize),
+    [activeJobPage, jobPageSize, sortedActiveJobs],
+  );
+  const paginatedTrashedJobs = useMemo(
+    () => paginateItems(sortedTrashedJobs, trashedJobPage, jobPageSize),
+    [jobPageSize, sortedTrashedJobs, trashedJobPage],
   );
           const paginatedUsers = useMemo(
     () => paginateItems(sortedUsers, userPage, userPageSize),
@@ -914,7 +981,7 @@ const AdminDashboard: React.FC = () => {
         ...managedConfig,
         emailTemplate: {
           ...emailTemplate,
-          fontSize: Math.max(12, Math.min(20, Number(emailTemplate.fontSize) || defaultEmailTemplateConfig.fontSize)),
+          fontSize: Math.max(12, Math.min(25, Number(emailTemplate.fontSize) || defaultEmailTemplateConfig.fontSize)),
         },
       };
       const savedConfig = await saveManagedSiteConfig(nextConfig, token);
@@ -932,12 +999,7 @@ const AdminDashboard: React.FC = () => {
     setEmailTemplate(defaultEmailTemplateConfig);
   };
 
-  const handleEmailHeaderImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-
-    if (!file) return;
-
+  const uploadEmailHeaderImage = async (file: File) => {
     if (!file.type.startsWith("image/")) {
       toast.error(t("admin.emailFormat.imageInvalid", { defaultValue: "Please choose a valid image file." }));
       return;
@@ -976,6 +1038,14 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleEmailHeaderImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+    await uploadEmailHeaderImage(file);
+  };
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -994,112 +1064,129 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <section className="border-b bg-white">
-        <div className="container mx-auto px-4 py-8">
+      <SanityPageSections routePath="/admin" placement="top" />
+      {pageContent.heroVisible !== false && <section
+        className="hero-gradient flex min-h-[220px] items-center bg-cover bg-center bg-no-repeat py-8 text-white shadow-sm md:min-h-[300px]"
+        style={theme.headerImageUrl ? {
+          backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.72), rgba(30, 64, 175, 0.72)), url(${theme.headerImageUrl})`,
+          backgroundSize: "cover",
+          backgroundPosition: theme.headerImagePosition || "center",
+          backgroundRepeat: "no-repeat",
+        } : undefined}
+      >
+        <div className="container mx-auto px-4 max-w-6xl">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <Badge variant="outline" className={`mb-3 px-5 py-2 text-sm ${getRoleBadgeClassName(USER_ROLES.ADMIN)}`}>
-                {t("role.ADMIN")}
+              <Badge variant="outline" className={`mb-3 px-5 py-2 text-sm ${getRoleBadgeDarkClassName(USER_ROLES.ADMIN)}`}>
+                {uiText("role.ADMIN", t("role.ADMIN"))}
               </Badge>
-              <h1 className="text-3xl font-bold text-slate-950">{t("admin.title")}</h1>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {t("admin.description")}
+              <h1 className="text-3xl font-bold text-white">{uiText("admin.title", t("admin.title"))}</h1>
+              <p className="mt-2 text-sm text-blue-100/90">
+                {uiText("admin.description", t("admin.description"))}
               </p>
             </div>
-            <Button variant="outline" onClick={loadData} disabled={loadingData}>
+            <Button variant="outline" className="bg-white text-slate-900 hover:bg-slate-50 border-transparent shadow-sm w-auto" onClick={loadData} disabled={loadingData}>
               {loadingData ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               {t("common.refresh")}
             </Button>
           </div>
         </div>
-      </section>
+      </section>}
 
-      <section className="container mx-auto space-y-6 px-4 py-8">
+      <SanityPageSections routePath="/admin" placement="afterHero" />
+
+      <section className="container mx-auto space-y-6 px-4 py-8 max-w-6xl">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-          <Card
+          {pageContent.usersCardVisible !== false && <Card
             className={`cursor-pointer transition hover:shadow-md ${activeSection === "users" ? "border-primary" : ""}`}
+            style={adminCardStyle("users")}
             onClick={() => openSection("users")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("admin.stats.usersTitle")}</CardTitle>
-              <Users className="h-5 w-5 text-primary" />
+              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("users")}>{uiText("admin.stats.usersTitle", t("admin.stats.usersTitle"))}</CardTitle>
+              {adminCardImage("users") ? <img src={adminCardImage("users")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Users className="h-5 w-5 text-primary" />}
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{users.length}</div>
-              <p className="text-xs text-muted-foreground">{t("admin.stats.usersDescription")}</p>
+              <p className="text-xs text-muted-foreground" style={adminCardTextStyle("users")}>{uiText("admin.stats.usersDescription", t("admin.stats.usersDescription"))}</p>
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card
+          {pageContent.jobsCardVisible !== false && <Card
             className={`cursor-pointer transition hover:shadow-md ${activeSection === "jobs" ? "border-primary" : ""}`}
+            style={adminCardStyle("jobs")}
             onClick={() => openSection("jobs")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("admin.stats.jobsTitle")}</CardTitle>
-              <Briefcase className="h-5 w-5 text-primary" />
+              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("jobs")}>{uiText("admin.stats.jobsTitle", t("admin.stats.jobsTitle"))}</CardTitle>
+              {adminCardImage("jobs") ? <img src={adminCardImage("jobs")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Briefcase className="h-5 w-5 text-primary" />}
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{jobs.length}</div>
-              <p className="text-xs text-muted-foreground">{t("admin.stats.trashCount", { count: trashedJobs.length })}</p>
+              <p className="text-xs text-muted-foreground" style={adminCardTextStyle("jobs")}>{t("admin.stats.trashCount", { count: trashedJobs.length })}</p>
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card
+          {pageContent.categoriesCardVisible !== false && <Card
             className={`cursor-pointer transition hover:shadow-md ${activeSection === "categories" ? "border-primary" : ""}`}
+            style={adminCardStyle("categories")}
             onClick={() => openSection("categories")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("admin.stats.categoriesTitle")}</CardTitle>
-              <Settings2 className="h-5 w-5 text-amber-600" />
+              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("categories")}>{uiText("admin.stats.categoriesTitle", t("admin.stats.categoriesTitle"))}</CardTitle>
+              {adminCardImage("categories") ? <img src={adminCardImage("categories")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Settings2 className="h-5 w-5 text-amber-600" />}
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">{t("admin.stats.categoriesDescription")}</p>
+              <p className="text-sm text-muted-foreground" style={adminCardTextStyle("categories")}>{uiText("admin.stats.categoriesDescription", t("admin.stats.categoriesDescription"))}</p>
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card
+          {pageContent.auditLogsCardVisible !== false && <Card
             className={`cursor-pointer transition hover:shadow-md ${activeSection === "audit-logs" ? "border-primary" : ""}`}
+            style={adminCardStyle("auditLogs")}
             onClick={() => openSection("audit-logs")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("admin.stats.auditLogsTitle")}</CardTitle>
-              <ClipboardList className="h-5 w-5 text-red-600" />
+              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("auditLogs")}>{uiText("admin.stats.auditLogsTitle", t("admin.stats.auditLogsTitle"))}</CardTitle>
+              {adminCardImage("auditLogs") ? <img src={adminCardImage("auditLogs")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <ClipboardList className="h-5 w-5 text-red-600" />}
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{auditTotal}</div>
-              <p className="text-xs text-muted-foreground">{t("admin.stats.auditLogsDescription")}</p>
+              <p className="text-xs text-muted-foreground" style={adminCardTextStyle("auditLogs")}>{uiText("admin.stats.auditLogsDescription", t("admin.stats.auditLogsDescription"))}</p>
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card
+          {pageContent.emailFormatCardVisible !== false && <Card
             className={`cursor-pointer transition hover:shadow-md ${activeSection === "email-format" ? "border-primary" : ""}`}
+            style={adminCardStyle("emailFormat")}
             onClick={() => openSection("email-format")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {t("admin.stats.emailFormatTitle", { defaultValue: "Email format" })}
+              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("emailFormat")}>
+                {uiText("admin.stats.emailFormatTitle", t("admin.stats.emailFormatTitle", { defaultValue: "Email format" }))}
               </CardTitle>
-              <Mail className="h-5 w-5 text-emerald-600" />
+              {adminCardImage("emailFormat") ? <img src={adminCardImage("emailFormat")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Mail className="h-5 w-5 text-emerald-600" />}
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                {t("admin.stats.emailFormatDescription", { defaultValue: "Colors, font size, header image" })}
+              <p className="text-sm text-muted-foreground" style={adminCardTextStyle("emailFormat")}>
+                {uiText("admin.stats.emailFormatDescription", t("admin.stats.emailFormatDescription", { defaultValue: "Colors, font size, header image" }))}
               </p>
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card
+          {pageContent.loginBrandingCardVisible !== false && <Card
             className="cursor-pointer transition hover:border-primary hover:shadow-md"
+            style={adminCardStyle("loginBranding")}
             onClick={openLoginBrandingStudio}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("admin.stats.loginBrandingTitle")}</CardTitle>
-              <Palette className="h-5 w-5 text-amber-600" />
+              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("loginBranding")}>{uiText("admin.stats.loginBrandingTitle", t("admin.stats.loginBrandingTitle"))}</CardTitle>
+              {adminCardImage("loginBranding") ? <img src={adminCardImage("loginBranding")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Palette className="h-5 w-5 text-amber-600" />}
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">{t("admin.stats.loginBrandingDescription")}</p>
+              <p className="text-sm text-muted-foreground" style={adminCardTextStyle("loginBranding")}>{uiText("admin.stats.loginBrandingDescription", t("admin.stats.loginBrandingDescription"))}</p>
             </CardContent>
-          </Card>
+          </Card>}
         </div>
 
         {loadingData ? (
@@ -1110,16 +1197,20 @@ const AdminDashboard: React.FC = () => {
           </Card>
         ) : (
           <>
-            {activeSection === "users" && (
-              <Card>
+            {activeSection === "users" && pageContent.usersPanelVisible !== false && (
+              <Card style={{
+                backgroundColor: pageContent.usersPanelBackgroundColor ? String(pageContent.usersPanelBackgroundColor) : undefined,
+                borderColor: pageContent.usersPanelBorderColor ? String(pageContent.usersPanelBorderColor) : undefined,
+                color: pageContent.usersPanelTextColor ? String(pageContent.usersPanelTextColor) : undefined,
+              }}>
                 <CardHeader>
-                  <CardTitle>{t("admin.users.title")}</CardTitle>
+                  <CardTitle style={{color: pageContent.usersPanelTextColor ? String(pageContent.usersPanelTextColor) : undefined}}>{uiText("admin.users.title", t("admin.users.title"))}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
-                    <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                       <Select value={userRoleFilter} onValueChange={(value) => setUserRoleFilter(value as UserRoleFilter)}>
-                        <SelectTrigger className="w-full sm:w-40">
+                        <SelectTrigger className="w-full sm:w-40 h-10 bg-white">
                           <SelectValue placeholder={t("common.role")} />
                         </SelectTrigger>
                         <SelectContent>
@@ -1132,7 +1223,7 @@ const AdminDashboard: React.FC = () => {
                         </SelectContent>
                       </Select>
                       <Select value={userStatusFilter} onValueChange={(value) => setUserStatusFilter(value as UserStatusFilter)}>
-                        <SelectTrigger className="w-full sm:w-40">
+                        <SelectTrigger className="w-full sm:w-40 h-10 bg-white">
                           <SelectValue placeholder={t("common.status")} />
                         </SelectTrigger>
                         <SelectContent>
@@ -1141,6 +1232,18 @@ const AdminDashboard: React.FC = () => {
                           <SelectItem value="RESTRICTED">{t("admin.users.restricted")}</SelectItem>
                         </SelectContent>
                       </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setUserRoleFilter("ALL");
+                          setUserStatusFilter("ALL");
+                        }}
+                        className="h-10"
+                        disabled={userRoleFilter === "ALL" && userStatusFilter === "ALL"}
+                      >
+                        {t("jobs.filters.reset")}
+                      </Button>
                     </div>
                   </div>
                   <Table>
@@ -1160,8 +1263,8 @@ const AdminDashboard: React.FC = () => {
 
                         return (
                           <TableRow key={account.id}>
-                            <TableCell>{account.email}</TableCell>
-                            <TableCell>
+                            <TableCell className="max-w-[200px] truncate" title={account.email}>{account.email}</TableCell>
+                            <TableCell className="max-w-[150px] truncate" title={`${account.lastName ?? ""} ${account.firstName ?? ""}`.trim()}>
                               {account.lastName} {account.firstName}
                             </TableCell>
                             <TableCell>
@@ -1234,16 +1337,16 @@ const AdminDashboard: React.FC = () => {
               </Card>
             )}
 
-            {activeSection === "jobs" && (
+            {activeSection === "jobs" && pageContent.jobsPanelVisible !== false && (
               <Card>
                 <CardHeader>
-                  <CardTitle>{t("admin.jobs.title")}</CardTitle>
+                  <CardTitle>{uiText("admin.jobs.title", t("admin.jobs.title"))}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-end">
-                    <div className="grid gap-2 sm:grid-cols-3">
+                  <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Select value={jobStatusFilter} onValueChange={(value) => setJobStatusFilter(value as JobStatusFilter)}>
-                        <SelectTrigger className="w-full sm:w-40">
+                        <SelectTrigger className="w-full sm:w-40 h-10 bg-white">
                           <SelectValue placeholder={t("admin.jobs.filters.status")} />
                         </SelectTrigger>
                         <SelectContent>
@@ -1254,7 +1357,7 @@ const AdminDashboard: React.FC = () => {
                         </SelectContent>
                       </Select>
                       <Select value={jobHiddenFilter} onValueChange={(value) => setJobHiddenFilter(value as JobHiddenFilter)}>
-                        <SelectTrigger className="w-full sm:w-40">
+                        <SelectTrigger className="w-full sm:w-40 h-10 bg-white">
                           <SelectValue placeholder={t("admin.jobs.filters.hidden")} />
                         </SelectTrigger>
                         <SelectContent>
@@ -1268,8 +1371,22 @@ const AdminDashboard: React.FC = () => {
                         type="date"
                         value={jobDateFilter}
                         onChange={(event) => setJobDateFilter(event.target.value)}
+                        className="w-full sm:w-40 h-10 bg-white"
                         aria-label={t("admin.jobs.filters.date")}
                       />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setJobStatusFilter("ALL");
+                          setJobHiddenFilter("ALL");
+                          setJobDateFilter("");
+                        }}
+                        className="h-10"
+                        disabled={jobStatusFilter === "ALL" && jobHiddenFilter === "ALL" && !jobDateFilter}
+                      >
+                        {t("jobs.filters.reset")}
+                      </Button>
                     </div>
                   </div>
                   {jobHiddenFilter === "TRASH" ? (
@@ -1407,26 +1524,26 @@ const AdminDashboard: React.FC = () => {
               </Card>
             )}
 
-            {activeSection === "categories" && token && (
+            {activeSection === "categories" && token && pageContent.categoriesPanelVisible !== false && (
               <CategoryManagementPanel token={token} />
             )}
 
-            {activeSection === "email-format" && (
+            {activeSection === "email-format" && pageContent.emailPanelVisible !== false && (
               <Card>
                 <CardHeader>
-                  <CardTitle>{t("admin.emailFormat.title", { defaultValue: "Email format" })}</CardTitle>
+                  <CardTitle>{uiText("admin.emailFormat.title", t("admin.emailFormat.title", { defaultValue: "Email format" }))}</CardTitle>
                 </CardHeader>
                 <CardContent className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
-                  <div className="grid gap-4 sm:grid-cols-2">
+                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="email-brand">
                         {t("admin.emailFormat.brandName", { defaultValue: "Brand name" })}
                       </Label>
                       <Input
                         id="email-brand"
-                        value={emailTemplate.brandName}
+                        value={isDefaultBrandName(emailTemplate.brandName) ? "" : emailTemplate.brandName}
                         onChange={(event) => updateEmailTemplate("brandName", event.target.value)}
-                        placeholder="Enter brand name / Nhập tên thương hiệu"
+                        placeholder="InternHiring"
                       />
                     </div>
                     <div className="space-y-2">
@@ -1437,9 +1554,13 @@ const AdminDashboard: React.FC = () => {
                         id="email-font-size"
                         type="number"
                         min={12}
-                        max={20}
-                        value={emailTemplate.fontSize}
-                        onChange={(event) => updateEmailTemplate("fontSize", Number(event.target.value))}
+                        max={25}
+                        value={isDefaultFontSize(emailTemplate.fontSize) ? "" : (emailTemplate.fontSize || "")}
+                        onChange={(event) => {
+                          const val = event.target.value;
+                          updateEmailTemplate("fontSize", val ? Number(val) : 15);
+                        }}
+                        placeholder="15"
                       />
                     </div>
                     <div className="space-y-2">
@@ -1487,7 +1608,7 @@ const AdminDashboard: React.FC = () => {
                       />
                     </div>
                     <div className="space-y-2 sm:col-span-2">
-                      <Label htmlFor="email-image">
+                      <Label>
                         {t("admin.emailFormat.headerImage", { defaultValue: "Header image" })}
                       </Label>
                       <input
@@ -1497,33 +1618,98 @@ const AdminDashboard: React.FC = () => {
                         className="hidden"
                         onChange={handleEmailHeaderImageUpload}
                       />
-                      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
-                        <Input
-                          id="email-image"
-                          value={emailTemplate.headerImageUrl}
-                          readOnly
-                          placeholder={t("admin.emailFormat.noHeaderImage", { defaultValue: "No image uploaded" })}
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
+                      
+                      {emailTemplate.headerImageUrl ? (
+                        <div 
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            setIsDraggingImage(true);
+                          }}
+                          onDragLeave={() => setIsDraggingImage(false)}
+                          onDrop={async (e) => {
+                            e.preventDefault();
+                            setIsDraggingImage(false);
+                            const file = e.dataTransfer.files?.[0];
+                            if (file) {
+                              await uploadEmailHeaderImage(file);
+                            }
+                          }}
+                          className={`relative rounded-lg border-2 border-dashed p-4 flex flex-col items-center justify-center group min-h-[140px] transition-all duration-200 ${
+                            isDraggingImage 
+                              ? "border-primary bg-primary/5 scale-[1.02]" 
+                              : "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-slate-50/80"
+                          }`}
+                        >
+                          <img
+                            src={emailTemplate.headerImageUrl}
+                            alt="Header template"
+                            className="max-h-28 object-contain rounded transition group-hover:blur-[1px]"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-2 rounded-lg">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => emailImageInputRef.current?.click()}
+                              disabled={uploadingEmailImage}
+                            >
+                              <Upload className="h-4 w-4 mr-1" />
+                              {t("admin.emailFormat.uploadImage", { defaultValue: "Change image" })}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => updateEmailTemplate("headerImageUrl", "")}
+                              disabled={uploadingEmailImage}
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              {t("admin.emailFormat.clearImage", { defaultValue: "Delete" })}
+                            </Button>
+                          </div>
+                          {uploadingEmailImage && (
+                            <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg">
+                              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            setIsDraggingImage(true);
+                          }}
+                          onDragLeave={() => setIsDraggingImage(false)}
+                          onDrop={async (e) => {
+                            e.preventDefault();
+                            setIsDraggingImage(false);
+                            const file = e.dataTransfer.files?.[0];
+                            if (file) {
+                              await uploadEmailHeaderImage(file);
+                            }
+                          }}
                           onClick={() => emailImageInputRef.current?.click()}
-                          disabled={uploadingEmailImage}
+                          className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 min-h-[140px] ${
+                            isDraggingImage
+                              ? "border-primary bg-primary/5 scale-[1.02]"
+                              : "border-slate-300 hover:border-primary/50 bg-slate-50/50 hover:bg-slate-50 hover:shadow-sm"
+                          }`}
                         >
-                          {uploadingEmailImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                          {t("admin.emailFormat.uploadImage", { defaultValue: "Upload" })}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          onClick={() => updateEmailTemplate("headerImageUrl", "")}
-                          disabled={!emailTemplate.headerImageUrl || uploadingEmailImage}
-                          aria-label={t("admin.emailFormat.clearImage", { defaultValue: "Clear image" })}
-                        >
-                          <Image className="h-4 w-4" />
-                        </Button>
-                      </div>
+                          {uploadingEmailImage ? (
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                          ) : (
+                            <>
+                              <Upload className="mb-2 h-6 w-6 text-slate-400 group-hover:text-primary transition-colors duration-200" />
+                              <span className="text-sm font-medium text-slate-700 text-center">
+                                {t("admin.emailFormat.dragDropText", { defaultValue: "Kéo thả ảnh vào đây hoặc click để tải lên" })}
+                              </span>
+                              <span className="text-xs text-muted-foreground mt-1 text-center">
+                                {t("admin.emailFormat.imageHint", { defaultValue: "PNG, JPG, JPEG (tối đa 2MB)" })}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-2 sm:col-span-2">
                       <Label htmlFor="email-footer">
@@ -1531,9 +1717,10 @@ const AdminDashboard: React.FC = () => {
                       </Label>
                       <Textarea
                         id="email-footer"
-                        value={emailTemplate.footerText}
+                        value={isDefaultFooterText(emailTemplate.footerText) ? "" : emailTemplate.footerText}
                         onChange={(event) => updateEmailTemplate("footerText", event.target.value)}
-                        placeholder="Enter footer text / Nhập chữ ở chân trang"
+                        placeholder="Email này được gửi từ hệ thống thông báo InternHiring. / This email was sent from InternHiring notification system."
+                        rows={3}
                       />
                     </div>
                     <div className="flex flex-wrap gap-2 sm:col-span-2">
@@ -1589,37 +1776,54 @@ const AdminDashboard: React.FC = () => {
               </Card>
             )}
 
-            {activeSection === "audit-logs" && (
+            {activeSection === "audit-logs" && pageContent.auditPanelVisible !== false && (
               <Card>
                 <CardHeader>
-                  <CardTitle>{t("admin.auditLogs.title")}</CardTitle>
+                  <CardTitle>{uiText("admin.auditLogs.title", t("admin.auditLogs.title"))}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid gap-3 md:grid-cols-4">
-                    <Select value={auditAction || "all"} onValueChange={(value) => { resetAuditPage(); setAuditAction(value === "all" ? "" : value as AuditAction); }}>
-                      <SelectTrigger><SelectValue placeholder={t("admin.auditLogs.action")} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">{t("admin.auditLogs.allActions")}</SelectItem>
-                        {auditActions.map((action) => <SelectItem key={action} value={action}>{t(`admin.auditLogs.actions.${action}`, { defaultValue: action })}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <Select value={auditTargetType || "all"} onValueChange={(value) => { resetAuditPage(); setAuditTargetType(value === "all" ? "" : value as AuditTargetType); }}>
-                      <SelectTrigger><SelectValue placeholder={t("admin.auditLogs.targetType")} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">{t("admin.auditLogs.allTargets")}</SelectItem>
-                        {auditTargetTypes.map((target) => <SelectItem key={target} value={target}>{t(`admin.auditLogs.targets.${target}`, { defaultValue: target })}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <input
-                      className="rounded-md border px-3 py-2 text-sm"
-                      value={auditActorEmail}
-                      onChange={(event) => { resetAuditPage(); setAuditActorEmail(event.target.value); }}
-                      placeholder={t("admin.auditLogs.actorPlaceholder")}
-                    />
-                    <Button variant="outline" onClick={loadAuditLogs}>
-                      <RefreshCw className="h-4 w-4" />
-                      {t("common.refresh")}
-                    </Button>
+                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <Select value={auditAction || "all"} onValueChange={(value) => { resetAuditPage(); setAuditAction(value === "all" ? "" : value as AuditAction); }}>
+                        <SelectTrigger className="w-full sm:w-44 h-10 bg-white">
+                          <SelectValue placeholder={t("admin.auditLogs.action")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{t("admin.auditLogs.allActions")}</SelectItem>
+                          {auditActions.map((action) => <SelectItem key={action} value={action}>{t(`admin.auditLogs.actions.${action}`, { defaultValue: action })}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Select value={auditTargetType || "all"} onValueChange={(value) => { resetAuditPage(); setAuditTargetType(value === "all" ? "" : value as AuditTargetType); }}>
+                        <SelectTrigger className="w-full sm:w-44 h-10 bg-white">
+                          <SelectValue placeholder={t("admin.auditLogs.targetType")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{t("admin.auditLogs.allTargets")}</SelectItem>
+                          {auditTargetTypes.map((target) => <SelectItem key={target} value={target}>{t(`admin.auditLogs.targets.${target}`, { defaultValue: target })}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="text"
+                        value={auditActorEmail}
+                        onChange={(event) => { resetAuditPage(); setAuditActorEmail(event.target.value); }}
+                        placeholder={t("admin.auditLogs.actorPlaceholder")}
+                        className="w-full sm:w-48 h-10 bg-white"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          resetAuditPage();
+                          setAuditAction("");
+                          setAuditTargetType("");
+                          setAuditActorEmail("");
+                        }}
+                        className="h-10 w-full sm:w-auto"
+                        disabled={!auditAction && !auditTargetType && !auditActorEmail}
+                      >
+                        {t("jobs.filters.reset")}
+                      </Button>
+                    </div>
                   </div>
                   <Table>
                     <TableHeader>
@@ -1792,6 +1996,7 @@ const AdminDashboard: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <SanityPageSections routePath="/admin" placement="bottom" />
     </main>
   );
 };

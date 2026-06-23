@@ -28,8 +28,11 @@ import {
   type JobFilterValue,
 } from "@/components/jobs/jobFilterConfig";
 import { getVietnamProvinceOptions, getVietnamWardOptions } from "@/lib/vietnamProvinces";
-import { useAuth } from "@/context/AuthContext";
-import { useToast } from "@/hooks/use-toast";
+import { paginateItems } from "@/lib/pagination";
+import { useAuth } from "@/context/AuthContext"; // MỚI THÊM
+import { useToast } from "@/hooks/use-toast"; // MỚI THÊM
+import { SanityPageSections } from "@/components/sanity/SanityPageSections";
+import { useSanityManagedInterface } from "@/lib/sanityInterfaceText";
 
 const normalizeText = (value?: string | number | null) =>
   String(value ?? "")
@@ -264,6 +267,7 @@ const Jobs: React.FC = () => {
   const { user, token } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { text: uiText, pageContent } = useSanityManagedInterface("/jobs");
   const [applyJobId, setApplyJobId] = useState<string | number | null>(null);
   const [selectedCvId, setSelectedCvId] = useState<string>("");
   const [isApplying, setIsApplying] = useState(false);
@@ -433,10 +437,12 @@ const Jobs: React.FC = () => {
       setApplyJobId(null);
       setSelectedCvId("");
     } catch (error: unknown) {
-      toast({
-        title: "Không thể nộp đơn",
-        description: getErrorMessage(error, "Bạn đã nộp đơn cho công việc này rồi hoặc có lỗi xảy ra."),
-        variant: "destructive"
+
+
+      toast({ 
+        title: t("toast.error"), 
+        description: getErrorMessage(error, t("jobs.apply.error", { defaultValue: "Bạn đã nộp đơn cho công việc này rồi hoặc có lỗi xảy ra." })),
+        variant: "destructive" 
       });
     } finally {
       setIsApplying(false);
@@ -445,24 +451,32 @@ const Jobs: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <section className="border-b bg-white">
-        <div className="container mx-auto px-4 py-8">
-          <h1 className="text-3xl font-bold text-slate-950">{t("jobs.page.title")}</h1>
-          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{t("jobs.page.description")}</p>
+      <SanityPageSections routePath="/jobs" placement="top" />
+      {pageContent.heroVisible !== false && <section
+        className="hero-gradient text-white py-8 shadow-sm"
+        style={pageContent.heroBackgroundColor ? {background: String(pageContent.heroBackgroundColor)} : undefined}
+      >
+        <div className="container mx-auto px-4">
+          <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl text-white" style={{color: String(pageContent.heroTextColor || "#ffffff")}}>{uiText("jobs.page.title", t("jobs.page.title"))}</h1>
+          <p className="mt-2 max-w-3xl text-sm text-blue-100/90" style={{color: String(pageContent.heroTextColor || "#ffffff")}}>{uiText("jobs.page.description", t("jobs.page.description"))}</p>
         </div>
-      </section>
-      <section className="container mx-auto space-y-6 px-4 py-8">
-        <JobSearchFilters
+      </section>}
+
+      <SanityPageSections routePath="/jobs" placement="afterHero" />
+
+      {(pageContent.filtersVisible !== false || pageContent.resultsVisible !== false) && <section className="container mx-auto space-y-6 px-4 py-8" style={{backgroundColor: pageContent.contentBackgroundColor ? String(pageContent.contentBackgroundColor) : undefined}}>
+        {pageContent.filtersVisible !== false && <JobSearchFilters
           options={filterOptions}
           value={filterValue}
-          jobs={jobs}
-          mapCenterPosition={mapCenterPosition}
-          onChange={setFilterValue}
-          onReset={() => setFilterValue(emptyJobFilterValue)}
-        />
+          onChange={handleFilterChange}
+          onReset={() => handleFilterChange(emptyJobFilterValue)}
+        />}
+
+        {pageContent.resultsVisible !== false && <div id="ket-qua-tim-kiem" className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-slate-950">{t("jobs.page.resultsTitle")}</h2>
-          <Badge variant="outline">{t("jobs.page.count", { count: filteredJobs.length })}</Badge>
+          <h2 className="text-xl font-semibold text-slate-950">
+            {uiText("jobs.page.resultsTitle", t("jobs.page.resultsTitle"))} ({filteredJobs.length})
+          </h2>
         </div>
         {loading ? (
           <Card>
@@ -478,20 +492,77 @@ const Jobs: React.FC = () => {
           <Card>
             <CardContent className="py-12 text-center">
               <Briefcase className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
-              <h3 className="font-semibold text-slate-950">{t("jobs.page.emptyTitle")}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{t("jobs.page.emptyDescription")}</p>
+              <h3 className="font-semibold text-slate-950">{uiText("jobs.page.emptyTitle", t("jobs.page.emptyTitle"))}</h3>
+              <p className="mt-2 text-sm text-muted-foreground">{uiText("jobs.page.emptyDescription", t("jobs.page.emptyDescription"))}</p>
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-4">
-            {filteredJobs.map((job) => (
-              <Card key={job.id} className="overflow-hidden flex flex-col h-full hover:shadow-md transition-shadow">
-                <CardHeader className="space-y-3">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <CardTitle className="text-xl">{job.title || t("jobs.page.untitled")}</CardTitle>
-                      <p className="mt-1 text-sm font-medium text-slate-700">
-                        {job.company || job.employerName || t("jobs.page.notProvided")}
+            {paginatedJobs.items.map((job) => (
+              <Card
+                key={job.id}
+                className="group relative overflow-hidden flex flex-col h-full hover:shadow-medium shadow-soft border bg-card transition-smooth hover:-translate-y-1"
+                style={{
+                  backgroundColor: pageContent.jobCardBackgroundColor ? String(pageContent.jobCardBackgroundColor) : undefined,
+                  borderColor: pageContent.jobCardBorderColor ? String(pageContent.jobCardBorderColor) : undefined,
+                }}
+              >
+                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-primary-light" />
+                <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary/10 transition-smooth group-hover:scale-125" />
+                <div
+                  className="relative cursor-pointer flex flex-col flex-1"
+                  onClick={() => navigate(`/jobs/${job.id}`)}
+                >
+                  <CardHeader className="space-y-3">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <CardTitle className="text-xl" style={{color: pageContent.jobCardTitleColor ? String(pageContent.jobCardTitleColor) : undefined}}>{job.title || t("jobs.page.untitled")}</CardTitle>
+                        <p className="mt-1 text-sm font-medium text-slate-700" style={{color: pageContent.jobCardTextColor ? String(pageContent.jobCardTextColor) : undefined}}>
+                          {job.company || job.employerName || t("jobs.page.notProvided")}
+                        </p>
+                      </div>
+                      <FavoriteJobButton
+                        jobId={job.id}
+                        isFavorited={favoriteJobIds.has(job.id)}
+                        onFavoriteChange={handleFavoriteChange}
+                        className="self-start relative z-10"
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2.5 text-sm text-muted-foreground">
+                      {job.location && (
+                        <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
+                          <MapPin className="h-4 w-4 text-primary" />
+                          {job.location}
+                        </span>
+                      )}
+                      {job.createdAt && (
+                        <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
+                          <CalendarDays className="h-4 w-4 text-primary" />
+                          {new Date(job.createdAt).toLocaleDateString(dateLocale)}
+                        </span>
+                      )}
+                      {job.applicationDeadline && (
+                        <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
+                          <CalendarDays className="h-4 w-4 text-primary" />
+                          {uiText("jobs.page.applicationDeadline", t("jobs.page.applicationDeadline"))}: {formatDateOnly(job.applicationDeadline, dateLocale)}
+                        </span>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4 flex-1">
+                    <div className="flex flex-wrap gap-2">
+                      {job.type && <Badge variant="secondary" className="rounded-full px-3 py-1">{JOB_TYPE_OPTIONS.find(o => o.value === job.type)?.labelKey ? t(JOB_TYPE_OPTIONS.find(o => o.value === job.type)!.labelKey!) : job.type}</Badge>}
+                      {job.salary && (
+                        <Badge variant="secondary" className="rounded-full px-3 py-1">
+                          {getSalaryRangeOption(job.salary)?.labelKey ? t(getSalaryRangeOption(job.salary)!.labelKey!) : job.salary} {job.currency ? (CURRENCY_OPTIONS.find(o => o.value === job.currency)?.labelKey ? t(CURRENCY_OPTIONS.find(o => o.value === job.currency)!.labelKey!) : job.currency) : ""}
+                        </Badge>
+                      )}
+                      {job.mode && <Badge variant="secondary" className="rounded-full px-3 py-1">{WORK_MODE_OPTIONS.find(o => o.value === job.mode)?.labelKey ? t(WORK_MODE_OPTIONS.find(o => o.value === job.mode)!.labelKey!) : job.mode}</Badge>}
+                      {job.experience && <Badge variant="secondary" className="rounded-full px-3 py-1">{defaultJobFilterOptions.experience.find(o => o.value === job.experience)?.labelKey ? t(defaultJobFilterOptions.experience.find(o => o.value === job.experience)!.labelKey!) : job.experience}</Badge>}
+                    </div>
+                    {job.description && (
+                      <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-600" style={{color: pageContent.jobCardTextColor ? String(pageContent.jobCardTextColor) : undefined}}>
+                        {job.description}
                       </p>
                     </div>
                     {job.status && <Badge variant="secondary">{job.status}</Badge>}
@@ -509,34 +580,33 @@ const Jobs: React.FC = () => {
                         {new Date(job.createdAt).toLocaleDateString(dateLocale)}
                       </span>
                     )}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4 flex-1">
-                  <div className="flex flex-wrap gap-2">
-                    {job.type && <Badge variant="outline">{job.type}</Badge>}
-                    {job.salary && <Badge variant="outline">{job.salary}</Badge>}
-                  </div>
-                  {job.description && (
-                    <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">
-                      {job.description}
-                    </p>
-                  )}
-                </CardContent>
-                <CardFooter className="bg-slate-50/50 border-t p-4 flex justify-end">
-                  {/* <Button variant="ghost" size="icon" onClick={() => setUpdateCoordJob(job)}    >
-                    <MoreVertical className="h-4 w-4" />
-                  </Button> */}
-                  <Button onClick={() => handleOpenApplyModal(job.id)}>
-                    Nộp đơn ứng tuyển
+                  </CardContent>
+                </div>
+                
+                {/* MỚI THÊM: Nút nộp đơn */}
+                <CardFooter className="relative bg-slate-50/50 border-t p-4 flex justify-end z-10">
+                  <Button
+                    variant="cta"
+                    className="bg-primary text-primary-foreground hover:bg-primary-dark w-auto px-5"
+                    style={{
+                      backgroundColor: pageContent.applyButtonBackgroundColor ? String(pageContent.applyButtonBackgroundColor) : undefined,
+                      color: pageContent.applyButtonTextColor ? String(pageContent.applyButtonTextColor) : undefined,
+                    }}
+                    onClick={() => handleOpenApplyModal(job.id)}
+                  >
+                    {uiText("jobs.apply.button", t("jobs.apply.button"))}
                   </Button>
                 </CardFooter>
               </Card>
             ))}
           </div>
         )}
-      </section>
-      <Dialog
-        open={!!applyJobId}
+        </div>}
+      </section>}
+
+      {/* MỚI THÊM: Giao diện Modal Chọn CV nộp đơn */}
+      <Dialog 
+        open={!!applyJobId} 
         onOpenChange={(open) => {
           if (!open) {
             setApplyJobId(null);
@@ -544,14 +614,15 @@ const Jobs: React.FC = () => {
           }
         }}
       >
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-[500px] overflow-hidden">
           <DialogHeader>
             <DialogTitle>Chọn CV ứng tuyển</DialogTitle>
             <DialogDescription>
               Vui lòng chọn 1 CV từ hồ sơ của bạn để nộp cho vị trí này.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
+
+          <div className="min-w-0 py-4">
             {!user?.cvList || user.cvList.length === 0 ? (
               <div className="text-center py-6 border-2 border-dashed rounded-lg bg-slate-50">
                 <FileText className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
@@ -562,21 +633,22 @@ const Jobs: React.FC = () => {
                 </Button>
               </div>
             ) : (
-              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+              <div className="max-h-[300px] w-full min-w-0 space-y-3 overflow-x-hidden overflow-y-auto pr-2">
                 {user.cvList.map((cv) => (
                   <div
                     key={cv.id}
                     onClick={() => setSelectedCvId(cv.id)}
-                    className={`flex items-center gap-4 p-4 border rounded-xl cursor-pointer transition-all ${selectedCvId === cv.id
-                      ? "border-primary bg-primary/5 shadow-sm"
-                      : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
-                      }`}
+                    className={`flex w-full min-w-0 max-w-full items-center gap-4 overflow-hidden p-4 border rounded-xl cursor-pointer transition-all ${
+                      selectedCvId === cv.id 
+                        ? "border-primary bg-primary/5 shadow-sm" 
+                        : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                    }`}
                   >
-                    <div className={`p-2 rounded-lg ${selectedCvId === cv.id ? "bg-primary/10 text-primary" : "bg-slate-100 text-slate-500"}`}>
+                    <div className={`shrink-0 p-2 rounded-lg ${selectedCvId === cv.id ? "bg-primary/10 text-primary" : "bg-slate-100 text-slate-500"}`}>
                       <FileText className="h-6 w-6" />
                     </div>
-                    <div className="flex-1 overflow-hidden">
-                      <p className={`text-sm font-semibold truncate ${selectedCvId === cv.id ? "text-primary" : "text-slate-900"}`}>
+                    <div className="min-w-0 flex-1 basis-0 overflow-hidden">
+                      <p title={cv.name} className={`block max-w-full truncate text-sm font-semibold ${selectedCvId === cv.id ? "text-primary" : "text-slate-900"}`}>
                         {cv.name}
                       </p>
                       <p className="text-xs text-slate-500 mt-1">
@@ -632,6 +704,7 @@ const Jobs: React.FC = () => {
         </DialogContent>
       </Dialog>
 
+      <SanityPageSections routePath="/jobs" placement="bottom" />
     </main>
   );
 };

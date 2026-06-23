@@ -67,6 +67,8 @@
   "nav": {
     "profile": "Thông tin cá nhân",
     "logout": "Đăng xuất",
+    "logoutConfirmTitle": "Xác nhận đăng xuất",
+    "logoutConfirmDescription": "Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?",
     "login": "Đăng nhập",
     "register": "Đăng ký",
     "admin": "Quản trị viên",
@@ -186,6 +188,7 @@
     "searchPlaceholder": "Ví dụ: Frontend, Data, Sales...",
     "searchButton": "Tìm kiếm",
     "aboutTitle": "Giới thiệu dự án",
+    "aboutLead": "ĐÂY LÀ DỰ ÁN CỦA MỘT SỐ SINH VIÊN HCMUT VÀ SGU",
     "aboutIntro": "Đây là dự án thực tập của nhóm sinh viên Trường Đại học Bách Khoa TP.HCM (HCMUT) và Đại học Sài Gòn (SGU) khi làm việc tại doanh nghiệp MSC Center. Lấy cảm hứng từ LinkedIn và TopCV, InternHiring được triển khai nhằm hỗ trợ người dùng tìm kiếm cơ hội việc làm, đặc biệt là các vị trí thực tập cho sinh viên Việt Nam, thông qua nền tảng web song ngữ, thân thiện.",
     "aboutIntroLong": "InternHiring được phát triển trong khuôn khổ thực tập hợp tác cùng MSC Center bởi sinh viên HCMUT và SGU. Nền tảng được lấy cảm hứng từ các dịch vụ nghề nghiệp như LinkedIn và TopCV, tập trung vào các tính năng thực tiễn: giao diện song ngữ, xác thực nhà tuyển dụng, hiển thị đối tác, và danh sách việc làm/tuyển dụng được tuyển chọn để hỗ trợ sinh viên tìm cơ hội phù hợp.",
     "aboutCardProjectTitle": "Dự án",
@@ -200,8 +203,9 @@
     "viewAll": "Xem tất cả",
     "apply": "Nộp hồ sơ",
     "partnersTitle": "Đối tác & Tập đoàn",
-    "partnersSubtitle": "Các công ty tuyển dụng hàng đầu",
+    "partnersSubtitle": "Các công ty đã được duyệt",
     "partnerRowAria": "Dòng đối tác {{number}}",
+    "partnersEmpty": "Các hồ sơ công ty đã được duyệt sẽ hiển thị tại đây.",
     "recruiterCtaTitle": "Bạn là nhà tuyển dụng? Hãy tiến hành xác thực với chúng tôi.",
     "recruiterCtaButton": "Yêu cầu xác thực",
     "footer": "© 2026 InternHiring MSC Center. All rights reserved.",
@@ -340,6 +344,8 @@
     "badge": "RECRUITER",
     "title": "Trang nhà tuyển dụng",
     "description": "Đăng việc làm mới và quản lý trạng thái hiển thị cho các bài đăng của bạn.",
+    "companyProfileUpdatePending": "Yêu cầu cập nhật đang chờ duyệt",
+    "companyProfileUpdatePendingDescription": "Yêu cầu cập nhật hồ sơ công ty của bạn đang chờ admin hoặc moderator duyệt. Thông tin công khai hiện tại chưa thay đổi.",
     "stats": {
       "jobStatsTitle": "Thống kê bài đăng",
       "applicantStatsTitle": "Thống kê ứng viên",
@@ -411,17 +417,20 @@
       "show": "Hiện",
       "delete": "Xóa",
       "edit": "Sửa",
-      "history": "Lịch sử"
+      "history": "Lịch sử",
+      "allStatuses": "Tất cả trạng thái"
     },
     "applications": {
       "approve": "Duyệt",
       "reject": "Từ chối",
       "title": "Hồ sơ ứng tuyển",
+      "searchPlaceholder": "Tìm kiếm ứng viên, công việc...",
       "empty": "Chưa có ứng viên nào nộp hồ sơ.",
       "applicant": "Ứng viên",
       "jobTitle": "Vị trí ứng tuyển",
       "appliedAt": "Ngày nộp",
       "viewCv": "Xem CV",
+      "allStatuses": "Tất cả trạng thái",
       "statuses": {
         "PENDING": "Chờ",
         "APPROVED": "Duyệt",
@@ -538,7 +547,11 @@
     "companyProfileLoadError": "Không thể tải hồ sơ công ty",
     "companyTaxCode": "Mã số thuế",
     "companyPhone": "Điện thoại",
-    "companyAddress": "Địa chỉ"
+    "companyAddress": "Địa chỉ",
+    "emailNotifications": "Thông báo qua email",
+    "emailNotificationsDescription": "Nhận cập nhật quan trọng về tài khoản và hồ sơ qua email.",
+    "emailNotificationsSaved": "Đã lưu tùy chọn thông báo qua email.",
+    "emailNotificationsSaveError": "Không thể lưu tùy chọn thông báo qua email."
   },
   "avatarCrop": {
     "title": "Cắt ảnh đại diện",
@@ -546,16 +559,46 @@
     "submit": "Cắt & Cập nhật"
   },
   "moderator": {
-    "badge": "MODERATOR",
-    "title": "Duyệt tin tuyển dụng",
-    "description": "Duyệt hoặc từ chối các tin tuyển dụng do nhà tuyển dụng đăng lên.",
+    "badge": "Kiểm duyệt viên",
+    "title": "Bảng kiểm duyệt",
+    "description": "Quản lý và duyệt các tin tuyển dụng và yêu cầu xác thực doanh nghiệp trên toàn hệ thống.",
     "stats": {
       "pendingTitle": "Tin chờ duyệt",
-      "pendingDescription": "Các tin tuyển dụng đang ở trạng thái chờ duyệt"
+      "pendingDescription": "Các tin tuyển dụng đang ở trạng thái chờ duyệt",
+      "jobsTitle": "Thống kê Bài đăng",
+      "companiesTitle": "Thống kê Công ty",
+      "totalJobs": "Tổng số bài đăng",
+      "visibleJobs": "Đang hiển thị",
+      "hiddenJobs": "Đã ẩn",
+      "totalCompanies": "Tổng số công ty",
+      "approvedCompanies": "Đã duyệt",
+      "rejectedCompanies": "Đã từ chối"
+    },
+    "tabs": {
+      "jobs": "Bài đăng",
+      "companies": "Công ty"
     },
     "jobs": {
-      "title": "Tin tuyển dụng chờ duyệt",
-      "empty": "Hiện không có tin tuyển dụng nào đang chờ duyệt."
+      "title": "Quản lý tin tuyển dụng",
+      "empty": "Không có bài đăng tuyển dụng nào.",
+      "allStatuses": "Tất cả trạng thái",
+      "allVisibility": "Tất cả hiển thị",
+      "visibleOnly": "Đang hiển thị",
+      "hiddenOnly": "Đã ẩn",
+      "searchPlaceholder": "Tìm kiếm tiêu đề, công ty..."
+    },
+    "companies": {
+      "title": "Yêu cầu xác thực công ty",
+      "empty": "Không có yêu cầu xác thực công ty nào.",
+      "searchPlaceholder": "Tìm kiếm email, tên công ty...",
+      "allStatuses": "Tất cả trạng thái",
+      "applicant": "Người yêu cầu",
+      "companyName": "Tên doanh nghiệp",
+      "taxCode": "Mã số thuế",
+      "submittedDate": "Ngày gửi",
+      "dialogTitle": "Chi tiết hồ sơ xác thực công ty",
+      "reviewNote": "Ghi chú duyệt",
+      "reviewNotePlaceholder": "Nhập lý do nếu từ chối yêu cầu..."
     }
   },
   "candidateDashboard": {
@@ -637,6 +680,7 @@
     },
     "users": {
       "title": "Danh sách tài khoản người dùng",
+      "searchPlaceholder": "Tìm kiếm email, họ tên...",
       "fullName": "Họ tên",
       "restricted": "Hạn chế",
       "active": "Hoạt động",
@@ -768,7 +812,7 @@
       "backgroundColor": "Màu nền",
       "textColor": "Màu chữ",
       "imageUrl": "URL hình ảnh",
-      "imageUrlPlaceholder": "Ví dụ: /carousel/YESCO.webp hoặc https://...",
+      "imageUrlPlaceholder": "Ví dụ: https://example.com/image.webp",
       "imageUpload": "Tải ảnh từ máy",
       "clearImage": "Xóa ảnh",
       "imageInvalid": "Vui lòng chọn file ảnh hợp lệ.",
@@ -862,7 +906,9 @@
       "imageInvalid": "Vui lòng chọn một file ảnh hợp lệ.",
       "imageTooLarge": "Kích thước ảnh không được vượt quá 2MB.",
       "imageUploadSuccess": "Đã tải ảnh tiêu đề lên thành công.",
-      "imageUploadError": "Không thể tải ảnh tiêu đề lên."
+      "imageUploadError": "Không thể tải ảnh tiêu đề lên.",
+      "dragDropText": "Kéo thả ảnh vào đây hoặc click để tải lên",
+      "imageHint": "PNG, JPG, JPEG (tối đa 2MB)"
     }
   },
   "notFound": {
@@ -876,6 +922,10 @@
     "description": "Hoàn tất hồ sơ công ty và gửi cho admin duyệt trước khi trở thành nhà tuyển dụng.",
     "updateTitle": "Chỉnh sửa hồ sơ công ty",
     "updateDescription": "Gửi thông tin cập nhật cho admin duyệt. Hồ sơ công ty trên hệ thống chỉ thay đổi sau khi được duyệt.",
+    "pendingTitle": "Yêu cầu xác thực đang chờ duyệt",
+    "pendingDescription": "Yêu cầu xác thực công ty của bạn đang chờ admin hoặc moderator duyệt.",
+    "pendingUpdateTitle": "Yêu cầu cập nhật hồ sơ công ty đang chờ duyệt",
+    "pendingUpdateDescription": "Yêu cầu cập nhật của bạn đang chờ admin hoặc moderator duyệt. Thông tin công ty công khai hiện tại chưa thay đổi cho tới khi được duyệt.",
     "sections": {
       "branding": "Nhận diện thương hiệu",
       "legal": "Thông tin công ty",

@@ -266,7 +266,10 @@ export type CandidateApplication = {
   company?: string | null;
   location?: string | null;
   salary?: string | null;
+  currency?: string | null;
+  mode?: string | null;
   jobType?: string | null;
+  experience?: string | null;
   applicantId: string | number;
   applicantName: string;
   applicantEmail: string;
@@ -557,6 +560,11 @@ export const recruiterApi = {
       body: JSON.stringify({ formData }),
     }),
 
+  getPendingApplication: (token: string) =>
+    apiRequest<RecruiterApplication | undefined>("/api/recruiter/applications/me/pending", {
+      headers: authHeaders(token),
+    }),
+
   listApplications: (token: string, status?: RecruiterApplication["status"]) =>
     apiRequest<RecruiterApplication[]>("/api/recruiter/applications", {
       headers: authHeaders(token),
@@ -640,6 +648,9 @@ export const recruiterApi = {
 };
 
 export const companyApi = {
+  listCompanies: () =>
+    apiRequest<CompanyProfile[]>("/api/companies"),
+
   getCompanyProfile: (id: string | number) =>
     apiRequest<CompanyProfile>(`/api/companies/${encodeURIComponent(String(id))}`),
 
@@ -669,6 +680,11 @@ export type ModeratorJobPost = {
 };
 
 export const moderatorApi = {
+  listAllJobs: (token: string) =>
+    apiRequest<ModeratorJobPost[]>("/api/moderator/jobs", {
+      headers: authHeaders(token),
+    }),
+
   listPendingJobs: (token: string) =>
     apiRequest<ModeratorJobPost[]>("/api/moderator/jobs/pending", {
       headers: authHeaders(token),
@@ -687,6 +703,19 @@ export const moderatorApi = {
 
   rejectJob: (token: string, jobId: string | number) =>
     apiRequest<ModeratorJobPost>(`/api/moderator/jobs/${encodeURIComponent(String(jobId))}/reject`, {
+      method: "PATCH",
+      headers: authHeaders(token),
+    }),
+
+  toggleJobHidden: (token: string, jobId: string | number, hidden: boolean) =>
+    apiRequest<ModeratorJobPost>(`/api/moderator/jobs/${encodeURIComponent(String(jobId))}/hidden`, {
+      method: "PATCH",
+      headers: authHeaders(token),
+      body: JSON.stringify({ hidden }),
+    }),
+
+  trashJob: (token: string, jobId: string | number) =>
+    apiRequest<ModeratorJobPost>(`/api/moderator/jobs/${encodeURIComponent(String(jobId))}/trash`, {
       method: "PATCH",
       headers: authHeaders(token),
     }),

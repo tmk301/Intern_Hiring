@@ -179,6 +179,60 @@ export function NotificationButton({ user, token, mobile = false }: Notification
     });
   }, [notifications]);
 
+  useEffect(() => {
+    // 1. Dynamic Page Title
+    const titleEl = document.querySelector("title");
+    if (titleEl) {
+      const rawTitle = titleEl.textContent || "InternHiring";
+      const baseTitle = rawTitle.replace(/\s*\(\d+\)/g, "");
+      const targetTitle = unreadCount > 0 ? `${baseTitle} (${unreadCount})` : baseTitle;
+      if (titleEl.textContent !== targetTitle) {
+        titleEl.textContent = targetTitle;
+      }
+    }
+
+    // 2. Dynamic Favicon Dot
+    let faviconEl = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+    if (!faviconEl) {
+      faviconEl = document.createElement("link");
+      faviconEl.rel = "icon";
+      document.head.appendChild(faviconEl);
+    }
+
+    if (unreadCount === 0) {
+      faviconEl.href = "/favicon.ico";
+    } else {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = "/favicon.ico";
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 32;
+        canvas.height = 32;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, 32, 32);
+          
+          // Red dot top-right
+          const radius = 6;
+          const x = 32 - radius;
+          const y = radius;
+          
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, 2 * Math.PI, false);
+          ctx.fillStyle = "#ef4444";
+          ctx.fill();
+          
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = "#ffffff";
+          ctx.stroke();
+          
+          faviconEl.href = canvas.toDataURL("image/png");
+        }
+      };
+    }
+  }, [unreadCount]);
+
   const openNotification = async (notification: NotificationItem) => {
     if (selectMode) {
       toggleNotificationSelection(notification.id);

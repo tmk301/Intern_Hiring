@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import {
   BriefcaseBusiness,
   CalendarDays,
@@ -21,6 +21,7 @@ import {
   getReviewStatusBadgeClassName,
   getReviewStatusTranslationKey,
   getRoleBadgeClassName,
+  getRoleBadgeDarkClassName,
 } from "@/lib/dashboardStyles";
 import { isCandidateRole, USER_ROLES } from "@/lib/roles";
 import { CURRENCY_OPTIONS, defaultJobFilterOptions, getSalaryRangeOption, JOB_TYPE_OPTIONS, WORK_MODE_OPTIONS } from "@/components/jobs/jobFilterConfig";
@@ -31,41 +32,8 @@ import { PaginationControls } from "@/components/ui/pagination-controls";
 import { paginateItems } from "@/lib/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-const formatDate = (value: string) =>
-  new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(value));
-
-const ApplicationCard = ({ application }: { application: CandidateApplication }) => {
-  const { t } = useTranslation();
-  return (
-    <article className="group relative overflow-hidden rounded-xl border bg-card p-5 shadow-soft transition-smooth hover:-translate-y-1 hover:shadow-medium">
-      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary-light to-accent" />
-      <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary/10 transition-smooth group-hover:scale-125" />
-      <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className={getReviewStatusBadgeClassName(application.status)}>
-              {t(`recruiter.applications.statuses.${getReviewStatusTranslationKey(application.status)}`)}
-            </Badge>
-            {application.jobType && <Badge variant="secondary" className="rounded-full px-3 py-1">{JOB_TYPE_OPTIONS.find(o => o.value === application.jobType)?.labelKey ? t(JOB_TYPE_OPTIONS.find(o => o.value === application.jobType)!.labelKey!) : application.jobType}</Badge>}
-          </div>
-          <div>
-            <h2 className="text-xl font-bold tracking-tight text-foreground">{application.jobTitle || t("candidateDashboard.jobPosition")}</h2>
-            <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground"><BriefcaseBusiness className="h-4 w-4 text-primary" />{application.company || t("candidateDashboard.recruitingCompany")}</p>
-          </div>
-          <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-            {application.location && <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1"><MapPin className="h-4 w-4 text-primary" />{application.location}</span>}
-            <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1"><CalendarDays className="h-4 w-4 text-primary" />{t("candidateDashboard.appliedDate", { date: formatDate(application.appliedAt) })}</span>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2 lg:justify-end">
-          <Button asChild variant="outline" className="border-primary text-primary hover:bg-primary/10 hover:text-primary"><a href={application.appliedCvUrl} target="_blank" rel="noreferrer"><FileText className="mr-2 h-4 w-4" />{t("candidateDashboard.sentCv")}</a></Button>
-          <Button asChild variant="cta" className="bg-primary text-primary-foreground hover:bg-primary-dark"><Link to={`/jobs?jobId=${application.jobId}`}><ExternalLink className="mr-2 h-4 w-4" />{t("candidateDashboard.viewJob")}</Link></Button>
-        </div>
-      </div>
-    </article>
-  );
-};
+import { SanityPageSections } from "@/components/sanity/SanityPageSections";
+import { useSanityInterfaceText } from "@/lib/sanityInterfaceText";
 
 const getOptionLabel = (
   options: Array<{ value: string; labelKey?: string }>,
@@ -77,6 +45,66 @@ const getOptionLabel = (
   return option?.labelKey ? translate(option.labelKey) : value;
 };
 
+const formatDate = (value: string) =>
+  new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(value));
+
+const ApplicationCard = ({ application }: { application: CandidateApplication }) => {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+
+  const jobTypeLabel = getOptionLabel(JOB_TYPE_OPTIONS, application.jobType, t);
+  const workModeLabel = getOptionLabel(WORK_MODE_OPTIONS, application.mode, t);
+  const salaryRange = application.salary ? getSalaryRangeOption(application.salary) : undefined;
+  const salaryLabel = application.salary
+    ? `${salaryRange?.labelKey ? t(salaryRange.labelKey) : application.salary}${
+        application.currency ? ` ${getOptionLabel(CURRENCY_OPTIONS, application.currency, t)}` : ""
+      }`
+    : "";
+  const experienceLabel = getOptionLabel(defaultJobFilterOptions.experience, application.experience, t);
+
+  return (
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={() => navigate(`/jobs/${application.jobId}`)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          navigate(`/jobs/${application.jobId}`);
+        }
+      }}
+      className="group relative overflow-hidden rounded-xl border bg-card p-5 shadow-soft transition-smooth hover:-translate-y-1 hover:shadow-medium cursor-pointer"
+    >
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-primary-light" />
+      <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary/10 transition-smooth group-hover:scale-125" />
+      <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className={getReviewStatusBadgeClassName(application.status)}>
+              {t(`recruiter.applications.statuses.${getReviewStatusTranslationKey(application.status)}`)}
+            </Badge>
+            {jobTypeLabel && <Badge variant="secondary" className="rounded-full px-3 py-1">{jobTypeLabel}</Badge>}
+            {salaryLabel && <Badge variant="secondary" className="rounded-full px-3 py-1">{salaryLabel}</Badge>}
+            {workModeLabel && <Badge variant="secondary" className="rounded-full px-3 py-1">{workModeLabel}</Badge>}
+            {experienceLabel && <Badge variant="secondary" className="rounded-full px-3 py-1">{experienceLabel}</Badge>}
+          </div>
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-foreground">{application.jobTitle || t("candidateDashboard.jobPosition")}</h2>
+            <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground"><BriefcaseBusiness className="h-4 w-4 text-primary" />{application.company || t("candidateDashboard.recruitingCompany")}</p>
+          </div>
+          <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+            {application.location && <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1"><MapPin className="h-4 w-4 text-primary" />{application.location}</span>}
+            <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1"><CalendarDays className="h-4 w-4 text-primary" />{t("candidateDashboard.appliedDate", { date: formatDate(application.appliedAt) })}</span>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 lg:justify-end relative z-10" onClick={(e) => e.stopPropagation()}>
+          <Button asChild variant="outline" className="border-primary text-primary hover:bg-primary/10 hover:text-primary"><a href={application.appliedCvUrl} target="_blank" rel="noreferrer"><FileText className="mr-2 h-4 w-4" />{t("candidateDashboard.sentCv")}</a></Button>
+        </div>
+      </div>
+    </article>
+  );
+};
+
 const FavoriteJobCard = ({
   job,
   onFavoriteChange,
@@ -85,6 +113,7 @@ const FavoriteJobCard = ({
   onFavoriteChange: (job: PublicJobPost, isFavorited: boolean) => void;
 }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const jobTypeLabel = getOptionLabel(JOB_TYPE_OPTIONS, job.type, t);
   const workModeLabel = getOptionLabel(WORK_MODE_OPTIONS, job.mode, t);
   const salaryRange = job.salary ? getSalaryRangeOption(job.salary) : undefined;
@@ -96,19 +125,33 @@ const FavoriteJobCard = ({
   const experienceLabel = getOptionLabel(defaultJobFilterOptions.experience, job.experience, t);
 
   return (
-    <article className="relative overflow-hidden rounded-xl border bg-card p-5 shadow-soft transition-smooth hover:-translate-y-1 hover:shadow-medium">
-      <FavoriteJobButton
-        jobId={job.id}
-        isFavorited
-        onFavoriteChange={onFavoriteChange}
-        className="absolute right-4 top-4"
-      />
-      <div className="space-y-4 pr-12">
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={() => navigate(`/jobs/${job.id}`)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          navigate(`/jobs/${job.id}`);
+        }
+      }}
+      className="group relative overflow-hidden rounded-xl border bg-card p-5 shadow-soft transition-smooth hover:-translate-y-1 hover:shadow-medium cursor-pointer"
+    >
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-primary-light" />
+      <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary/10 transition-smooth group-hover:scale-125" />
+      <div onClick={(e) => e.stopPropagation()} className="absolute right-4 top-4 z-10">
+        <FavoriteJobButton
+          jobId={job.id}
+          isFavorited
+          onFavoriteChange={onFavoriteChange}
+        />
+      </div>
+      <div className="relative space-y-4 pr-12">
         <div className="flex flex-wrap gap-2">
-          {jobTypeLabel && <Badge variant="outline">{jobTypeLabel}</Badge>}
-          {salaryLabel && <Badge variant="outline">{salaryLabel}</Badge>}
-          {workModeLabel && <Badge variant="outline">{workModeLabel}</Badge>}
-          {experienceLabel && <Badge variant="outline">{experienceLabel}</Badge>}
+          {jobTypeLabel && <Badge variant="secondary" className="rounded-full px-3 py-1">{jobTypeLabel}</Badge>}
+          {salaryLabel && <Badge variant="secondary" className="rounded-full px-3 py-1">{salaryLabel}</Badge>}
+          {workModeLabel && <Badge variant="secondary" className="rounded-full px-3 py-1">{workModeLabel}</Badge>}
+          {experienceLabel && <Badge variant="secondary" className="rounded-full px-3 py-1">{experienceLabel}</Badge>}
         </div>
         <div>
           <h2 className="text-xl font-bold tracking-tight text-foreground">{job.title || t("jobs.page.untitled")}</h2>
@@ -129,12 +172,6 @@ const FavoriteJobCard = ({
             {t("candidateDashboard.favoriteCount", { count: job.favoriteCount ?? 0 })}
           </span>
         </div>
-        <Button asChild variant="cta" className="bg-primary text-primary-foreground hover:bg-primary-dark">
-          <Link to={`/jobs/${job.id}`}>
-            <ExternalLink className="mr-2 h-4 w-4" />
-            {t("candidateDashboard.viewJob")}
-          </Link>
-        </Button>
       </div>
     </article>
   );
@@ -142,6 +179,7 @@ const FavoriteJobCard = ({
 
 const EmptyState = ({ type }: { type: "submitted" | "accepted" | "rejected" | "favorites" }) => {
   const { t } = useTranslation();
+  const uiText = useSanityInterfaceText("/applications");
 
   const getIcon = () => {
     switch (type) {
@@ -167,7 +205,7 @@ const EmptyState = ({ type }: { type: "submitted" | "accepted" | "rejected" | "f
         return t("candidateDashboard.emptyFavoritesTitle");
       case "submitted":
       default:
-        return t("candidateDashboard.emptySubmittedTitle");
+        return uiText("applications.empty.submittedTitle", t("candidateDashboard.emptySubmittedTitle"));
     }
   };
 
@@ -198,7 +236,7 @@ const EmptyState = ({ type }: { type: "submitted" | "accepted" | "rejected" | "f
       </p>
       {(type === "submitted" || type === "favorites") && (
         <Button asChild variant="cta" className="mt-5 bg-primary text-primary-foreground hover:bg-primary-dark">
-          <Link to="/jobs">{t("candidateDashboard.findJobNow")}</Link>
+        <Link to="/jobs">{uiText("applications.empty.findJobsButton", t("candidateDashboard.findJobNow"))}</Link>
         </Button>
       )}
     </div>
@@ -219,6 +257,7 @@ const LoadingState = () => (
 
 const Applications = () => {
   const { t } = useTranslation();
+  const uiText = useSanityInterfaceText("/applications");
   const { token, user, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<"submitted" | "accepted" | "rejected" | "favorites">("submitted");
   
@@ -291,25 +330,27 @@ const Applications = () => {
         return t("candidateDashboard.favoritesListTitle");
       case "submitted":
       default:
-        return t("candidateDashboard.submittedListTitle");
+        return uiText("applications.tabs.submitted", t("candidateDashboard.submittedListTitle"));
+
     }
   };
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <section className="border-b bg-white">
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <SanityPageSections routePath="/applications" placement="top" />
+      <section className="hero-gradient text-white py-8 shadow-sm">
+        <div className="container mx-auto px-4 max-w-6xl">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <Badge variant="outline" className={`mb-3 px-5 py-2 text-sm ${getRoleBadgeClassName(USER_ROLES.CANDIDATE)}`}>
+              <Badge variant="outline" className={`mb-3 px-5 py-2 text-sm ${getRoleBadgeDarkClassName(USER_ROLES.CANDIDATE)}`}>
                 {t("role.CANDIDATE")}
               </Badge>
-              <h1 className="text-3xl font-bold text-slate-950">{t("candidateDashboard.title")}</h1>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {t("candidateDashboard.description")}
+              <h1 className="text-3xl font-bold text-white">{uiText("applications.hero.title", t("candidateDashboard.title"))}</h1>
+              <p className="mt-2 text-sm text-blue-100/90">
+                {uiText("applications.hero.description", t("candidateDashboard.description"))}
               </p>
             </div>
-            <Button variant="outline" onClick={() => { refetch(); refetchFavorites(); }} disabled={isLoading || isFavoritesLoading}>
+            <Button variant="outline" className="bg-white text-slate-900 hover:bg-slate-50 border-transparent shadow-sm w-auto" onClick={() => { refetch(); refetchFavorites(); }} disabled={isLoading || isFavoritesLoading}>
               {isLoading || isFavoritesLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               {t("common.refresh")}
             </Button>
@@ -317,14 +358,16 @@ const Applications = () => {
         </div>
       </section>
 
+      <SanityPageSections routePath="/applications" placement="afterHero" />
+
       <section className="container mx-auto space-y-6 px-4 py-8 max-w-6xl">
-        <div className="grid gap-4 md:grid-cols-4 xl:grid-cols-6">
+        <div className="flex flex-wrap gap-4">
           <Card
-            className={`cursor-pointer transition hover:shadow-md ${activeTab === "submitted" ? "border-primary" : ""}`}
+            className={`flex-1 min-w-[240px] cursor-pointer transition hover:shadow-md ${activeTab === "submitted" ? "border-primary" : ""}`}
             onClick={() => setActiveTab("submitted")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("candidateDashboard.submitted")}</CardTitle>
+              <CardTitle className="text-sm font-medium">{uiText("applications.tabs.submitted", t("candidateDashboard.submitted"))}</CardTitle>
               <Clock3 className="h-5 w-5 text-amber-600" />
             </CardHeader>
             <CardContent>
@@ -334,11 +377,11 @@ const Applications = () => {
           </Card>
 
           <Card
-            className={`cursor-pointer transition hover:shadow-md ${activeTab === "accepted" ? "border-primary" : ""}`}
+            className={`flex-1 min-w-[240px] cursor-pointer transition hover:shadow-md ${activeTab === "accepted" ? "border-primary" : ""}`}
             onClick={() => setActiveTab("accepted")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("candidateDashboard.accepted")}</CardTitle>
+              <CardTitle className="text-sm font-medium">{uiText("applications.tabs.accepted", t("candidateDashboard.accepted"))}</CardTitle>
               <CheckCircle2 className="h-5 w-5 text-emerald-600" />
             </CardHeader>
             <CardContent>
@@ -348,11 +391,11 @@ const Applications = () => {
           </Card>
 
           <Card
-            className={`cursor-pointer transition hover:shadow-md ${activeTab === "rejected" ? "border-primary" : ""}`}
+            className={`flex-1 min-w-[240px] cursor-pointer transition hover:shadow-md ${activeTab === "rejected" ? "border-primary" : ""}`}
             onClick={() => setActiveTab("rejected")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("candidateDashboard.rejected")}</CardTitle>
+              <CardTitle className="text-sm font-medium">{uiText("applications.tabs.rejected", t("candidateDashboard.rejected"))}</CardTitle>
               <XCircle className="h-5 w-5 text-red-600" />
             </CardHeader>
             <CardContent>
@@ -362,11 +405,11 @@ const Applications = () => {
           </Card>
 
           <Card
-            className={`cursor-pointer transition hover:shadow-md ${activeTab === "favorites" ? "border-primary" : ""}`}
+            className={`flex-1 min-w-[240px] cursor-pointer transition hover:shadow-md ${activeTab === "favorites" ? "border-primary" : ""}`}
             onClick={() => setActiveTab("favorites")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("candidateDashboard.favorites")}</CardTitle>
+              <CardTitle className="text-sm font-medium">{uiText("applications.tabs.favorites", t("candidateDashboard.favorites"))}</CardTitle>
               <Heart className="h-5 w-5 text-rose-600" />
             </CardHeader>
             <CardContent>
@@ -482,6 +525,7 @@ const Applications = () => {
           </Card>
         )}
       </section>
+      <SanityPageSections routePath="/applications" placement="bottom" />
     </main>
   );
 };

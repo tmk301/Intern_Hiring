@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -13,6 +13,7 @@ import {
   Loader2,
   PlusCircle,
   RefreshCw,
+  Search,
   Trash2,
   Users,
   CheckCircle2,
@@ -37,7 +38,7 @@ import {
 } from "@/components/jobs/jobFilterConfig";
 import { isRecruiterRole } from "@/lib/roles";
 import { recruiterApi, CandidateApplication, CompanyProfile, isApiError, type RecruiterJobChangeLog, type RecruiterJobSnapshot } from "@/lib/api";
-import { getReviewStatusBadgeClassName, getReviewStatusTranslationKey, getRoleBadgeClassName, normalizeRoleName } from "@/lib/dashboardStyles";
+import { getReviewStatusBadgeClassName, getReviewStatusTranslationKey, getRoleBadgeClassName, getRoleBadgeDarkClassName, normalizeRoleName } from "@/lib/dashboardStyles";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { PaginationControls } from "@/components/ui/pagination-controls";
@@ -50,6 +51,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { useSanityInterfaceText } from "@/lib/sanityInterfaceText";
 
 type JobSortKey = "title" | "company" | "type" | "applicationDeadline" | "status" | "createdAt";
 type ApplicationSortKey = "applicant" | "jobTitle" | "status" | "appliedAt";
@@ -262,12 +264,14 @@ const compareApplications = (
 
 const RecruiterDashboard: React.FC = () => {
   const { t, i18n } = useTranslation();
+  const uiText = useSanityInterfaceText("/recruiter");
   const navigate = useNavigate();
   const { user, token, isAuthenticated, isLoading } = useAuth();
   const [jobs, setJobs] = useState<RecruiterJob[]>([]);
   const [formValue, setFormValue] = useState<JobFormValue>(emptyJobFormValue);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
+  const [pendingCompanyApplication, setPendingCompanyApplication] = useState<RecruiterApplication | undefined>();
   const [loadingCompanyProfile, setLoadingCompanyProfile] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [actionId, setActionId] = useState<string | number | null>(null);
@@ -301,6 +305,34 @@ const RecruiterDashboard: React.FC = () => {
   // State quản lý ứng viên
   const [applications, setApplications] = useState<CandidateApplication[]>([]);
   const [loadingApps, setLoadingApps] = useState(false);
+
+  // State bộ lọc bài đăng của tôi
+  const [jobFilterStatus, setJobFilterStatus] = useState<string>("ALL");
+  const [jobFilterCreatedAt, setJobFilterCreatedAt] = useState<string>("");
+  const [jobFilterDeadline, setJobFilterDeadline] = useState<string>("");
+
+  // State bộ lọc hồ sơ ứng tuyển
+  const [appFilterStatus, setAppFilterStatus] = useState<string>("ALL");
+  const [appFilterAppliedAt, setAppFilterAppliedAt] = useState<string>("");
+
+  // Refs to cards for scrolling
+  const jobListRef = useRef<HTMLDivElement>(null);
+  const applicationsRef = useRef<HTMLDivElement>(null);
+
+  const scrollToElement = (ref: React.RefObject<HTMLDivElement | null>) => {
+    if (ref.current) {
+      const offset = 80; // offset of sticky navbar
+      const bodyRect = document.body.getBoundingClientRect().top;
+      const elementRect = ref.current.getBoundingClientRect().top;
+      const elementPosition = elementRect - bodyRect;
+      const offsetPosition = elementPosition - offset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: "smooth",
+      });
+    }
+  };
 
   const recruiterEmail = user?.email ?? "";
   const recruiterName = useMemo(
@@ -338,6 +370,37 @@ const RecruiterDashboard: React.FC = () => {
     () => [...jobs].sort((first, second) => compareJobs(first, second, jobSort.key, jobSort.direction)),
     [jobSort.direction, jobSort.key, jobs],
   );
+
+  const filteredJobs = useMemo(() => {
+    return sortedJobs.filter((job) => {
+      if (jobFilterStatus !== "ALL") {
+        const hidden = isHiddenJob(job);
+        if (jobFilterStatus === "VISIBLE") {
+          if (hidden) return false;
+        } else if (jobFilterStatus === "HIDDEN") {
+          if (!hidden) return false;
+        } else {
+          const normalized = normalizeStatus(job.status);
+          if (normalized !== jobFilterStatus) return false;
+        }
+      }
+
+      if (jobFilterCreatedAt) {
+        if (!job.created_at || !job.created_at.startsWith(jobFilterCreatedAt)) {
+          return false;
+        }
+      }
+
+      if (jobFilterDeadline) {
+        if (!job.applicationDeadline || job.applicationDeadline !== jobFilterDeadline) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [sortedJobs, jobFilterStatus, jobFilterCreatedAt, jobFilterDeadline]);
+
   const sortedApplications = useMemo(
     () =>
       [...applications].sort((first, second) =>
@@ -345,13 +408,36 @@ const RecruiterDashboard: React.FC = () => {
       ),
     [applicationSort.direction, applicationSort.key, applications],
   );
+
+  const filteredApplications = useMemo(() => {
+    return sortedApplications.filter((app) => {
+      if (appFilterStatus !== "ALL") {
+        if (appFilterStatus === "ACCEPTED") {
+          if (app.status !== "ACCEPTED") return false;
+        } else if (appFilterStatus === "PENDING") {
+          if (app.status !== "PENDING" && app.status !== "REVIEWED") return false;
+        } else {
+          if (app.status !== appFilterStatus) return false;
+        }
+      }
+
+      if (appFilterAppliedAt) {
+        if (!app.appliedAt || !app.appliedAt.startsWith(appFilterAppliedAt)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [sortedApplications, appFilterStatus, appFilterAppliedAt]);
+
   const paginatedJobs = useMemo(
-    () => paginateItems(sortedJobs, jobPage, jobPageSize),
-    [jobPage, jobPageSize, sortedJobs],
+    () => paginateItems(filteredJobs, jobPage, jobPageSize),
+    [jobPage, jobPageSize, filteredJobs],
   );
   const paginatedApplications = useMemo(
-    () => paginateItems(sortedApplications, applicationPage, applicationPageSize),
-    [applicationPage, applicationPageSize, sortedApplications],
+    () => paginateItems(filteredApplications, applicationPage, applicationPageSize),
+    [applicationPage, applicationPageSize, filteredApplications],
   );
 
   const resetForm = useCallback(() => {
@@ -372,15 +458,16 @@ const RecruiterDashboard: React.FC = () => {
 
   useEffect(() => {
     setJobPage(1);
-  }, [jobSort.direction, jobSort.key]);
+  }, [jobSort.direction, jobSort.key, jobFilterStatus, jobFilterCreatedAt, jobFilterDeadline]);
 
   useEffect(() => {
     setApplicationPage(1);
-  }, [applicationSort.direction, applicationSort.key]);
+  }, [applicationSort.direction, applicationSort.key, appFilterStatus, appFilterAppliedAt]);
 
   useEffect(() => {
     if (!token) {
       setCompanyProfile(null);
+      setPendingCompanyApplication(undefined);
       setLoadingCompanyProfile(false);
       return;
     }
@@ -388,15 +475,24 @@ const RecruiterDashboard: React.FC = () => {
     let mounted = true;
     setLoadingCompanyProfile(true);
 
-    recruiterApi.getCompanyProfile(token)
-      .then((profile) => {
-        if (mounted) setCompanyProfile(profile);
-      })
-      .catch((error: unknown) => {
-        if (mounted) setCompanyProfile(null);
-        if (!isApiError(error) || (error.status !== 400 && error.status !== 404)) {
-          toast.error(error instanceof Error ? error.message : t("recruiter.toast.companyProfileLoadError"));
+    Promise.allSettled([
+      recruiterApi.getCompanyProfile(token),
+      recruiterApi.getPendingApplication(token),
+    ])
+      .then(([companyResult, pendingResult]) => {
+        if (!mounted) return;
+
+        if (companyResult.status === "fulfilled") {
+          setCompanyProfile(companyResult.value);
+        } else {
+          setCompanyProfile(null);
+          const error = companyResult.reason as unknown;
+          if (!isApiError(error) || (error.status !== 400 && error.status !== 404)) {
+            toast.error(error instanceof Error ? error.message : t("recruiter.toast.companyProfileLoadError"));
+          }
         }
+
+        setPendingCompanyApplication(pendingResult.status === "fulfilled" ? pendingResult.value : undefined);
       })
       .finally(() => {
         if (mounted) setLoadingCompanyProfile(false);
@@ -747,17 +843,17 @@ const RecruiterDashboard: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <section className="border-b bg-white">
-        <div className="container mx-auto px-4 py-8">
+      <section className="hero-gradient text-white py-8 shadow-sm">
+        <div className="container mx-auto px-4 max-w-6xl">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <Badge variant="outline" className={`mb-3 px-5 py-2 text-sm ${getRoleBadgeClassName(user?.role)}`}>
+              <Badge variant="outline" className={`mb-3 px-5 py-2 text-sm ${getRoleBadgeDarkClassName(user?.role)}`}>
                 {t(`role.${normalizeRoleName(user?.role)}`, { defaultValue: t("recruiter.badge") })}
               </Badge>
-              <h1 className="text-3xl font-bold text-slate-950">{t("recruiter.title")}</h1>
-              <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{t("recruiter.description")}</p>
+              <h1 className="text-3xl font-bold text-white">{uiText("recruiter.title", t("recruiter.title"))}</h1>
+              <p className="mt-2 max-w-3xl text-sm text-blue-100/90">{t("recruiter.description")}</p>
             </div>
-            <Button type="button" variant="outline" className="w-auto" onClick={loadJobs} disabled={loadingJobs}>
+            <Button type="button" variant="outline" className="bg-white text-slate-900 hover:bg-slate-50 border-transparent shadow-sm w-auto" onClick={loadJobs} disabled={loadingJobs}>
               {loadingJobs ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               {t("common.refresh")}
             </Button>
@@ -765,32 +861,41 @@ const RecruiterDashboard: React.FC = () => {
         </div>
       </section>
 
-      <section className="container mx-auto space-y-6 px-4 py-8">
+      <section className="container mx-auto space-y-6 px-4 py-8 max-w-6xl">
         {/* Thống kê */}
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t("recruiter.stats.jobStatsTitle")}</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{uiText("recruiter.stats.jobStatsTitle", t("recruiter.stats.jobStatsTitle"))}</h2>
           <div className="grid gap-4 md:grid-cols-3">
-          <Card>
+          <Card
+            className="cursor-pointer transition hover:shadow-md"
+            onClick={() => { setJobFilterStatus("ALL"); scrollToElement(jobListRef); }}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("recruiter.stats.total")}</CardTitle>
+              <CardTitle className="text-sm font-medium">{uiText("recruiter.stats.total", t("recruiter.stats.total"))}</CardTitle>
               <Briefcase className="h-5 w-5 text-primary" />
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{jobs.length}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card
+            className="cursor-pointer transition hover:shadow-md"
+            onClick={() => { setJobFilterStatus("VISIBLE"); scrollToElement(jobListRef); }}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("recruiter.stats.visible")}</CardTitle>
+              <CardTitle className="text-sm font-medium">{uiText("recruiter.stats.visible", t("recruiter.stats.visible"))}</CardTitle>
               <Eye className="h-5 w-5 text-emerald-600" />
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{visibleJobs.length}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card
+            className="cursor-pointer transition hover:shadow-md"
+            onClick={() => { setJobFilterStatus("HIDDEN"); scrollToElement(jobListRef); }}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("recruiter.stats.hidden")}</CardTitle>
+              <CardTitle className="text-sm font-medium">{uiText("recruiter.stats.hidden", t("recruiter.stats.hidden"))}</CardTitle>
               <EyeOff className="h-5 w-5 text-amber-600" />
             </CardHeader>
             <CardContent>
@@ -801,29 +906,38 @@ const RecruiterDashboard: React.FC = () => {
         </div>
 
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t("recruiter.stats.applicantStatsTitle")}</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{uiText("recruiter.stats.applicantStatsTitle", t("recruiter.stats.applicantStatsTitle"))}</h2>
           <div className="grid gap-4 md:grid-cols-3">
-          <Card>
+          <Card
+            className="cursor-pointer transition hover:shadow-md"
+            onClick={() => { setAppFilterStatus("ALL"); scrollToElement(applicationsRef); }}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("recruiter.stats.totalApplicants")}</CardTitle>
+              <CardTitle className="text-sm font-medium">{uiText("recruiter.stats.totalApplicants", t("recruiter.stats.totalApplicants"))}</CardTitle>
               <Users className="h-5 w-5 text-primary" />
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{applications.length}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card
+            className="cursor-pointer transition hover:shadow-md"
+            onClick={() => { setAppFilterStatus("ACCEPTED"); scrollToElement(applicationsRef); }}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("recruiter.stats.acceptedApplicants")}</CardTitle>
+              <CardTitle className="text-sm font-medium">{uiText("recruiter.stats.acceptedApplicants", t("recruiter.stats.acceptedApplicants"))}</CardTitle>
               <CheckCircle2 className="h-5 w-5 text-emerald-600" />
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{acceptedApplications.length}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card
+            className="cursor-pointer transition hover:shadow-md"
+            onClick={() => { setAppFilterStatus("REJECTED"); scrollToElement(applicationsRef); }}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("recruiter.stats.rejectedApplicants")}</CardTitle>
+              <CardTitle className="text-sm font-medium">{uiText("recruiter.stats.rejectedApplicants", t("recruiter.stats.rejectedApplicants"))}</CardTitle>
               <XCircle className="h-5 w-5 text-red-600" />
             </CardHeader>
             <CardContent>
@@ -1046,8 +1160,9 @@ const RecruiterDashboard: React.FC = () => {
           )}
         </Card>
 
-        <Card>
-          <CardHeader className="p-0">
+        <div ref={jobListRef}>
+          <Card>
+            <CardHeader className="p-0">
             <button
               type="button"
               className="flex w-full items-center justify-between gap-4 rounded-t-lg p-6 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -1067,17 +1182,67 @@ const RecruiterDashboard: React.FC = () => {
               <div className="flex items-center justify-center py-14">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
-            ) : jobs.length === 0 ? (
-              <p className="py-10 text-center text-sm text-muted-foreground">{t("recruiter.jobs.empty")}</p>
             ) : (
               <>
-              <Table>
+                {jobs.length > 0 && (
+                  <div className="mb-4 flex flex-wrap items-center justify-end gap-2 border-b pb-4">
+                    <Select value={jobFilterStatus} onValueChange={setJobFilterStatus}>
+                      <SelectTrigger id="job-filter-status" className="w-full sm:w-40 h-10 bg-white">
+                        <SelectValue placeholder={t("recruiter.jobs.status")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL">{t("recruiter.jobs.allStatuses")}</SelectItem>
+                        <SelectItem value="VISIBLE">{t("recruiter.stats.visible")}</SelectItem>
+                        <SelectItem value="HIDDEN">{t("recruiter.status.HIDDEN")}</SelectItem>
+                        <SelectItem value="PENDING">{t("recruiter.status.PENDING")}</SelectItem>
+                        <SelectItem value="APPROVED">{t("recruiter.status.APPROVED")}</SelectItem>
+                        <SelectItem value="REJECTED">{t("recruiter.status.REJECTED")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      id="job-filter-created-at"
+                      type="date"
+                      value={jobFilterCreatedAt}
+                      onChange={(e) => setJobFilterCreatedAt(e.target.value)}
+                      className="w-full sm:w-40 h-10 bg-white"
+                      aria-label={t("recruiter.jobs.createdAt")}
+                    />
+                    <Input
+                      id="job-filter-deadline"
+                      type="date"
+                      value={jobFilterDeadline}
+                      onChange={(e) => setJobFilterDeadline(e.target.value)}
+                      className="w-full sm:w-40 h-10 bg-white"
+                      aria-label={t("recruiter.jobs.applicationDeadline")}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setJobFilterStatus("ALL");
+                        setJobFilterCreatedAt("");
+                        setJobFilterDeadline("");
+                      }}
+                      className="h-10"
+                      disabled={jobFilterStatus === "ALL" && !jobFilterCreatedAt && !jobFilterDeadline}
+                    >
+                      {t("jobs.filters.reset")}
+                    </Button>
+                  </div>
+                )}
+
+                {jobs.length === 0 ? (
+                  <p className="py-10 text-center text-sm text-muted-foreground">{t("recruiter.jobs.empty")}</p>
+                ) : filteredJobs.length === 0 ? (
+                  <p className="py-10 text-center text-sm text-muted-foreground">{t("jobs.page.emptyDescription")}</p>
+                ) : (
+                  <>
+                  <Table>
                 <TableHeader>
                   <TableRow>
                     {renderJobSortableHeader("title", t("recruiter.form.jobTitle"))}
-                    {renderJobSortableHeader("company", t("recruiter.form.company"))}
                     {renderJobSortableHeader("type", t("recruiter.form.type"))}
-                    {renderJobSortableHeader("applicationDeadline", t("recruiter.jobs.applicationDeadline"))}
+                    {renderJobSortableHeader("applicationDeadline", t("recruiter.jobs.applicationDeadline"), "text-center")}
                     {renderJobSortableHeader("status", t("recruiter.jobs.status"))}
                     {renderJobSortableHeader("createdAt", t("recruiter.jobs.createdAt"))}
                     <TableHead className="text-center">{t("common.actions")}</TableHead>
@@ -1091,15 +1256,14 @@ const RecruiterDashboard: React.FC = () => {
                     return (
                       <TableRow key={job.id} className="cursor-pointer hover:bg-slate-50/50" onClick={() => navigate(`/jobs/${job.id}`)}>
                         <TableCell className="min-w-56 font-medium">{job.title || "-"}</TableCell>
-                        <TableCell>{job.company || "-"}</TableCell>
                         <TableCell>{job.type || "-"}</TableCell>
-                        <TableCell>{formatDateOnly(job.applicationDeadline, dateLocale)}</TableCell>
+                        <TableCell className="text-center">{formatDateOnly(job.applicationDeadline, dateLocale)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={getReviewStatusBadgeClassName(job.status)}>
                             {t(`recruiter.status.${status}`, { defaultValue: status })}
                           </Badge>
                         </TableCell>
-                        <TableCell>{formatDate(job.created_at, dateLocale)}</TableCell>
+                        <TableCell className="text-slate-500 text-xs">{formatDate(job.created_at, dateLocale)}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap justify-center gap-2">
                             {hidden ? (
@@ -1154,12 +1318,16 @@ const RecruiterDashboard: React.FC = () => {
                 pageSize={jobPageSize}
                 onPageSizeChange={setJobPageSize}
               />
+                  </>
+                )}
               </>
             )}
           </CardContent>
           )}
         </Card>
+      </div>
 
+      <div ref={applicationsRef}>
         <Card>
           <CardHeader className="p-0">
             <button
@@ -1181,11 +1349,51 @@ const RecruiterDashboard: React.FC = () => {
               <div className="flex items-center justify-center py-14">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
-            ) : applications.length === 0 ? (
-              <p className="py-10 text-center text-sm text-muted-foreground">{t("recruiter.applications.empty")}</p>
             ) : (
               <>
-              <Table>
+                {applications.length > 0 && (
+                  <div className="mb-4 flex flex-wrap items-center justify-end gap-2 border-b pb-4">
+                    <Select value={appFilterStatus} onValueChange={setAppFilterStatus}>
+                      <SelectTrigger id="app-filter-status" className="w-full sm:w-40 h-10 bg-white">
+                        <SelectValue placeholder={t("common.status")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL">{t("recruiter.applications.allStatuses")}</SelectItem>
+                        <SelectItem value="PENDING">{t("recruiter.applications.statuses.PENDING")}</SelectItem>
+                        <SelectItem value="ACCEPTED">{t("recruiter.applications.statuses.APPROVED")}</SelectItem>
+                        <SelectItem value="REJECTED">{t("recruiter.applications.statuses.REJECTED")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      id="app-filter-applied-at"
+                      type="date"
+                      value={appFilterAppliedAt}
+                      onChange={(e) => setAppFilterAppliedAt(e.target.value)}
+                      className="w-full sm:w-40 h-10 bg-white"
+                      aria-label={t("recruiter.applications.appliedAt")}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setAppFilterStatus("ALL");
+                        setAppFilterAppliedAt("");
+                      }}
+                      className="h-10"
+                      disabled={appFilterStatus === "ALL" && !appFilterAppliedAt}
+                    >
+                      {t("jobs.filters.reset")}
+                    </Button>
+                  </div>
+                )}
+
+                {applications.length === 0 ? (
+                  <p className="py-10 text-center text-sm text-muted-foreground">{t("recruiter.applications.empty")}</p>
+                ) : filteredApplications.length === 0 ? (
+                  <p className="py-10 text-center text-sm text-muted-foreground">{t("jobs.page.emptyDescription")}</p>
+                ) : (
+                  <>
+                  <Table>
                 <TableHeader>
                   <TableRow>
                     {renderApplicationSortableHeader("applicant", t("recruiter.applications.applicant"))}
@@ -1199,9 +1407,9 @@ const RecruiterDashboard: React.FC = () => {
                 <TableBody>
                   {paginatedApplications.items.map((app) => (
                     <TableRow key={app.id}>
-                      <TableCell>
-                        <div className="font-medium">{app.applicantName || t("recruiter.applications.applicant")}</div>
-                        <div className="text-xs text-muted-foreground">{app.applicantEmail}</div>
+                      <TableCell className="max-w-[200px] truncate">
+                        <div className="font-medium truncate" title={app.applicantName || undefined}>{app.applicantName || t("recruiter.applications.applicant")}</div>
+                        <div className="text-xs text-muted-foreground truncate" title={app.applicantEmail}>{app.applicantEmail}</div>
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate" title={app.jobTitle}>
                         {app.jobTitle}
@@ -1222,7 +1430,7 @@ const RecruiterDashboard: React.FC = () => {
                           {t(`recruiter.applications.statuses.${getReviewStatusTranslationKey(app.status)}`)}
                         </Badge>
                       </TableCell>
-                      <TableCell>{formatDate(app.appliedAt, dateLocale)}</TableCell>
+                      <TableCell className="text-slate-500 text-xs">{formatDate(app.appliedAt, dateLocale)}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap justify-center gap-2">
                           {app.status !== "ACCEPTED" && renderApplicationAction(app, "ACCEPTED")}
@@ -1240,11 +1448,14 @@ const RecruiterDashboard: React.FC = () => {
                 pageSize={applicationPageSize}
                 onPageSizeChange={setApplicationPageSize}
               />
+                  </>
+                )}
               </>
             )}
           </CardContent>
           )}
         </Card>
+      </div>
       </section>
 
       <AlertDialog open={Boolean(historyJob)} onOpenChange={(open) => !open && setHistoryJob(null)}>

@@ -67,6 +67,8 @@
   "nav": {
     "profile": "Profile",
     "logout": "Log out",
+    "logoutConfirmTitle": "Confirm log out",
+    "logoutConfirmDescription": "Are you sure you want to log out of the system?",
     "login": "Log in",
     "register": "Register",
     "admin": "Admin",
@@ -186,6 +188,7 @@
     "searchPlaceholder": "Example: Frontend, Data, Sales...",
     "searchButton": "Search",
     "aboutTitle": "About this project",
+    "aboutLead": "THIS IS A PROJECT BY STUDENTS FROM HCMUT AND SGU",
     "aboutIntro": "This is an internship project by students from Ho Chi Minh University of Technology (HCMUT) and Saigon University (SGU) working at MSC Center. Inspired by LinkedIn and TopCV, InternHiring aims to help users find job opportunities, especially internships for Vietnamese students, through a simple bilingual web platform.",
     "aboutIntroLong": "InternHiring was developed during an industry-affiliated internship at MSC Center by students from HCMUT and SGU. The platform takes inspiration from established career services like LinkedIn and TopCV and focuses on practical features: a bilingual UI, employer verification, partner showcases, and curated internship listings to help students discover relevant opportunities.",
     "aboutCardProjectTitle": "The Project",
@@ -200,8 +203,9 @@
     "viewAll": "View all",
     "apply": "Apply",
     "partnersTitle": "Partners & Corporations",
-    "partnersSubtitle": "Leading hiring companies",
+    "partnersSubtitle": "Approved hiring companies",
     "partnerRowAria": "Partner row {{number}}",
+    "partnersEmpty": "Approved company profiles will appear here after verification.",
     "recruiterCtaTitle": "Are you a recruiter? Verify with us to continue.",
     "recruiterCtaButton": "Request verification",
     "footer": "© 2026 InternHiring MSC Center. All rights reserved.",
@@ -329,6 +333,8 @@
     "badge": "RECRUITER",
     "title": "Recruiter dashboard",
     "description": "Post new jobs and manage visibility for your own job posts.",
+    "companyProfileUpdatePending": "Update pending review",
+    "companyProfileUpdatePendingDescription": "Your company profile update request is waiting for admin or moderator approval. Current public information remains unchanged.",
     "stats": {
       "jobStatsTitle": "Job post statistics",
       "applicantStatsTitle": "Applicant statistics",
@@ -398,17 +404,20 @@
       "show": "Show",
       "delete": "Delete",
       "edit": "Edit",
-      "history": "History"
+      "history": "History",
+      "allStatuses": "All statuses"
     },
     "applications": {
       "approve": "Approve",
       "reject": "Reject",
       "title": "Applications",
+      "searchPlaceholder": "Search applicant, job title...",
       "empty": "No candidates have applied yet.",
       "applicant": "Candidate",
       "jobTitle": "Applied position",
       "appliedAt": "Applied date",
       "viewCv": "View CV",
+      "allStatuses": "All statuses",
       "statuses": {
         "PENDING": "Pending",
         "APPROVED": "Approved",
@@ -525,16 +534,46 @@
     "submit": "Crop & Update"
   },
   "moderator": {
-    "badge": "MODERATOR",
-    "title": "Job post review",
-    "description": "Review, approve, or reject job posts submitted by recruiters.",
+    "badge": "Moderator",
+    "title": "Moderator Dashboard",
+    "description": "Manage and approve job posts and company verification requests across the system.",
     "stats": {
       "pendingTitle": "Pending job posts",
-      "pendingDescription": "Job posts currently in PENDING status"
+      "pendingDescription": "Job posts currently in PENDING status",
+      "jobsTitle": "Job Posts Statistics",
+      "companiesTitle": "Companies Statistics",
+      "totalJobs": "Total jobs",
+      "visibleJobs": "Visible",
+      "hiddenJobs": "Hidden",
+      "totalCompanies": "Total companies",
+      "approvedCompanies": "Approved",
+      "rejectedCompanies": "Rejected"
+    },
+    "tabs": {
+      "jobs": "Job Posts",
+      "companies": "Companies"
     },
     "jobs": {
-      "title": "Pending job posts",
-      "empty": "There are no job posts waiting for review."
+      "title": "Manage Job Posts",
+      "empty": "No job posts found.",
+      "allStatuses": "All statuses",
+      "allVisibility": "All visibility",
+      "visibleOnly": "Visible Only",
+      "hiddenOnly": "Hidden Only",
+      "searchPlaceholder": "Search title, company..."
+    },
+    "companies": {
+      "title": "Company Verification Requests",
+      "empty": "No company verification requests found.",
+      "searchPlaceholder": "Search email, company name...",
+      "allStatuses": "All statuses",
+      "applicant": "Applicant",
+      "companyName": "Company Name",
+      "taxCode": "Tax Code",
+      "submittedDate": "Submitted Date",
+      "dialogTitle": "Company Profile Details",
+      "reviewNote": "Review Note",
+      "reviewNotePlaceholder": "Enter reason if rejecting the request..."
     }
   },
   "candidateDashboard": {
@@ -617,6 +656,7 @@
     },
     "users": {
       "title": "User account list",
+      "searchPlaceholder": "Search email, full name...",
       "fullName": "Full name",
       "restricted": "Restricted",
       "active": "Active",
@@ -749,7 +789,7 @@
       "backgroundColor": "Background color",
       "textColor": "Text color",
       "imageUrl": "Image URL",
-      "imageUrlPlaceholder": "Example: /carousel/YESCO.webp or https://...",
+      "imageUrlPlaceholder": "Example: https://example.com/image.webp",
       "imageUpload": "Upload image",
       "clearImage": "Remove image",
       "imageInvalid": "Please choose a valid image file.",
@@ -843,7 +883,9 @@
       "imageInvalid": "Please choose a valid image file.",
       "imageTooLarge": "Image must be 2MB or smaller.",
       "imageUploadSuccess": "Header image uploaded.",
-      "imageUploadError": "Could not upload image."
+      "imageUploadError": "Could not upload image.",
+      "dragDropText": "Drag & drop header image here, or click to select",
+      "imageHint": "PNG, JPG, JPEG (max 2MB)"
     }
   },
   "notFound": {
@@ -857,6 +899,10 @@
     "description": "Complete your company profile and send it to admin for review before becoming a recruiter.",
     "updateTitle": "Edit company profile",
     "updateDescription": "Send updated company information to admin for review. The public company profile changes only after approval.",
+    "pendingTitle": "Verification request pending review",
+    "pendingDescription": "Your company verification request is waiting for admin or moderator approval.",
+    "pendingUpdateTitle": "Company profile update pending review",
+    "pendingUpdateDescription": "Your update request is waiting for admin or moderator approval. Current public company information remains unchanged until it is approved.",
     "sections": {
       "branding": "Brand identity",
       "legal": "Company information",

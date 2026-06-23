@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { userApi, CvItem, recruiterApi, CompanyProfile, isApiError } from "@/lib/api";
+import { userApi, CvItem, recruiterApi, CompanyProfile, RecruiterApplication, isApiError } from "@/lib/api";
 import { isCandidateRole, isRecruiterRole } from "@/lib/roles";
 import { getRoleBadgeClassName, normalizeRoleName } from "@/lib/dashboardStyles";
 import { cn } from "@/lib/utils";
@@ -36,9 +36,11 @@ import {
   Settings2,
   CheckCircle2,
   Building2,
+  AlertTriangle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import { useSanityInterfaceText } from "@/lib/sanityInterfaceText";
 
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
@@ -166,10 +168,11 @@ const getDominantImageColor = (imageUrl: string) =>
   });
 
 const Profile = () => {
-  const { user, token, refreshUser } = useAuth();
+  const { user, token, refreshUser, isLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t } = useTranslation();
+  const uiText = useSanityInterfaceText("/profile");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resumeInputRef = useRef<HTMLInputElement>(null);
   const themeColorInputRef = useRef<HTMLInputElement>(null);
@@ -202,6 +205,7 @@ const Profile = () => {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isSavingTheme, setIsSavingTheme] = useState(false);
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
+  const [pendingCompanyApplication, setPendingCompanyApplication] = useState<RecruiterApplication | undefined>();
   const [isLoadingCompanyProfile, setIsLoadingCompanyProfile] = useState(false);
   const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(user?.emailNotificationsEnabled ?? false);
   const [isSavingEmailNotifications, setIsSavingEmailNotifications] = useState(false);
@@ -210,27 +214,35 @@ const Profile = () => {
   useEffect(() => {
     if (!token || !shouldShowCompanyProfile) {
       setCompanyProfile(null);
+      setPendingCompanyApplication(undefined);
       return;
     }
 
     let mounted = true;
     setIsLoadingCompanyProfile(true);
 
-    recruiterApi.getCompanyProfile(token)
-      .then((company) => {
-        if (mounted) setCompanyProfile(company);
-      })
-      .catch((error: unknown) => {
-        if (isApiError(error) && (error.status === 400 || error.status === 404)) {
-          if (mounted) setCompanyProfile(null);
-          return;
+    Promise.allSettled([
+      recruiterApi.getCompanyProfile(token),
+      recruiterApi.getPendingApplication(token),
+    ])
+      .then(([companyResult, pendingResult]) => {
+        if (!mounted) return;
+
+        if (companyResult.status === "fulfilled") {
+          setCompanyProfile(companyResult.value);
+        } else {
+          setCompanyProfile(null);
+          const error = companyResult.reason as unknown;
+          if (!isApiError(error) || (error.status !== 400 && error.status !== 404)) {
+            toast({
+              title: t("toast.error"),
+              description: getErrorMessage(error, t("profile.companyProfileLoadError")),
+              variant: "destructive",
+            });
+          }
         }
 
-        toast({
-          title: t("toast.error"),
-          description: getErrorMessage(error, t("profile.companyProfileLoadError")),
-          variant: "destructive",
-        });
+        setPendingCompanyApplication(pendingResult.status === "fulfilled" ? pendingResult.value : undefined);
       })
       .finally(() => {
         if (mounted) setIsLoadingCompanyProfile(false);
@@ -244,6 +256,14 @@ const Profile = () => {
   useEffect(() => {
     setEmailNotificationsEnabled(user?.emailNotificationsEnabled ?? false);
   }, [user?.emailNotificationsEnabled, user?.id]);
+
+  if (isLoading) {
+    return (
+      <main className="flex h-[calc(100dvh-4rem)] items-center justify-center bg-gradient-subtle">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </main>
+    );
+  }
 
   if (!user || !token) {
     navigate("/login");
@@ -617,29 +637,29 @@ const Profile = () => {
                     className="relative h-28 transition-colors duration-300"
                     style={{ background: `linear-gradient(135deg, ${profileThemeColor}cc, ${profileThemeColor})` }}
                   >
-                    <div className="absolute right-3 top-3 flex items-center gap-2 rounded-full bg-white/95 p-1 shadow">
-                      <button
-                        type="button"
-                        onClick={handleMatchAvatarColor}
-                        disabled={isSavingTheme}
-                        className="flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-colors hover:bg-slate-100 disabled:opacity-50"
-                        style={{ color: profileThemeColor }}
-                        aria-label={t("profile.matchAvatarColor")}
-                        title={t("profile.matchAvatarColor")}
-                      >
-                        {isSavingTheme ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-                        {t("profile.matchAvatarColorShort")}
-                      </button>
+                    <div className="absolute right-3 top-3 group flex flex-row-reverse items-center gap-0 overflow-hidden rounded-full bg-white/95 p-1 shadow transition-all duration-300 max-w-[36px] hover:max-w-[160px] hover:gap-2">
                       <button
                         type="button"
                         onClick={() => themeColorInputRef.current?.click()}
                         disabled={isSavingTheme}
-                        className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-slate-100 disabled:opacity-50"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-slate-100 disabled:opacity-50"
                         style={{ color: profileThemeColor }}
                         aria-label={t("profile.changeThemeColor")}
                         title={profileThemeColor}
                       >
                         <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleMatchAvatarColor}
+                        disabled={isSavingTheme}
+                        className="flex h-8 items-center gap-1.5 rounded-full text-xs font-semibold transition-all duration-300 hover:bg-slate-100 disabled:opacity-50 w-0 opacity-0 scale-90 px-0 overflow-hidden pointer-events-none group-hover:w-[105px] group-hover:opacity-100 group-hover:scale-100 group-hover:px-3 group-hover:pointer-events-auto"
+                        style={{ color: profileThemeColor }}
+                        aria-label={t("profile.matchAvatarColor")}
+                        title={t("profile.matchAvatarColor")}
+                      >
+                        {isSavingTheme ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                        <span className="whitespace-nowrap">{t("profile.matchAvatarColorShort")}</span>
                       </button>
                     </div>
                     <input
@@ -698,10 +718,10 @@ const Profile = () => {
               <div className="flex flex-col gap-4">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="text-lg">{t("profile.personal_info")}</CardTitle>
+                    <CardTitle className="text-lg">{uiText("profile.personal_info", t("profile.personal_info"))}</CardTitle>
                     {!isEditing ? (
                       <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-                        {t("profile.edit")}
+                        {uiText("profile.edit", t("profile.edit"))}
                       </Button>
                     ) : (
                       <div className="flex gap-2">
@@ -719,7 +739,7 @@ const Profile = () => {
                             });
                           }}
                         >
-                          {t("profile.cancel")}
+                        {uiText("profile.cancel", t("profile.cancel"))}
                         </Button>
                         <Button size="sm" onClick={handleSave} disabled={isSaving}>
                           {isSaving ? (
@@ -727,7 +747,7 @@ const Profile = () => {
                           ) : (
                             <Save className="mr-2 h-4 w-4" />
                           )}
-                          {t("profile.save")}
+                        {uiText("profile.save", t("profile.save"))}
                         </Button>
                       </div>
                     )}
@@ -737,13 +757,13 @@ const Profile = () => {
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
                         <Label className="mb-2 flex items-center gap-2 text-muted-foreground">
-                          <UserIcon className="h-4 w-4" /> {t("profile.last_name")}
+                      <UserIcon className="h-4 w-4" /> {uiText("profile.last_name", t("profile.last_name"))}
                         </Label>
                         {isEditing ? (
                           <Input
                             value={formData.lastName}
                             onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                            placeholder={t("profile.lastNamePlaceholder")}
+                        placeholder={uiText("profile.lastNamePlaceholder", t("profile.lastNamePlaceholder"))}
                           />
                         ) : (
                           <Input value={user.lastName || t("common.emptyValue")} disabled className="bg-muted/50" />
@@ -752,13 +772,13 @@ const Profile = () => {
 
                       <div>
                         <Label className="mb-2 flex items-center gap-2 text-muted-foreground">
-                          <UserIcon className="h-4 w-4" /> {t("profile.first_name")}
+                      <UserIcon className="h-4 w-4" /> {uiText("profile.first_name", t("profile.first_name"))}
                         </Label>
                         {isEditing ? (
                           <Input
                             value={formData.firstName}
                             onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                            placeholder={t("profile.firstNamePlaceholder")}
+                        placeholder={uiText("profile.firstNamePlaceholder", t("profile.firstNamePlaceholder"))}
                           />
                         ) : (
                           <Input value={user.firstName || t("common.emptyValue")} disabled className="bg-muted/50" />
@@ -769,13 +789,13 @@ const Profile = () => {
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
                         <Label className="mb-2 flex items-center gap-2 text-muted-foreground">
-                          <Phone className="h-4 w-4" /> {t("profile.phone")}
+                      <Phone className="h-4 w-4" /> {uiText("profile.phone", t("profile.phone"))}
                         </Label>
                         {isEditing ? (
                           <Input
                             value={formData.phoneNumber}
                             onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-                            placeholder={t("profile.phonePlaceholder")}
+                        placeholder={uiText("profile.phonePlaceholder", t("profile.phonePlaceholder"))}
                           />
                         ) : (
                           <Input value={user.phoneNumber || t("common.emptyValue")} disabled className="bg-muted/50" />
@@ -784,7 +804,7 @@ const Profile = () => {
 
                       <div>
                         <Label className="mb-2 flex items-center gap-2 text-muted-foreground">
-                          <CalendarDays className="h-4 w-4" /> {t("profile.dob")}
+                      <CalendarDays className="h-4 w-4" /> {uiText("profile.dob", t("profile.dob"))}
                         </Label>
                         {isEditing ? (
                           <Input
@@ -792,7 +812,7 @@ const Profile = () => {
                             onChange={(e) => setFormData({ ...formData, dob: formatDobInput(e.target.value) })}
                             inputMode="numeric"
                             maxLength={10}
-                            placeholder={t("profile.dobPlaceholder")}
+                        placeholder={uiText("profile.dobPlaceholder", t("profile.dobPlaceholder"))}
                           />
                         ) : (
                           <Input
@@ -806,14 +826,14 @@ const Profile = () => {
 
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
-                        <Label className="mb-2 flex items-center gap-2 text-muted-foreground">{t("profile.gender_label")}</Label>
+                    <Label className="mb-2 flex items-center gap-2 text-muted-foreground">{uiText("profile.gender_label", t("profile.gender_label"))}</Label>
                         {isEditing ? (
                           <select
                             value={formData.gender}
                             onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base"
                           >
-                            <option value="">{t("profile.select")}</option>
+                          <option value="">{uiText("profile.select", t("profile.select"))}</option>
                             <option value="MALE">{t("gender.MALE")}</option>
                             <option value="FEMALE">{t("gender.FEMALE")}</option>
                             <option value="OTHER">{t("gender.OTHER")}</option>
@@ -829,7 +849,7 @@ const Profile = () => {
 
                       <div>
                         <Label className="mb-2 flex items-center gap-2 text-muted-foreground">
-                          <Mail className="h-4 w-4" /> {t("profile.email")}
+                      <Mail className="h-4 w-4" /> {uiText("profile.email", t("profile.email"))}
                         </Label>
                         <Input value={user.email} disabled className="bg-muted/50" />
                       </div>
@@ -839,10 +859,10 @@ const Profile = () => {
                       <div className="min-w-0">
                         <Label htmlFor="email-notifications" className="flex items-center gap-2 font-medium">
                           <Mail className="h-4 w-4 text-muted-foreground" />
-                          {t("profile.emailNotifications", { defaultValue: "Thong bao qua email" })}
+                          {uiText("profile.emailNotifications", t("profile.emailNotifications", { defaultValue: "Thông báo qua email" }))}
                         </Label>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          {t("profile.emailNotificationsDescription", { defaultValue: "Nhan cap nhat quan trong ve tai khoan va ho so qua email." })}
+                          {uiText("profile.emailNotificationsDescription", t("profile.emailNotificationsDescription", { defaultValue: "Nhận cập nhật quan trọng về tài khoản và hồ sơ qua email." }))}
                         </p>
                       </div>
                       <Switch
@@ -867,7 +887,7 @@ const Profile = () => {
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-slate-950">
-                          {t("profile.cv_title")} ({cvList.length}/{MAX_CVS})
+                    {uiText("profile.cv_title", t("profile.cv_title"))} ({cvList.length}/{MAX_CVS})
                         </p>
                       </div>
                       <TooltipProvider>
@@ -952,7 +972,7 @@ const Profile = () => {
                           className="flex min-h-[88px] w-full flex-col items-center justify-center rounded-md border border-dashed border-muted-foreground/30 text-center text-sm text-muted-foreground transition-colors hover:bg-white"
                         >
                           <Upload className="mb-2 h-5 w-5" />
-                          {t("profile.drag_drop_cv")}
+                          {uiText("profile.drag_drop_cv", t("profile.drag_drop_cv"))}
                         </button>
                       )}
                     </div>
@@ -974,10 +994,43 @@ const Profile = () => {
                       }
                     }}
                   >
-                    <CardHeader className="py-4">
+                    <CardHeader className="py-4 flex flex-row items-center justify-between space-y-0">
                       <CardTitle className="text-sm font-semibold">
-                        {t("profile.companyProfileTitle")}
+                        {uiText("profile.companyProfileTitle", t("profile.companyProfileTitle"))}
                       </CardTitle>
+                      {pendingCompanyApplication ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div 
+                                className="flex h-8 w-8 items-center justify-center text-amber-500 hover:text-amber-600 transition-colors cursor-help shrink-0"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <AlertTriangle className="h-5 w-5" />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs bg-amber-50 border border-amber-200 text-amber-900 p-2.5 text-xs rounded-lg shadow-md">
+                              <p className="font-semibold text-amber-950 mb-1">{t("recruiter.companyProfileUpdatePending")}</p>
+                              <p className="text-amber-900/90">{t("recruiter.companyProfileUpdatePendingDescription")}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-primary shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate("/recruiter-verification");
+                          }}
+                          disabled={isLoadingCompanyProfile}
+                          title={t(companyProfile ? "profile.companyProfileEdit" : "profile.companyProfileTitle")}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
                     </CardHeader>
                     <Separator />
                     <CardContent className="p-3">
@@ -1011,16 +1064,16 @@ const Profile = () => {
 
                           <div className="space-y-1.5 rounded-md bg-slate-50 p-2.5 text-xs">
                             <div className="truncate">
-                              <span className="font-semibold text-slate-600">{t("profile.companyTaxCode")}: </span>
+                              <span className="font-semibold text-slate-600">{uiText("profile.companyTaxCode", t("profile.companyTaxCode"))}: </span>
                               <span className="text-slate-700">{companyProfile.taxCode}</span>
                             </div>
                             <div className="truncate">
-                              <span className="font-semibold text-slate-600">{t("profile.companyPhone")}: </span>
+                              <span className="font-semibold text-slate-600">{uiText("profile.companyPhone", t("profile.companyPhone"))}: </span>
                               <span className="text-slate-700">{companyProfile.companyPhone}</span>
                             </div>
                             {companyDefaultAddress && (
                               <div className="truncate">
-                                <span className="font-semibold text-slate-600">{t("profile.companyAddress")}: </span>
+                              <span className="font-semibold text-slate-600">{uiText("profile.companyAddress", t("profile.companyAddress"))}: </span>
                                 <span className="text-slate-700">{companyDefaultAddress}</span>
                               </div>
                             )}
@@ -1029,7 +1082,7 @@ const Profile = () => {
                       ) : (
                         <div className="flex min-h-[110px] flex-col items-center justify-center rounded-md border-2 border-dashed border-muted/50 bg-muted/10 p-3 text-center text-muted-foreground transition-colors hover:bg-muted/20">
                           <Building2 className="mb-2 h-7 w-7 opacity-50" />
-                          <p className="text-sm">{t("profile.companyProfileEmpty")}</p>
+                          <p className="text-sm">{uiText("profile.companyProfileEmpty", t("profile.companyProfileEmpty"))}</p>
                         </div>
                       )}
                     </CardContent>
@@ -1041,7 +1094,7 @@ const Profile = () => {
               <div className="min-w-0">
                 <Card className="h-full">
                   <CardHeader>
-                    <CardTitle className="text-lg">{t("profile.change_password")}</CardTitle>
+                    <CardTitle className="text-lg">{uiText("profile.change_password", t("profile.change_password"))}</CardTitle>
                   </CardHeader>
                   <Separator />
                   <CardContent className="space-y-4 p-4">
@@ -1053,7 +1106,7 @@ const Profile = () => {
                             type={visiblePasswords.currentPassword ? "text" : "password"}
                             value={passwordData.currentPassword}
                             onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                            placeholder={t("profile.current_password")}
+                        placeholder={uiText("profile.current_password", t("profile.current_password"))}
                             className="pr-10"
                           />
                           <button
@@ -1077,7 +1130,7 @@ const Profile = () => {
                             type={visiblePasswords.newPassword ? "text" : "password"}
                             value={passwordData.newPassword}
                             onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                            placeholder={t("profile.new_password")}
+                        placeholder={uiText("profile.new_password", t("profile.new_password"))}
                             className="pr-10"
                           />
                           <button
@@ -1101,7 +1154,7 @@ const Profile = () => {
                             type={visiblePasswords.confirmPassword ? "text" : "password"}
                             value={passwordData.confirmPassword}
                             onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                            placeholder={t("profile.confirm_password")}
+                        placeholder={uiText("profile.confirm_password", t("profile.confirm_password"))}
                             className="pr-10"
                           />
                           <button
@@ -1127,7 +1180,7 @@ const Profile = () => {
                         ) : (
                           <Lock className="mr-2 h-4 w-4" />
                         )}
-                        {t("profile.change_password")}
+                      {uiText("profile.change_password", t("profile.change_password"))}
                       </Button>
                     </div>
                   </CardContent>
