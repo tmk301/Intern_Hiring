@@ -49,9 +49,28 @@ const Home: React.FC = () => {
     const canRequestRecruiterVerification = !isAuthenticated || isCandidateRole(user?.role);
     const numberFormatter = new Intl.NumberFormat(i18n.language?.startsWith("vi") ? "vi-VN" : "en-US");
     const paginatedFeaturedJobs = paginateItems(featuredJobs, featuredJobPage, featuredJobPageSize);
-    const partnerRows = partnerList.length > 0
-        ? [{ partners: partnerList, reverse: false }]
-        : [];
+    const partnerRows: Array<{ partners: typeof partnerList; reverse: boolean }> = [];
+    if (partnerList.length > 0) {
+        const numRows = Math.min(4, partnerList.length);
+        const rows: CompanyProfile[][] = Array.from({ length: numRows }, () => []);
+        partnerList.forEach((company, index) => {
+            const rowIndex = index % numRows;
+            rows[rowIndex].push(company);
+        });
+
+        rows.forEach((rowPartners, i) => {
+            if (rowPartners.length > 0) {
+                let marqueePartners = [...rowPartners];
+                while (marqueePartners.length < 4) {
+                    marqueePartners = [...marqueePartners, ...rowPartners];
+                }
+                partnerRows.push({
+                    partners: marqueePartners,
+                    reverse: i % 2 !== 0,
+                });
+            }
+        });
+    }
     const hasVisibleAboutCard = homeContent.projectCardVisible !== false
         || homeContent.missionCardVisible !== false
         || homeContent.valuesCardVisible !== false;
@@ -330,9 +349,9 @@ const Home: React.FC = () => {
             </section>}
 
             {/* Partners (keep) */}
-            {homeContent.partnersVisible !== false && <section id="doi-tac" className="scroll-mt-24 py-14 bg-white">
+            {homeContent.partnersVisible !== false && <section id="doi-tac" className="scroll-mt-24 pt-20 pb-44 bg-white">
                 <div className="container mx-auto px-4">
-                    <div className="text-center mb-8">
+                    <div className="text-center mb-14">
                         <h2 className="text-4xl md:text-5xl font-extrabold mb-2 text-primary">
                             {uiText("home.partnersTitle", t("home.partnersTitle"))}
                         </h2>
@@ -341,7 +360,7 @@ const Home: React.FC = () => {
                         </p>
                     </div>
                     {partnerRows.length > 0 ? (
-                        <div className="mt-8 space-y-6 overflow-hidden">
+                        <div className="mt-12 space-y-10 overflow-hidden">
                             {partnerRows.map((row, rowIndex) => (
                                 <div
                                     key={rowIndex}

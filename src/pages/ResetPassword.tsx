@@ -33,7 +33,7 @@ const ResetPasswordPage: React.FC = () => {
             const elapsedSeconds = (Date.now() - sentTimestamp) / 1000;
 
             if (elapsedSeconds > OTP_TIMEOUT_SECONDS) {
-                setErrorMsg("Liên kết đặt lại mật khẩu đã hết hiệu lực (Giới hạn trong 60 giây). Vui lòng yêu cầu mã mới.");
+                setErrorMsg(t("resetPasswordPage.expiredSeconds"));
                 localStorage.removeItem("otp_sent_timestamp");
                 setLoading(false);
                 return; // Chặn không chạy các logic xác thực của Supabase bên dưới
@@ -65,7 +65,7 @@ const ResetPasswordPage: React.FC = () => {
                     recoveredSession = true;
                     setSessionActive(true);
                 } else {
-                    setErrorMsg("Liên kết đặt lại mật khẩu đã hết hiệu lực (Giới hạn trong 60 giây).");
+                    setErrorMsg(t("resetPasswordPage.expiredSecondsShort"));
                     setSessionActive(false);
                 }
                 setLoading(false);
@@ -89,7 +89,7 @@ const ResetPasswordPage: React.FC = () => {
                     recoveredSession = true;
                     setSessionActive(true);
                 } else {
-                    setErrorMsg("Liên kết đặt lại mật khẩu đã hết hiệu lực (Giới hạn trong 60 giây).");
+                    setErrorMsg(t("resetPasswordPage.expiredSecondsShort"));
                     setSessionActive(false);
                 }
             } else if (!recoveredSession) {

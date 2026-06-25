@@ -65,6 +65,7 @@ export async function apiRequest<T>(
       signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
+        "Accept-Language": localStorage.getItem("i18nextLng") || "vi",
         ...headers,
       },
     });

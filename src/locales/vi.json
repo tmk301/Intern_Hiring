@@ -164,7 +164,10 @@
     "confirmPassword": "Xác nhận mật khẩu",
     "updateSubmit": "Cập nhật mật khẩu",
     "updateSuccess": "Mật khẩu đã được cập nhật. Vui lòng đăng nhập lại.",
-    "updateError": "Không thể cập nhật mật khẩu"
+    "updateError": "Không thể cập nhật mật khẩu",
+    "otpExpired": "Mã OTP đã hết hiệu lực (Quá 60 giây). Vui lòng bấm gửi lại mã!",
+    "otpExpiresIn": "Mã hết hạn sau: {{timeLeft}}s",
+    "otpExpiredLabel": "Mã đã hết hạn!"
   },
   "resetPasswordPage": {
     "title": "Đặt lại mật khẩu",
@@ -179,7 +182,9 @@
     "newPassword": "Mật khẩu mới",
     "confirmPassword": "Xác nhận mật khẩu",
     "submit": "Cập nhật mật khẩu",
-    "noValidSession": "Không có phiên hợp lệ để đặt lại mật khẩu."
+    "noValidSession": "Không có phiên hợp lệ để đặt lại mật khẩu.",
+    "expiredSeconds": "Liên kết đặt lại mật khẩu đã hết hiệu lực (Giới hạn trong 60 giây). Vui lòng yêu cầu mã mới.",
+    "expiredSecondsShort": "Liên kết đặt lại mật khẩu đã hết hiệu lực (Giới hạn trong 60 giây)."
   },
   "home": {
     "heroSubtitle": "Kết nối Sinh viên & Doanh nghiệp",
@@ -339,6 +344,13 @@
       "added": "Đã lưu việc làm.",
       "removed": "Đã bỏ việc làm khỏi danh sách yêu thích.",
       "error": "Không thể cập nhật trạng thái yêu thích."
+    },
+    "toast": {
+      "coordUpdateSuccess": "Đã cập nhật tọa độ!",
+      "coordUpdateError": "Không thể cập nhật tọa độ",
+      "loginRequired": "Vui lòng đăng nhập để nộp đơn",
+      "candidateOnly": "Chỉ tài khoản Ứng viên mới có thể nộp đơn",
+      "applySuccess": "Đã nộp CV thành công cho công việc này."
     }
   },
   "recruiter": {
@@ -1003,5 +1015,8 @@
       "addresses": "Địa chỉ công ty",
       "galleryUrls": "Hình ảnh công ty"
     }
+  },
+  "app": {
+    "loading": "Đang tải giao diện"
   }
 }

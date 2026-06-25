@@ -105,6 +105,12 @@ const Navbar = () => {
     scrollToSection(item.targetId);
   };
 
+  const brandName = navbar.isEnabled
+    ? (i18n.language.startsWith("en")
+        ? navbar.brandNameEn || navbar.brandName || navbar.brandNameVi || "InternHiring"
+        : navbar.brandNameVi || navbar.brandName || navbar.brandNameEn || "InternHiring")
+    : "InternHiring";
+
   return (
     <nav
       className="sticky top-0 z-50 w-full border-b shadow-sm"
@@ -112,7 +118,7 @@ const Navbar = () => {
     >
       <div className="container mx-auto relative flex h-16 items-center px-4">
         <button type="button" className="flex shrink-0 items-center" onClick={() => scrollToSection()}>
-          <span className="font-bold text-xl text-primary">InternHiring</span>
+          <span className="font-bold text-xl text-primary">{brandName}</span>
         </button>
 
         <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 xl:flex 2xl:gap-10">

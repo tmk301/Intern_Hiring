@@ -66,7 +66,7 @@ type TokenFormValues = {
 const SIGNUP_TOKEN_LENGTH = 8;
 
 const Register = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -81,7 +81,7 @@ const Register = () => {
     let isMounted = true;
 
     setIsHeroLoading(true);
-    loadRegisterHeroConfig()
+    loadRegisterHeroConfig(i18n.language)
       .then((config) => {
         if (isMounted) setRegisterHero(config);
       })
@@ -89,10 +89,18 @@ const Register = () => {
         if (isMounted) setIsHeroLoading(false);
       });
 
+    const handleConfigUpdate = (event: Event) => {
+      const config = (event as CustomEvent).detail;
+      if (config?.registerHero) setRegisterHero(config.registerHero);
+    };
+
+    window.addEventListener("managed-site-config-updated", handleConfigUpdate);
+
     return () => {
       isMounted = false;
+      window.removeEventListener("managed-site-config-updated", handleConfigUpdate);
     };
-  }, []);
+  }, [i18n.language]);
 
   const registerSchema = useMemo(
     () =>
@@ -236,9 +244,6 @@ const Register = () => {
             }}
           >
             <div>
-              <Badge className="mb-4 border-white/20 bg-white/15 text-current shadow-none backdrop-blur">
-                {registerHero.badge || t("register.badge")}
-              </Badge>
               <h1 className="text-3xl font-bold leading-tight">
                 {registerHero.title || t("register.heroTitle")}
               </h1>

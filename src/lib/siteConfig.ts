@@ -258,16 +258,124 @@ export const loadManagedSiteConfig = async (): Promise<ManagedSiteConfig> => {
   }
 };
 
-export const loadLoginHeroConfig = async (): Promise<LoginHeroConfig> => {
-  const config = await loadManagedSiteConfig();
-  const sanityLoginHero = await loadSanityLoginHero(config.loginHero);
-  return sanityLoginHero || config.loginHero;
+export const getLocalizedDefaultLoginHero = (lang?: string): LoginHeroConfig => {
+  const isEn = lang?.startsWith("en");
+  return {
+    title: isEn ? "Welcome back to InternHiring" : "Chào mừng quay lại với InternHiring",
+    description: isEn
+      ? "Continue connecting with internship programs, partner companies, and career development opportunities."
+      : "Tiếp tục kết nối với các chương trình thực tập, công ty đối tác và cơ hội phát triển nghề nghiệp.",
+    securityText: isEn
+      ? "Accounts are verified through Supabase Auth and synced with candidate profiles."
+      : "Tài khoản được xác thực qua Supabase Auth và đồng bộ với hồ sơ ứng viên.",
+    backgroundColor: "#2563eb",
+    textColor: "#ffffff",
+    imageUrl: "",
+    formTitle: isEn ? "Log in" : "Đăng nhập",
+    formDescription: isEn
+      ? "Enter email and password to access your account."
+      : "Nhập email và mật khẩu để truy cập tài khoản của bạn.",
+    formTitleTextColor: "#0f172a",
+    formDescriptionTextColor: "#64748b",
+    footerTextColor: "#64748b",
+    linkTextColor: "#2563eb",
+    pageBackgroundColor: "#f8fafc",
+    formBackgroundColor: "#ffffff",
+    inputBackgroundColor: "#ffffff",
+    inputTextColor: "#0f172a",
+    inputBorderColor: "#e2e8f0",
+    labelTextColor: "#0f172a",
+  };
 };
 
-export const loadRegisterHeroConfig = async (): Promise<RegisterHeroConfig> => {
+export const getLocalizedDefaultRegisterHero = (lang?: string): RegisterHeroConfig => {
+  const isEn = lang?.startsWith("en");
+  return {
+    badge: isEn ? "New candidate" : "Ứng viên mới",
+    title: isEn
+      ? "Create a profile to start your internship journey"
+      : "Tạo hồ sơ để bắt đầu hành trình thực tập",
+    description: isEn
+      ? "Register a candidate account to follow programs, update your profile, and connect with suitable companies."
+      : "Đăng ký tài khoản ứng viên để theo dõi chương trình, cập nhật hồ sơ và kết nối với các doanh nghiệp phù hợp.",
+    noteTitle: isEn
+      ? "New accounts are candidate accounts by default."
+      : "Tài khoản mới mặc định là tài khoản ứng viên.",
+    noteText: isEn
+      ? "Are you a recruiter? After creating an account, request verification to receive permissions."
+      : "Bạn là nhà tuyển dụng? Sau khi tạo tài khoản, hãy gửi yêu cầu xác thực để nhận quyền.",
+    backgroundColor: "#f1f5f9",
+    textColor: "#0f172a",
+    imageUrl: "",
+    formTitle: isEn ? "Register account" : "Đăng ký tài khoản",
+    formDescription: isEn
+      ? "Complete the information below to create a candidate account."
+      : "Hoàn tất thông tin bên dưới để tạo tài khoản ứng viên.",
+    lastNameLabel: isEn ? "Last Name" : "Họ",
+    lastNamePlaceholder: "Nguyen",
+    firstNameLabel: isEn ? "First Name" : "Tên",
+    firstNamePlaceholder: "An",
+    emailLabel: "Email",
+    emailPlaceholder: "ten@example.com",
+    phoneLabel: isEn ? "Phone number" : "Số điện thoại",
+    phonePlaceholder: "0901234567",
+    passwordLabel: isEn ? "Password" : "Mật khẩu",
+    passwordPlaceholder: isEn ? "Minimum 6 characters" : "Tối thiểu 6 ký tự",
+  };
+};
+
+export const loadLoginHeroConfig = async (lang?: string): Promise<LoginHeroConfig> => {
   const config = await loadManagedSiteConfig();
-  const sanityRegisterHero = await loadSanityRegisterHero(config.registerHero);
-  return sanityRegisterHero || config.registerHero;
+  const defaultHero = getLocalizedDefaultLoginHero(lang);
+  
+  const mergedHero = {
+    ...defaultHero,
+    ...config.loginHero,
+  };
+  
+  if (config.loginHero.title === defaultLoginHeroConfig.title) {
+    mergedHero.title = defaultHero.title;
+  }
+  if (config.loginHero.description === defaultLoginHeroConfig.description) {
+    mergedHero.description = defaultHero.description;
+  }
+  if (config.loginHero.securityText === defaultLoginHeroConfig.securityText) {
+    mergedHero.securityText = defaultHero.securityText;
+  }
+  if (config.loginHero.formTitle === defaultLoginHeroConfig.formTitle) {
+    mergedHero.formTitle = defaultHero.formTitle;
+  }
+  if (config.loginHero.formDescription === defaultLoginHeroConfig.formDescription) {
+    mergedHero.formDescription = defaultHero.formDescription;
+  }
+
+  const sanityLoginHero = await loadSanityLoginHero(mergedHero, lang);
+  return sanityLoginHero || mergedHero;
+};
+
+export const loadRegisterHeroConfig = async (lang?: string): Promise<RegisterHeroConfig> => {
+  const config = await loadManagedSiteConfig();
+  const defaultHero = getLocalizedDefaultRegisterHero(lang);
+  
+  const mergedHero = {
+    ...defaultHero,
+    ...config.registerHero,
+  };
+
+  const fieldsToCheck = [
+    "badge", "title", "description", "noteTitle", "noteText",
+    "formTitle", "formDescription", "lastNameLabel", "firstNameLabel",
+    "phoneLabel", "passwordLabel", "passwordPlaceholder"
+  ] as const;
+
+  for (const field of fieldsToCheck) {
+    if (config.registerHero[field] === defaultRegisterHeroConfig[field]) {
+      mergedHero[field] = defaultHero[field] as any;
+    }
+  }
+
+  const sanityRegisterHero = await loadSanityRegisterHero(mergedHero, lang);
+  return sanityRegisterHero || mergedHero;
 };
 
 export const saveManagedSiteConfig = async (config: ManagedSiteConfig, token: string) => {

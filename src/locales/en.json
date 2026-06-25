@@ -164,7 +164,10 @@
     "confirmPassword": "Confirm password",
     "updateSubmit": "Update password",
     "updateSuccess": "Password has been updated. Please log in again.",
-    "updateError": "Could not update password"
+    "updateError": "Could not update password",
+    "otpExpired": "OTP code has expired (Over 60s). Please request a new code!",
+    "otpExpiresIn": "Code expires in: {{timeLeft}}s",
+    "otpExpiredLabel": "Code has expired!"
   },
   "resetPasswordPage": {
     "title": "Reset password",
@@ -179,7 +182,9 @@
     "newPassword": "New password",
     "confirmPassword": "Confirm password",
     "submit": "Update password",
-    "noValidSession": "No valid session is available to reset the password."
+    "noValidSession": "No valid session is available to reset the password.",
+    "expiredSeconds": "The reset password link has expired (60-second limit). Please request a new one.",
+    "expiredSecondsShort": "The reset password link has expired (60-second limit)."
   },
   "home": {
     "heroSubtitle": "Connecting Students & Companies",
@@ -328,6 +333,13 @@
       "added": "Job saved.",
       "removed": "Job removed from favorites.",
       "error": "Could not update favorite status."
+    },
+    "toast": {
+      "coordUpdateSuccess": "Coordinates updated successfully!",
+      "coordUpdateError": "Failed to update coordinates",
+      "loginRequired": "Please log in to apply",
+      "candidateOnly": "Only Candidate accounts can apply",
+      "applySuccess": "Successfully applied to this job."
     }
   },
   "recruiter": {
@@ -980,5 +992,8 @@
       "addresses": "Company addresses",
       "galleryUrls": "Company photos"
     }
+  },
+  "app": {
+    "loading": "Loading application interface"
   }
 }

@@ -263,9 +263,16 @@ const resolveSanityImage = (image?: SanityImageSettings) => {
 const selectLocalizedValue = (item?: SanityInterfaceTextItem, language?: string) => {
   if (!item) return undefined;
   if (item.isVisible === false) return "";
-  if (language?.startsWith("vi")) return item.valueVi || item.value || "";
-  if (language?.startsWith("en")) return item.valueEn || item.value || "";
-  return item.value ?? item.valueVi ?? item.valueEn ?? "";
+  if (language?.startsWith("vi")) {
+    const val = item.valueVi || item.value;
+    return val && val.trim() !== "" ? val : undefined;
+  }
+  if (language?.startsWith("en")) {
+    const val = item.valueEn;
+    return val && val.trim() !== "" ? val : undefined;
+  }
+  const val = item.value ?? item.valueVi ?? item.valueEn;
+  return val && val.trim() !== "" ? val : undefined;
 };
 
 const profileDefaultKeyMap: Record<string, string> = {
@@ -308,13 +315,16 @@ const selectLocalizedField = (
   field: string,
   language?: string,
 ) => {
-  const fallback = source[field];
-  const vietnamese = source[`${field}Vi`];
-  const english = source[`${field}En`];
-  const values = language?.startsWith("en")
-    ? [english, fallback, vietnamese]
-    : [vietnamese, fallback, english];
-  return values.find((value): value is string => typeof value === "string" && value.length > 0);
+  if (language?.startsWith("en")) {
+    const val = source[`${field}En`];
+    return typeof val === "string" && val.trim() !== "" ? val : undefined;
+  }
+  if (language?.startsWith("vi")) {
+    const val = source[`${field}Vi`] || source[field];
+    return typeof val === "string" && val.trim() !== "" ? val : undefined;
+  }
+  const val = source[field] ?? source[`${field}Vi`] ?? source[`${field}En`];
+  return typeof val === "string" && val.trim() !== "" ? val : undefined;
 };
 
 const homeContentKeyMap: Record<string, string> = {

@@ -121,7 +121,7 @@ export default function ResetPasswordDialog({ open, onOpenChange }: Props) {
             const elapsedSeconds = (Date.now() - sentTimestamp) / 1000;
 
             if (elapsedSeconds > OTP_TIMEOUT_SECONDS) {
-                toast.error("Mã OTP đã hết hiệu lực (Quá 60 giây). Vui lòng bấm gửi lại mã!");
+                toast.error(t("resetPasswordDialog.otpExpired"));
                 return;
             }
         }
@@ -217,7 +217,7 @@ export default function ResetPasswordDialog({ open, onOpenChange }: Props) {
                                 <Label>{t("resetPasswordDialog.tokenLabel")}</Label>
                                 {/* HIỂN THỊ SỐ GIÂY ĐẾM NGƯỢC */}
                                 <span className={`text-xs font-bold ${timeLeft === 0 ? "text-red-500" : "text-amber-500"}`}>
-                                    {timeLeft > 0 ? `Mã hết hạn sau: ${timeLeft}s` : "Mã đã hết hạn!"}
+                                    {timeLeft > 0 ? t("resetPasswordDialog.otpExpiresIn", { timeLeft }) : t("resetPasswordDialog.otpExpiredLabel")}
                                 </span>
                             </div>
                             <InputOTP

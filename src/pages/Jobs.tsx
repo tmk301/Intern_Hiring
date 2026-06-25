@@ -533,11 +533,11 @@ const Jobs: React.FC = () => {
     setIsUpdating(true);
     try {
       await jobApi.updateJobCoordinates(token, updateCoordJob.id, Number(coords.lat), Number(coords.lng));
-      toast({ title: "Thành công", description: "Đã cập nhật tọa độ!" });
+      toast({ title: t("toast.success"), description: t("jobs.toast.coordUpdateSuccess") });
       setUpdateCoordJob(null);
       setCoords({ lat: "", lng: "" });
     } catch (error) {
-      toast({ title: "Lỗi", description: "Không thể cập nhật tọa độ", variant: "destructive" });
+      toast({ title: t("toast.error"), description: t("jobs.toast.coordUpdateError"), variant: "destructive" });
     } finally {
       setIsUpdating(false);
     }
@@ -545,12 +545,12 @@ const Jobs: React.FC = () => {
 
   const handleOpenApplyModal = (jobId: string | number) => {
     if (!user || !token) {
-      toast({ description: "Vui lòng đăng nhập để nộp đơn", variant: "default" });
+      toast({ description: t("jobs.toast.loginRequired"), variant: "default" });
       navigate("/login");
       return;
     }
     if (user.role !== "CANDIDATE") {
-      toast({ description: "Chỉ tài khoản Ứng viên mới có thể nộp đơn", variant: "destructive" });
+      toast({ description: t("jobs.toast.candidateOnly"), variant: "destructive" });
       return;
     }
     const defaultCv = user.cvList?.find((cv) => cv.isDefault) ?? user.cvList?.[0];
@@ -563,7 +563,7 @@ const Jobs: React.FC = () => {
     setIsApplying(true);
     try {
       await candidateApi.applyJob(token, applyJobId, selectedCvId);
-      toast({ title: "Thành công!", description: "Đã nộp CV thành công cho công việc này." });
+      toast({ title: t("toast.success"), description: t("jobs.toast.applySuccess") });
       setApplyJobId(null);
       setSelectedCvId("");
     } catch (error: unknown) {

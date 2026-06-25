@@ -11,7 +11,8 @@
   "dependencies": {
     "@sanity/vision": "^3.99.0",
     "sanity": "^3.99.0",
-    "styled-components": "^6.1.19"
+    "styled-components": "^6.1.19",
+    "vite_react_shadcn_ts": "file:.."
   },
   "devDependencies": {
     "@types/react": "^18.3.23",

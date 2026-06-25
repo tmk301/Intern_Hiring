@@ -195,6 +195,7 @@ const managedPageRoutes = new Set([
 ]);
 
 const SanityContentGate = ({children}: {children: React.ReactNode}) => {
+  const { t } = useTranslation();
   const {pathname} = useLocation();
   const routePath = managedPageRoutes.has(pathname) ? pathname : "/";
   const homeInterface = useSanityManagedInterface("/");
@@ -202,7 +203,7 @@ const SanityContentGate = ({children}: {children: React.ReactNode}) => {
 
   if (homeInterface.isLoading || routeInterface.isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50" aria-label="Đang tải giao diện">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50" aria-label={t("app.loading")}>
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );

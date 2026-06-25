@@ -38,7 +38,7 @@ type LoginFormValues = {
 };
 
 const Login = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -90,7 +90,7 @@ const Login = () => {
     let mounted = true;
 
     setIsHeroLoading(true);
-    loadLoginHeroConfig()
+    loadLoginHeroConfig(i18n.language)
       .then((hero) => {
         if (mounted) setLoginHero(hero);
       })
@@ -109,7 +109,7 @@ const Login = () => {
       mounted = false;
       window.removeEventListener("managed-site-config-updated", handleConfigUpdate);
     };
-  }, []);
+  }, [i18n.language]);
 
   const onSubmit = async (values: LoginFormValues) => {
     setIsLoading(true);
