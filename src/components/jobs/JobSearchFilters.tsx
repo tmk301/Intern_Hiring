@@ -109,7 +109,7 @@ function SelectFilter({
           <SelectItem
             value={ALL_VALUE}
           >
-            {resolvedPlaceholder}
+            {t("jobs.filters.all") || "Tất cả"}
           </SelectItem>
           {options.map((option) => (
             <SelectItem
@@ -181,7 +181,7 @@ function SearchableSelectFilter({
               <CommandEmpty>{t("jobs.page.emptyTitle") || "Không tìm thấy"}</CommandEmpty>
               <CommandGroup>
                 <CommandItem
-                  value={resolvedPlaceholder}
+                  value={t("jobs.filters.all") || "Tất cả"}
                   onSelect={() => {
                     onChange("");
                     setOpen(false);
@@ -194,7 +194,7 @@ function SearchableSelectFilter({
                       value === "" ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  {resolvedPlaceholder}
+                  {t("jobs.filters.all") || "Tất cả"}
                 </CommandItem>
                 {options.map((option) => {
                   const labelText = option.labelKey ? t(option.labelKey) : option.label;

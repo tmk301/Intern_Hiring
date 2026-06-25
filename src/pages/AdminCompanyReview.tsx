@@ -212,7 +212,7 @@ const AdminCompanyReview: React.FC = () => {
                   <div className="mt-1 text-sm text-muted-foreground">
                     {[address.detail, address.district, address.province].filter(Boolean).join(", ")}
                   </div>
-                  {address.isDefault && <div className="mt-1 text-xs font-semibold text-emerald-700">{t("recruiterVerification.fields.defaultAddress")}</div>}
+                  {address.isDefault && <div className="mt-1 text-xs font-semibold text-emerald-700">{t("recruiterVerification.fields.defaultAddressTag")}</div>}
                 </div>
               ))}
             </CardContent>

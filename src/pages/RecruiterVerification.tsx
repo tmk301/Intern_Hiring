@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useNavigate } from "react-router-dom";
-import { ArrowLeft, Building2, ImageIcon, Loader2, MapPin, Plus, Trash2, UploadCloud, X } from "lucide-react";
+import { ArrowLeft, Building2, Check, ChevronsUpDown, ImageIcon, Loader2, MapPin, Plus, Trash2, UploadCloud, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { configApi, isApiError, recruiterApi, type RecruiterFormField } from "@/lib/api";
@@ -15,6 +15,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { SanityPageSections } from "@/components/sanity/SanityPageSections";
@@ -60,6 +62,7 @@ type CompanyFormValue = {
   companyPhone: string;
   companyWebsite: string;
   companyIntro: string;
+  mapUrl: string;
 };
 
 type FilePreview = {
@@ -87,12 +90,13 @@ const emptyFormValue: CompanyFormValue = {
   companyPhone: "",
   companyWebsite: "",
   companyIntro: "",
+  mapUrl: "",
 };
 
 const createAddress = (isDefault = false): CompanyAddress => ({
   id: crypto.randomUUID(),
   headOffice: "",
-  province: "",
+  province: "79",
   district: "",
   detail: "",
   isDefault,
@@ -128,6 +132,13 @@ const getCompanySizeValue = (value?: string | null) => {
   return ["1", "2", "3", "4"].includes(code) ? code : value;
 };
 
+const extractMapUrl = (input: string): string => {
+  if (!input.trim()) return "";
+  const iframeRegex = /<iframe[^>]+src="([^"]+)"/;
+  const match = input.match(iframeRegex);
+  return match ? match[1] : input.trim();
+};
+
 const RecruiterVerification: React.FC = () => {
   const { t } = useTranslation();
   const uiText = useSanityInterfaceText("/recruiter-verification");
@@ -145,6 +156,7 @@ const RecruiterVerification: React.FC = () => {
   const [provinceOptions, setProvinceOptions] = useState<JobFilterOption[]>([]);
   const [districtOptions, setDistrictOptions] = useState<Record<string, JobFilterOption[]>>({});
   const [loadingDistricts, setLoadingDistricts] = useState<Record<string, boolean>>({});
+  const [districtOpenStates, setDistrictOpenStates] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [customFields, setCustomFields] = useState<RecruiterFormField[]>([]);
   const [customFormValue, setCustomFormValue] = useState<Record<string, string>>({});
@@ -174,10 +186,25 @@ const RecruiterVerification: React.FC = () => {
         if (mounted) setProvinceOptions([]);
       });
 
+    const initialAddressId = addresses[0]?.id;
+    if (initialAddressId) {
+      getVietnamWardOptions("79")
+        .then((options) => {
+          if (mounted) {
+            setDistrictOptions((current) => ({ ...current, [initialAddressId]: options }));
+          }
+        })
+        .catch(() => {
+          if (mounted) {
+            setDistrictOptions((current) => ({ ...current, [initialAddressId]: [] }));
+          }
+        });
+    }
+
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [addresses]);
 
   useEffect(() => {
     let mounted = true;
@@ -230,6 +257,7 @@ const RecruiterVerification: React.FC = () => {
           companyPhone: company.companyPhone || "",
           companyWebsite: company.companyWebsite || "",
           companyIntro: company.companyIntro || "",
+          mapUrl: company.mapUrl || "",
         });
         setLogo(company.logoUrl ? { previewUrl: company.logoUrl, existingUrl: company.logoUrl } : null);
         setCover(company.coverUrl ? { previewUrl: company.coverUrl, existingUrl: company.coverUrl } : null);
@@ -239,7 +267,7 @@ const RecruiterVerification: React.FC = () => {
           ? storedAddresses.map((address, index) => ({
               id: crypto.randomUUID(),
               headOffice: getStoredText(address.headOffice),
-              province: getStoredText(address.provinceCode || address.province),
+              province: "79",
               district: getStoredText(address.districtCode || address.district),
               detail: getStoredText(address.detail),
               isDefault: Boolean(address.isDefault) || index === 0,
@@ -249,9 +277,8 @@ const RecruiterVerification: React.FC = () => {
 
         const nextDistrictOptions: Record<string, JobFilterOption[]> = {};
         await Promise.all(
-          nextAddresses.map(async (address, index) => {
-            const provinceCode = storedAddresses[index]?.provinceCode;
-            if (!provinceCode) return;
+          nextAddresses.map(async (address) => {
+            const provinceCode = "79";
 
             try {
               nextDistrictOptions[address.id] = await getVietnamWardOptions(provinceCode);
@@ -469,7 +496,9 @@ const RecruiterVerification: React.FC = () => {
   };
 
   const addAddress = () => {
-    setAddresses((current) => [...current, createAddress(false)]);
+    const newAddress = createAddress(false);
+    setAddresses((current) => [...current, newAddress]);
+    loadDistrictOptions(newAddress.id, "79");
   };
 
   const removeAddress = (id: string) => {
@@ -505,6 +534,14 @@ const RecruiterVerification: React.FC = () => {
     }
     if (formValue.companyIntro.length > 5000) {
       nextErrors.companyIntro = t("recruiterVerification.errors.max5000");
+    }
+
+    if (formValue.mapUrl.trim()) {
+      const extracted = extractMapUrl(formValue.mapUrl);
+      if (!extracted.startsWith("https://www.google.com/maps/embed") && 
+          !extracted.startsWith("https://maps.google.com/maps")) {
+        nextErrors.mapUrl = t("recruiterVerification.errors.mapUrl");
+      }
     }
 
     addresses.forEach((address) => {
@@ -609,6 +646,7 @@ const RecruiterVerification: React.FC = () => {
         companyPhone: formValue.companyPhone.trim(),
         companyWebsite: formValue.companyWebsite.trim(),
         companyIntro: formValue.companyIntro.trim(),
+        mapUrl: extractMapUrl(formValue.mapUrl),
         addresses: JSON.stringify(addressPayload),
         galleryUrls: JSON.stringify(galleryUrls),
         ...customFields.reduce<Record<string, string>>((payload, field) => {
@@ -748,17 +786,17 @@ const RecruiterVerification: React.FC = () => {
             <CardContent className="grid gap-4 md:grid-cols-2">
               <div data-error-key="companyFullName">
                 <Label htmlFor="companyFullName">{t("recruiterVerification.fields.companyFullName")} <span className="text-destructive">*</span></Label>
-                <Input id="companyFullName" value={formValue.companyFullName} maxLength={255} onChange={(event) => updateFormValue("companyFullName", event.target.value)} className={fieldClassName("companyFullName")} />
+                <Input id="companyFullName" value={formValue.companyFullName} placeholder={t("recruiterVerification.placeholders.companyFullName")} maxLength={255} onChange={(event) => updateFormValue("companyFullName", event.target.value)} className={fieldClassName("companyFullName")} />
                 {renderError("companyFullName")}
               </div>
               <div data-error-key="companyDisplayName">
                 <Label htmlFor="companyDisplayName">{t("recruiterVerification.fields.companyDisplayName")} <span className="text-destructive">*</span></Label>
-                <Input id="companyDisplayName" value={formValue.companyDisplayName} maxLength={255} onChange={(event) => updateFormValue("companyDisplayName", event.target.value)} className={fieldClassName("companyDisplayName")} />
+                <Input id="companyDisplayName" value={formValue.companyDisplayName} placeholder={t("recruiterVerification.placeholders.companyDisplayName")} maxLength={255} onChange={(event) => updateFormValue("companyDisplayName", event.target.value)} className={fieldClassName("companyDisplayName")} />
                 {renderError("companyDisplayName")}
               </div>
               <div data-error-key="taxCode">
                 <Label htmlFor="taxCode">{t("recruiterVerification.fields.taxCode")} <span className="text-destructive">*</span></Label>
-                <Input id="taxCode" value={formValue.taxCode} onChange={(event) => updateFormValue("taxCode", event.target.value)} className={fieldClassName("taxCode")} />
+                <Input id="taxCode" value={formValue.taxCode} placeholder={t("recruiterVerification.placeholders.taxCode")} onChange={(event) => updateFormValue("taxCode", event.target.value)} className={fieldClassName("taxCode")} />
                 {renderError("taxCode")}
               </div>
               <div data-error-key="companySize">
@@ -777,24 +815,29 @@ const RecruiterVerification: React.FC = () => {
               </div>
               <div data-error-key="billingAddress" className="md:col-span-2">
                 <Label htmlFor="billingAddress">{t("recruiterVerification.fields.billingAddress")} <span className="text-destructive">*</span></Label>
-                <Input id="billingAddress" value={formValue.billingAddress} onChange={(event) => updateFormValue("billingAddress", event.target.value)} className={fieldClassName("billingAddress")} />
+                <Input id="billingAddress" value={formValue.billingAddress} placeholder={t("recruiterVerification.placeholders.billingAddress")} onChange={(event) => updateFormValue("billingAddress", event.target.value)} className={fieldClassName("billingAddress")} />
                 {renderError("billingAddress")}
               </div>
               <div data-error-key="companyPhone">
                 <Label htmlFor="companyPhone">{t("recruiterVerification.fields.companyPhone")} <span className="text-destructive">*</span></Label>
-                <Input id="companyPhone" value={formValue.companyPhone} onChange={(event) => updateFormValue("companyPhone", event.target.value)} className={fieldClassName("companyPhone")} />
+                <Input id="companyPhone" value={formValue.companyPhone} placeholder={t("recruiterVerification.placeholders.companyPhone")} onChange={(event) => updateFormValue("companyPhone", event.target.value)} className={fieldClassName("companyPhone")} />
                 {renderError("companyPhone")}
               </div>
               <div data-error-key="companyWebsite">
                 <Label htmlFor="companyWebsite">{t("recruiterVerification.fields.companyWebsite")}</Label>
-                <Input id="companyWebsite" value={formValue.companyWebsite} placeholder="https://example.com" onChange={(event) => updateFormValue("companyWebsite", event.target.value)} className={fieldClassName("companyWebsite")} />
+                <Input id="companyWebsite" value={formValue.companyWebsite} placeholder={t("recruiterVerification.placeholders.companyWebsite")} onChange={(event) => updateFormValue("companyWebsite", event.target.value)} className={fieldClassName("companyWebsite")} />
                 {renderError("companyWebsite")}
               </div>
               <div data-error-key="companyIntro" className="md:col-span-2">
                 <Label htmlFor="companyIntro">{t("recruiterVerification.fields.companyIntro")}</Label>
-                <Textarea id="companyIntro" value={formValue.companyIntro} maxLength={5000} onChange={(event) => updateFormValue("companyIntro", event.target.value)} className={cn("min-h-32", fieldClassName("companyIntro"))} />
+                <Textarea id="companyIntro" value={formValue.companyIntro} placeholder={t("recruiterVerification.placeholders.companyIntro")} maxLength={5000} onChange={(event) => updateFormValue("companyIntro", event.target.value)} className={cn("min-h-32", fieldClassName("companyIntro"))} />
                 <div className="mt-1 text-right text-xs text-muted-foreground">{formValue.companyIntro.length}/5000</div>
                 {renderError("companyIntro")}
+              </div>
+              <div data-error-key="mapUrl" className="md:col-span-2">
+                <Label htmlFor="mapUrl">{t("recruiterVerification.fields.mapUrl")}</Label>
+                <Input id="mapUrl" value={formValue.mapUrl} placeholder={t("recruiterVerification.placeholders.mapUrl")} onChange={(event) => updateFormValue("mapUrl", event.target.value)} className={fieldClassName("mapUrl")} />
+                {renderError("mapUrl")}
               </div>
             </CardContent>
           </Card>
@@ -818,12 +861,12 @@ const RecruiterVerification: React.FC = () => {
                   <div className="grid gap-4 md:grid-cols-2">
                     <div data-error-key={`address.${address.id}.headOffice`}>
                       <Label>{t("recruiterVerification.fields.headOffice")} <span className="text-destructive">*</span></Label>
-                      <Input value={address.headOffice} onChange={(event) => updateAddress(address.id, "headOffice", event.target.value)} className={fieldClassName(`address.${address.id}.headOffice`)} />
+                      <Input value={address.headOffice} placeholder={t("recruiterVerification.placeholders.headOffice")} onChange={(event) => updateAddress(address.id, "headOffice", event.target.value)} className={fieldClassName(`address.${address.id}.headOffice`)} />
                       {renderError(`address.${address.id}.headOffice`)}
                     </div>
                     <div data-error-key={`address.${address.id}.province`}>
                       <Label>{t("recruiterVerification.fields.province")} <span className="text-destructive">*</span></Label>
-                      <Select value={address.province} onValueChange={(value) => updateAddress(address.id, "province", value)}>
+                      <Select value={address.province || "79"} disabled={true}>
                         <SelectTrigger className={cn("mt-2", fieldClassName(`address.${address.id}.province`))}>
                           <SelectValue placeholder={t("recruiterVerification.placeholders.province")} />
                         </SelectTrigger>
@@ -837,21 +880,67 @@ const RecruiterVerification: React.FC = () => {
                     </div>
                     <div data-error-key={`address.${address.id}.district`}>
                       <Label>{t("recruiterVerification.fields.district")} <span className="text-destructive">*</span></Label>
-                      <Select value={address.district} onValueChange={(value) => updateAddress(address.id, "district", value)} disabled={!address.province || loadingDistricts[address.id]}>
-                        <SelectTrigger className={cn("mt-2", fieldClassName(`address.${address.id}.district`))}>
-                          <SelectValue placeholder={loadingDistricts[address.id] ? t("common.loading") : t("recruiterVerification.placeholders.district")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(districtOptions[address.id] ?? []).map((option) => (
-                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Popover
+                        open={districtOpenStates[address.id] || false}
+                        onOpenChange={(open) => setDistrictOpenStates((prev) => ({ ...prev, [address.id]: open }))}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={districtOpenStates[address.id] || false}
+                            disabled={loadingDistricts[address.id]}
+                            className={cn(
+                              "mt-2 flex h-10 w-full items-center justify-between rounded-md border border-input bg-white px-3 py-2 text-sm text-left font-normal transition-colors hover:bg-slate-50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 text-slate-900",
+                              !address.district && "text-muted-foreground",
+                              fieldClassName(`address.${address.id}.district`)
+                            )}
+                          >
+                            <span className="truncate">
+                              {loadingDistricts[address.id]
+                                ? t("common.loading")
+                                : (districtOptions[address.id] ?? []).find((opt) => opt.value === address.district)?.label ||
+                                  t("recruiterVerification.placeholders.district")}
+                            </span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-muted-foreground/70" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                          <Command className="w-full">
+                            <CommandInput placeholder={`${t("common.search")}...`} className="h-10" />
+                            <CommandList className="max-h-[300px] overflow-y-auto">
+                              <CommandEmpty>{t("jobs.page.emptyTitle") || "Không tìm thấy"}</CommandEmpty>
+                              <CommandGroup>
+                                {(districtOptions[address.id] ?? []).map((option) => (
+                                  <CommandItem
+                                    key={option.value}
+                                    value={option.label}
+                                    onSelect={() => {
+                                      updateAddress(address.id, "district", option.value);
+                                      setDistrictOpenStates((prev) => ({ ...prev, [address.id]: false }));
+                                    }}
+                                    className="cursor-pointer data-[selected='true']:bg-primary/10 data-[selected='true']:text-primary data-[selected=true]:bg-primary/10 data-[selected=true]:text-primary"
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        address.district === option.value ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {option.label}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                       {renderError(`address.${address.id}.district`)}
                     </div>
                     <div data-error-key={`address.${address.id}.detail`}>
                       <Label>{t("recruiterVerification.fields.addressDetail")} <span className="text-destructive">*</span></Label>
-                      <Input value={address.detail} onChange={(event) => updateAddress(address.id, "detail", event.target.value)} className={fieldClassName(`address.${address.id}.detail`)} />
+                      <Input value={address.detail} placeholder={t("recruiterVerification.placeholders.detail")} onChange={(event) => updateAddress(address.id, "detail", event.target.value)} className={fieldClassName(`address.${address.id}.detail`)} />
                       {renderError(`address.${address.id}.detail`)}
                     </div>
                     <label className="flex items-center gap-2 text-sm">

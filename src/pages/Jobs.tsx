@@ -29,6 +29,7 @@ import {
   CURRENCY_OPTIONS,
   defaultJobFilterOptions,
   getSalaryRangeOption,
+  formatSalaryRangeLabel,
   JOB_TYPE_OPTIONS,
   WORK_MODE_OPTIONS,
   USD_TO_VND_RATE,
@@ -684,10 +685,10 @@ const Jobs: React.FC = () => {
                       <div className="flex flex-wrap gap-2">
                         {job.type && <Badge variant="secondary" className="rounded-full px-3 py-1">{JOB_TYPE_OPTIONS.find(o => o.value === job.type)?.labelKey ? t(JOB_TYPE_OPTIONS.find(o => o.value === job.type)!.labelKey!) : job.type}</Badge>}
                         {job.salary && (
-                          <Badge variant="secondary" className="rounded-full px-3 py-1">
-                            {getSalaryRangeOption(job.salary)?.labelKey ? t(getSalaryRangeOption(job.salary)!.labelKey!) : job.salary} {job.currency ? (CURRENCY_OPTIONS.find(o => o.value === job.currency)?.labelKey ? t(CURRENCY_OPTIONS.find(o => o.value === job.currency)!.labelKey!) : job.currency) : ""}
-                          </Badge>
-                        )}
+                           <Badge variant="secondary" className="rounded-full px-3 py-1">
+                             {formatSalaryRangeLabel(job.salary, job.currency, t)}
+                           </Badge>
+                         )}
                         {job.mode && <Badge variant="secondary" className="rounded-full px-3 py-1">{WORK_MODE_OPTIONS.find(o => o.value === job.mode)?.labelKey ? t(WORK_MODE_OPTIONS.find(o => o.value === job.mode)!.labelKey!) : job.mode}</Badge>}
                         {job.experience && <Badge variant="secondary" className="rounded-full px-3 py-1">{defaultJobFilterOptions.experience.find(o => o.value === job.experience)?.labelKey ? t(defaultJobFilterOptions.experience.find(o => o.value === job.experience)!.labelKey!) : job.experience}</Badge>}
                       </div>

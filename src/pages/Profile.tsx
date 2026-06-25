@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -210,6 +210,38 @@ const Profile = () => {
   const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(user?.emailNotificationsEnabled ?? false);
   const [isSavingEmailNotifications, setIsSavingEmailNotifications] = useState(false);
   const shouldShowCompanyProfile = isRecruiterRole(user?.role);
+
+  const completionData = useMemo(() => {
+    if (!user) return { percentage: 0, completedCount: 0, totalCount: 0, items: [] };
+
+    const items = [
+      { name: t("profile.last_name", { defaultValue: "Họ" }), isComplete: Boolean(user.lastName?.trim()) },
+      { name: t("profile.first_name", { defaultValue: "Tên" }), isComplete: Boolean(user.firstName?.trim()) },
+      { name: t("profile.phone", { defaultValue: "Số điện thoại" }), isComplete: Boolean(user.phoneNumber?.trim()) },
+      { name: t("profile.dob", { defaultValue: "Ngày sinh" }), isComplete: Boolean(user.dob) },
+      { name: t("profile.gender_label", { defaultValue: "Giới tính" }), isComplete: Boolean(user.gender) },
+      { name: t("profile.email", { defaultValue: "Email" }), isComplete: Boolean(user.email?.trim()) },
+      { name: t("profile.avatar", { defaultValue: "Ảnh đại diện" }), isComplete: Boolean(user.avatarUrl?.trim()) },
+    ];
+
+    if (isCandidateRole(user.role)) {
+      items.push({
+        name: t("profile.cv_title", { defaultValue: "CV" }),
+        isComplete: Boolean(user.cvList && user.cvList.length > 0)
+      });
+    } else if (isRecruiterRole(user.role)) {
+      items.push({
+        name: t("profile.companyProfileTitle", { defaultValue: "Hồ sơ công ty" }),
+        isComplete: Boolean(companyProfile)
+      });
+    }
+
+    const completedCount = items.filter(item => item.isComplete).length;
+    const totalCount = items.length;
+    const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+    return { percentage, completedCount, totalCount, items };
+  }, [user, companyProfile, t]);
 
   useEffect(() => {
     if (!token || !shouldShowCompanyProfile) {
@@ -631,8 +663,8 @@ const Profile = () => {
               </div>
 
               {/* MIDDLE - avatar card */}
-              <div className="flex flex-col gap-4 h-full">
-                <Card className="overflow-hidden h-full">
+              <div className="flex flex-col gap-4">
+                <Card className="overflow-hidden">
                   <div
                     className="relative h-28 transition-colors duration-300"
                     style={{ background: `linear-gradient(135deg, ${profileThemeColor}cc, ${profileThemeColor})` }}
@@ -711,6 +743,91 @@ const Profile = () => {
                     </div>
                   </div>
                 </Card>
+
+                {/* Profile Completeness Card */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Card className="overflow-hidden cursor-help hover:border-slate-300 hover:shadow-sm transition-all duration-300">
+                        <CardContent className="p-4 flex items-center gap-4">
+                          {/* Circular progress chart */}
+                          <div className="relative flex items-center justify-center shrink-0 w-[90px] h-[90px]">
+                            <svg className="w-full h-full transform -rotate-90">
+                              <circle
+                                cx="45"
+                                cy="45"
+                                r="38"
+                                className="stroke-slate-100 fill-transparent"
+                                strokeWidth="6"
+                              />
+                              <circle
+                                cx="45"
+                                cy="45"
+                                r="38"
+                                className={cn(
+                                  "fill-transparent transition-all duration-500 ease-out",
+                                  completionData.percentage < 50
+                                    ? "stroke-red-500"
+                                    : completionData.percentage < 80
+                                    ? "stroke-amber-500"
+                                    : "stroke-emerald-500"
+                                )}
+                                strokeWidth="6"
+                                strokeDasharray={2 * Math.PI * 38}
+                                strokeDashoffset={
+                                  2 * Math.PI * 38 - (completionData.percentage / 100) * 2 * Math.PI * 38
+                                }
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                              <span className="text-base font-extrabold text-slate-900">{completionData.percentage}%</span>
+                            </div>
+                          </div>
+
+                          {/* Info section */}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-bold text-slate-900 truncate">
+                              {t("profile.completenessTitle", { defaultValue: "Hoàn thiện hồ sơ" })}
+                            </h4>
+                            <span
+                              className={cn(
+                                "inline-block px-1.5 py-0.5 text-[10px] font-bold rounded-full mt-1.5",
+                                completionData.percentage < 50
+                                  ? "bg-red-500/10 text-red-700"
+                                  : completionData.percentage < 80
+                                  ? "bg-amber-500/10 text-amber-700"
+                                  : "bg-emerald-500/10 text-emerald-700"
+                              )}
+                            >
+                              {completionData.percentage === 100
+                                ? t("profile.statusComplete", { defaultValue: "Hoàn tất" })
+                                : t("profile.statusIncomplete", { defaultValue: "Chưa hoàn tất" })}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </TooltipTrigger>
+                    <TooltipContent className="p-3 w-64 bg-white border border-slate-200 shadow-lg rounded-xl text-slate-900 z-50">
+                      <p className="font-bold text-xs mb-2 text-slate-950">
+                        {t("profile.completenessChecklist", { defaultValue: "Chi tiết các trường thông tin" })}
+                      </p>
+                      <div className="space-y-1.5">
+                        {completionData.items.map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-xs">
+                            <span className="text-slate-600">{item.name}</span>
+                            {item.isComplete ? (
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                            ) : (
+                              <div className="h-3.5 w-3.5 rounded-full border-2 border-slate-300 shrink-0" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
                 {/* CV card moved to bottom row to avoid enlarging top row */}
               </div>
 

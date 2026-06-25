@@ -1379,7 +1379,7 @@ const ModeratorDashboard: React.FC = () => {
                       </div>
                       {address.isDefault && (
                         <span className="absolute top-3 right-3 text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-100 font-semibold px-2 py-0.5 rounded-full">
-                          {t("recruiterVerification.fields.defaultAddress")}
+                          {t("recruiterVerification.fields.defaultAddressTag")}
                         </span>
                       )}
                     </div>

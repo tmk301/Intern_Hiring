@@ -35,7 +35,8 @@
     "previousPage": "Previous page",
     "nextPage": "Next page",
     "lastPage": "Last page",
-    "save": "Save"
+    "save": "Save",
+    "search": "Search"
   },
   "toast": {
     "error": "Error",
@@ -533,6 +534,15 @@
     "companyProfileTitle": "Company profile",
     "companyProfileEdit": "Edit company profile",
     "companyProfileEmpty": "No company profile yet. Click to update.",
+    "mapTitle": "Location Map",
+    "noMap": "No location map configured.",
+    "viewOnGoogleMaps": "View on Google Maps",
+    "completenessTitle": "Profile Completion",
+    "completenessSubtitle": "Completed {{completed}}/{{total}} fields",
+    "completenessChecklist": "Profile completeness details",
+    "statusComplete": "Complete",
+    "statusIncomplete": "Incomplete",
+    "avatar": "Avatar",
     "companyProfileLoadError": "Could not load company profile",
     "companyTaxCode": "Tax code",
     "companyPhone": "Phone",
@@ -938,14 +948,26 @@
       "companyIntro": "About company",
       "headOffice": "Head office",
       "province": "Province / City",
-      "district": "Ward",
+      "district": "District",
       "addressDetail": "Detailed address",
-      "defaultAddress": "Default address"
+      "defaultAddress": "Default address",
+      "defaultAddressTag": "Headquarters",
+      "mapUrl": "Google Map (Iframe embed code or URL)"
     },
     "placeholders": {
       "companySize": "Select company size",
       "province": "Select province / city",
-      "district": "Select ward"
+      "district": "Select district",
+      "companyFullName": "Enter full company name",
+      "companyDisplayName": "Enter company display name",
+      "taxCode": "Enter tax code",
+      "billingAddress": "Enter billing address",
+      "companyPhone": "Enter company phone number",
+      "companyWebsite": "e.g. https://example.com",
+      "companyIntro": "Enter a brief introduction of the company...",
+      "headOffice": "e.g. Building A, Office B...",
+      "detail": "Enter detailed address (house number, street name...)",
+      "mapUrl": "Paste iframe embed code or map URL here..."
     },
     "companySizes": {
       "micro": "Micro business (10 employees or fewer)",
@@ -973,7 +995,8 @@
       "max5000": "Maximum 5000 characters",
       "taxCode": "Tax code can only contain numbers and hyphens",
       "phone": "Phone number can only contain numbers, +, and spaces",
-      "website": "Website must start with http:// or https://"
+      "website": "Website must start with http:// or https://",
+      "mapUrl": "Invalid map URL. Please enter an embed link starting with https://www.google.com/maps/embed"
     },
     "toast": {
       "success": "Company profile submitted successfully",
@@ -993,7 +1016,8 @@
       "companyWebsite": "Company website",
       "companyIntro": "About company",
       "addresses": "Company addresses",
-      "galleryUrls": "Company photos"
+      "galleryUrls": "Company photos",
+      "mapUrl": "Google Map"
     }
   },
   "app": {

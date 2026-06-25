@@ -88,6 +88,37 @@ export function NotificationButton({ user, token, mobile = false }: Notification
   const [selectMode, setSelectMode] = useState(false);
   const [selectedNotificationIds, setSelectedNotificationIds] = useState<Set<string>>(new Set());
 
+  useEffect(() => {
+    if (user) {
+      try {
+        const readStored = localStorage.getItem(`notifications_read_profile_${user.id}`);
+        if (readStored) {
+          setReadProfileNotificationIds(new Set(JSON.parse(readStored)));
+        } else {
+          setReadProfileNotificationIds(new Set());
+        }
+      } catch (e) {
+        console.error("Failed to parse read profile notifications", e);
+        setReadProfileNotificationIds(new Set());
+      }
+
+      try {
+        const deletedStored = localStorage.getItem(`notifications_deleted_profile_${user.id}`);
+        if (deletedStored) {
+          setDeletedProfileNotificationIds(new Set(JSON.parse(deletedStored)));
+        } else {
+          setDeletedProfileNotificationIds(new Set());
+        }
+      } catch (e) {
+        console.error("Failed to parse deleted profile notifications", e);
+        setDeletedProfileNotificationIds(new Set());
+      }
+    } else {
+      setReadProfileNotificationIds(new Set());
+      setDeletedProfileNotificationIds(new Set());
+    }
+  }, [user?.id]);
+
   const loadNotifications = useCallback(() => {
     if (!token) {
       setApiNotifications([]);
@@ -244,7 +275,13 @@ export function NotificationButton({ user, token, mobile = false }: Notification
     );
 
     if (notification.source === "profile") {
-      setReadProfileNotificationIds((current) => new Set(current).add(notification.id));
+      setReadProfileNotificationIds((current) => {
+        const next = new Set(current).add(notification.id);
+        if (user) {
+          localStorage.setItem(`notifications_read_profile_${user.id}`, JSON.stringify([...next]));
+        }
+        return next;
+      });
     }
 
     if (token && !notification.read && notification.source === "api") {
@@ -284,6 +321,9 @@ export function NotificationButton({ user, token, mobile = false }: Notification
       ids.forEach((id) => {
         if (id.startsWith("missing-") || id.startsWith("incomplete-")) next.add(id);
       });
+      if (user) {
+        localStorage.setItem(`notifications_deleted_profile_${user.id}`, JSON.stringify([...next]));
+      }
       return next;
     });
     setSelectedNotificationIds((current) => new Set([...current].filter((id) => !ids.has(id))));
@@ -307,7 +347,11 @@ export function NotificationButton({ user, token, mobile = false }: Notification
 
   const markAllAsRead = async () => {
     setApiNotifications((current) => current.map((notification) => ({ ...notification, read: true })));
-    setReadProfileNotificationIds(new Set(profileNotifications.map((notification) => notification.id)));
+    const allProfileIds = profileNotifications.map((notification) => notification.id);
+    setReadProfileNotificationIds(new Set(allProfileIds));
+    if (user) {
+      localStorage.setItem(`notifications_read_profile_${user.id}`, JSON.stringify(allProfileIds));
+    }
 
     if (!token) return;
 

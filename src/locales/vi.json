@@ -35,7 +35,8 @@
     "nextPage": "Trang sau",
     "lastPage": "Trang cuối",
     "itemsPerPage": "Số lượng mỗi trang",
-    "save": "Lưu"
+    "save": "Lưu",
+    "search": "Tìm kiếm"
   },
   "toast": {
     "error": "Lỗi",
@@ -558,6 +559,15 @@
     "companyProfileTitle": "Hồ sơ công ty",
     "companyProfileEdit": "Chỉnh sửa hồ sơ công ty",
     "companyProfileEmpty": "Chưa có hồ sơ công ty. Bấm để cập nhật.",
+    "mapTitle": "Bản đồ vị trí",
+    "noMap": "Chưa cấu hình bản đồ vị trí.",
+    "viewOnGoogleMaps": "Xem trên Google Maps",
+    "completenessTitle": "Hoàn thiện hồ sơ",
+    "completenessSubtitle": "Đã xong {{completed}}/{{total}} trường",
+    "completenessChecklist": "Chi tiết các trường thông tin",
+    "statusComplete": "Hoàn tất",
+    "statusIncomplete": "Chưa hoàn tất",
+    "avatar": "Ảnh đại diện",
     "companyProfileLoadError": "Không thể tải hồ sơ công ty",
     "companyTaxCode": "Mã số thuế",
     "companyPhone": "Điện thoại",
@@ -961,14 +971,26 @@
       "companyIntro": "Giới thiệu về công ty",
       "headOffice": "Trụ sở chính",
       "province": "Tỉnh/Thành phố",
-      "district": "Phường/Xã",
+      "district": "Quận/Huyện",
       "addressDetail": "Địa chỉ chi tiết",
-      "defaultAddress": "Địa chỉ mặc định"
+      "defaultAddress": "Địa chỉ mặc định",
+      "defaultAddressTag": "Trụ sở chính",
+      "mapUrl": "Bản đồ Google Map (Mã nhúng iframe hoặc URL)"
     },
     "placeholders": {
       "companySize": "Chọn quy mô công ty",
       "province": "Chọn tỉnh/thành phố",
-      "district": "Chọn phường/xã"
+      "district": "Chọn quận/huyện",
+      "companyFullName": "Nhập tên công ty đầy đủ",
+      "companyDisplayName": "Nhập tên công ty hiển thị",
+      "taxCode": "Nhập mã số thuế",
+      "billingAddress": "Nhập địa chỉ xuất hóa đơn",
+      "companyPhone": "Nhập số điện thoại công ty",
+      "companyWebsite": "Ví dụ: https://example.com",
+      "companyIntro": "Nhập giới thiệu ngắn về công ty...",
+      "headOffice": "Ví dụ: Tòa nhà A, văn phòng B...",
+      "detail": "Nhập địa chỉ chi tiết (số nhà, tên đường...)",
+      "mapUrl": "Dán mã nhúng iframe hoặc URL bản đồ tại đây..."
     },
     "companySizes": {
       "micro": "Siêu nhỏ (tối đa 10 lao động)",
@@ -996,7 +1018,8 @@
       "max5000": "Tối đa 5000 ký tự",
       "taxCode": "Mã số thuế chỉ được gồm số và dấu -",
       "phone": "Số điện thoại chỉ được gồm số, dấu + và khoảng trắng",
-      "website": "Website phải bắt đầu bằng http:// hoặc https://"
+      "website": "Website phải bắt đầu bằng http:// hoặc https://",
+      "mapUrl": "Đường dẫn bản đồ không hợp lệ. Vui lòng nhập link nhúng bắt đầu bằng https://www.google.com/maps/embed"
     },
     "toast": {
       "success": "Cập nhật hồ sơ công ty thành công",
@@ -1016,7 +1039,8 @@
       "companyWebsite": "Website công ty",
       "companyIntro": "Giới thiệu về công ty",
       "addresses": "Địa chỉ công ty",
-      "galleryUrls": "Hình ảnh công ty"
+      "galleryUrls": "Hình ảnh công ty",
+      "mapUrl": "Bản đồ Google Map"
     }
   },
   "app": {

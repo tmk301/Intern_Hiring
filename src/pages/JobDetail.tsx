@@ -42,7 +42,8 @@ import {
   WORK_MODE_OPTIONS,
   CURRENCY_OPTIONS,
   defaultJobFilterOptions,
-  getSalaryRangeOption
+  getSalaryRangeOption,
+  formatSalaryRangeLabel
 } from "@/components/jobs/jobFilterConfig";
 import { FavoriteJobButton } from "@/components/jobs/FavoriteJobButton";
 
@@ -208,15 +209,7 @@ const JobDetail: React.FC = () => {
       : job.type
     : "-";
 
-  const salaryLabel = job.salary
-    ? `${getSalaryRangeOption(job.salary)?.labelKey ? t(getSalaryRangeOption(job.salary)!.labelKey!) : job.salary} ${
-        job.currency
-          ? CURRENCY_OPTIONS.find((o) => o.value === job.currency)?.labelKey
-            ? t(CURRENCY_OPTIONS.find((o) => o.value === job.currency)!.labelKey!)
-            : job.currency
-          : ""
-      }`
-    : "-";
+  const salaryLabel = formatSalaryRangeLabel(job.salary, job.currency, t);
 
   const workModeLabel = job.mode
     ? WORK_MODE_OPTIONS.find((o) => o.value === job.mode)?.labelKey
@@ -437,6 +430,35 @@ const JobDetail: React.FC = () => {
                   >
                     {t("profile.companyProfileTitle")}
                   </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Google Map Card */}
+            {company && company.mapUrl && (
+              <Card className="border-slate-100 shadow-sm overflow-hidden">
+                <CardHeader className="py-4">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-primary" />
+                    {t("profile.mapTitle", { defaultValue: "Bản đồ vị trí" })}
+                  </CardTitle>
+                </CardHeader>
+                <Separator />
+                <CardContent className="p-3">
+                  <div className="w-full overflow-hidden rounded-md border bg-white p-0.5">
+                    <iframe
+                      src={company.mapUrl}
+                      width="100%"
+                      height="240"
+                      style={{ border: 0 }}
+                      allowFullScreen={true}
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      title="Google Maps"
+                      className="rounded"
+                      sandbox="allow-scripts allow-same-origin allow-popups"
+                    />
+                  </div>
                 </CardContent>
               </Card>
             )}

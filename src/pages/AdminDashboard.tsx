@@ -76,6 +76,7 @@ import {
   JOB_TYPE_OPTIONS,
   CURRENCY_OPTIONS,
   getSalaryRangeOption,
+  formatSalaryRangeLabel,
   defaultJobFilterOptions
 } from "@/components/jobs/jobFilterConfig";
 import { supabase } from "@/lib/supabase";
@@ -543,7 +544,7 @@ const AdminDashboard: React.FC = () => {
                   <div className="text-muted-foreground">
                     {[record.detail, record.district, record.province].filter(Boolean).join(", ")}
                   </div>
-                  {record.isDefault ? <div className="text-emerald-700">{t("recruiterVerification.fields.defaultAddress")}</div> : null}
+                  {record.isDefault ? <div className="text-emerald-700">{t("recruiterVerification.fields.defaultAddressTag")}</div> : null}
                 </div>
               );
             })}
@@ -1830,16 +1831,17 @@ const AdminDashboard: React.FC = () => {
                       </div>
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="cta"
                         onClick={() => {
                           resetAuditPage();
                           setAuditAction("");
                           setAuditTargetType("");
                           setAuditActorEmail("");
                         }}
-                        className="h-10 w-full sm:w-auto border-slate-200 hover:bg-slate-50"
+                        className="w-auto gap-2"
                         disabled={!auditAction && !auditTargetType && !auditActorEmail}
                       >
+                        <RotateCcw className="h-4 w-4" />
                         {t("jobs.filters.reset")}
                       </Button>
                     </div>
@@ -1975,7 +1977,7 @@ const AdminDashboard: React.FC = () => {
                 <div><strong>{t("common.recruiter")}:</strong> {selectedJob.employerEmail || selectedJob.employerName || "-"}</div>
                 <div><strong>{t("admin.jobDialog.location")}:</strong> {selectedJob.location || "-"}</div>
                 <div><strong>{t("common.type")}:</strong> {selectedJob.type ? (JOB_TYPE_OPTIONS.find(o => o.value === selectedJob.type)?.labelKey ? t(JOB_TYPE_OPTIONS.find(o => o.value === selectedJob.type)!.labelKey!) : selectedJob.type) : "-"}</div>
-                <div><strong>{t("common.salary")}:</strong> {selectedJob.salary ? `${getSalaryRangeOption(selectedJob.salary)?.labelKey ? t(getSalaryRangeOption(selectedJob.salary)!.labelKey!) : selectedJob.salary} ${selectedJob.currency ? (CURRENCY_OPTIONS.find(o => o.value === selectedJob.currency)?.labelKey ? t(CURRENCY_OPTIONS.find(o => o.value === selectedJob.currency)!.labelKey!) : selectedJob.currency) : ""}` : "-"}</div>
+                <div><strong>{t("common.salary")}:</strong> {formatSalaryRangeLabel(selectedJob.salary, selectedJob.currency, t)}</div>
                 <div><strong>{t("recruiter.form.workMode")}:</strong> {selectedJob.mode ? (WORK_MODE_OPTIONS.find(o => o.value === selectedJob.mode)?.labelKey ? t(WORK_MODE_OPTIONS.find(o => o.value === selectedJob.mode)!.labelKey!) : selectedJob.mode) : "-"}</div>
                 <div><strong>{t("recruiter.form.experience")}:</strong> {selectedJob.experience ? (defaultJobFilterOptions.experience.find(o => o.value === selectedJob.experience)?.labelKey ? t(defaultJobFilterOptions.experience.find(o => o.value === selectedJob.experience)!.labelKey!) : selectedJob.experience) : "-"}</div>
               </div>

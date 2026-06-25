@@ -17,6 +17,7 @@ import {
     CURRENCY_OPTIONS,
     defaultJobFilterOptions,
     getSalaryRangeOption,
+    formatSalaryRangeLabel,
     JOB_TYPE_OPTIONS,
     WORK_MODE_OPTIONS,
 } from "@/components/jobs/jobFilterConfig";
@@ -261,14 +262,7 @@ const Home: React.FC = () => {
                                 const favoriteCount = numberFormatter.format(job.favoriteCount ?? 0);
                                 const jobTypeLabel = getOptionLabel(JOB_TYPE_OPTIONS, job.type, t);
                                 const workModeLabel = getOptionLabel(WORK_MODE_OPTIONS, job.mode, t);
-                                const salaryRange = job.salary ? getSalaryRangeOption(job.salary) : undefined;
-                                const salaryLabel = job.salary
-                                    ? `${salaryRange?.labelKey ? t(salaryRange.labelKey) : job.salary}${
-                                        job.currency
-                                            ? ` ${getOptionLabel(CURRENCY_OPTIONS, job.currency, t)}`
-                                            : ""
-                                    }`
-                                    : "";
+                                const salaryLabel = job.salary ? formatSalaryRangeLabel(job.salary, job.currency, t) : "";
                                 const experienceLabel = getOptionLabel(defaultJobFilterOptions.experience, job.experience, t);
 
                                 return (

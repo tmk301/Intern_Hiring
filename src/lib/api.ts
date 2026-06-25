@@ -496,6 +496,7 @@ export type CompanyProfile = {
   companyIntro?: string | null;
   addresses: string;
   galleryUrls?: string | null;
+  mapUrl?: string | null;
   createdAt?: string;
   updatedAt?: string;
 };

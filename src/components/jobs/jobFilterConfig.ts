@@ -161,6 +161,39 @@ export const getCurrencyCode = (value?: string | null): CurrencyCode =>
 export const convertVndToCurrency = (amount: number, currency: CurrencyCode) =>
   currency === "USD" ? Math.round(amount / USD_TO_VND_RATE) : amount;
 
+export const formatSalaryRangeLabel = (
+  salary: string | null | undefined,
+  currencyValue: string | null | undefined,
+  t: (key: string, options?: any) => string,
+) => {
+  if (!salary) return "-";
+  const option = getSalaryRangeOption(salary);
+  if (!option) return salary;
+
+  const currency = getCurrencyCode(currencyValue);
+
+  if (currency === "VND") {
+    return `${t(option.labelKey)} VND`;
+  }
+
+  const min = convertVndToCurrency(option.minVnd, currency);
+  const max = option.maxVnd === null ? null : convertVndToCurrency(option.maxVnd, currency);
+
+  const formatAmount = (val: number) =>
+    new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(val);
+
+  if (max === null) {
+    return `${t("jobs.filters.options.salaryRanges.usdFrom", { amount: formatAmount(min) })} USD`;
+  }
+  if (option.minVnd === 0) {
+    return `${t("jobs.filters.options.salaryRanges.usdUnder", { amount: formatAmount(max) })} USD`;
+  }
+  return `${t("jobs.filters.options.salaryRanges.usdBetween", {
+    min: formatAmount(min),
+    max: formatAmount(max),
+  })} USD`;
+};
+
 export const defaultJobFilterOptions: JobFilterOptions = {
   cities: [],
   workModes: WORK_MODE_OPTIONS,

@@ -24,7 +24,7 @@ import {
   getRoleBadgeDarkClassName,
 } from "@/lib/dashboardStyles";
 import { isCandidateRole, USER_ROLES } from "@/lib/roles";
-import { CURRENCY_OPTIONS, defaultJobFilterOptions, getSalaryRangeOption, JOB_TYPE_OPTIONS, WORK_MODE_OPTIONS } from "@/components/jobs/jobFilterConfig";
+import { CURRENCY_OPTIONS, defaultJobFilterOptions, getSalaryRangeOption, formatSalaryRangeLabel, JOB_TYPE_OPTIONS, WORK_MODE_OPTIONS } from "@/components/jobs/jobFilterConfig";
 import { FavoriteJobButton } from "@/components/jobs/FavoriteJobButton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -54,12 +54,7 @@ const ApplicationCard = ({ application }: { application: CandidateApplication })
 
   const jobTypeLabel = getOptionLabel(JOB_TYPE_OPTIONS, application.jobType, t);
   const workModeLabel = getOptionLabel(WORK_MODE_OPTIONS, application.mode, t);
-  const salaryRange = application.salary ? getSalaryRangeOption(application.salary) : undefined;
-  const salaryLabel = application.salary
-    ? `${salaryRange?.labelKey ? t(salaryRange.labelKey) : application.salary}${
-        application.currency ? ` ${getOptionLabel(CURRENCY_OPTIONS, application.currency, t)}` : ""
-      }`
-    : "";
+  const salaryLabel = application.salary ? formatSalaryRangeLabel(application.salary, application.currency, t) : "";
   const experienceLabel = getOptionLabel(defaultJobFilterOptions.experience, application.experience, t);
 
   return (
@@ -116,12 +111,7 @@ const FavoriteJobCard = ({
   const navigate = useNavigate();
   const jobTypeLabel = getOptionLabel(JOB_TYPE_OPTIONS, job.type, t);
   const workModeLabel = getOptionLabel(WORK_MODE_OPTIONS, job.mode, t);
-  const salaryRange = job.salary ? getSalaryRangeOption(job.salary) : undefined;
-  const salaryLabel = job.salary
-    ? `${salaryRange?.labelKey ? t(salaryRange.labelKey) : job.salary}${
-        job.currency ? ` ${getOptionLabel(CURRENCY_OPTIONS, job.currency, t)}` : ""
-      }`
-    : "";
+  const salaryLabel = job.salary ? formatSalaryRangeLabel(job.salary, job.currency, t) : "";
   const experienceLabel = getOptionLabel(defaultJobFilterOptions.experience, job.experience, t);
 
   return (
