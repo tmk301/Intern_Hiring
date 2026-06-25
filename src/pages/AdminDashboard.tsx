@@ -507,19 +507,7 @@ const AdminDashboard: React.FC = () => {
         }),
     [userRoleFilter, userSort.direction, userSort.key, userStatusFilter, users, userSearch],
   );
-          const paginatedUsers = useMemo(
-    () => paginateItems(sortedUsers, userPage, userPageSize),
-    [sortedUsers, userPage, userPageSize],
-  );
-  const paginatedActiveJobs = useMemo(
-    () => paginateItems(sortedActiveJobs, activeJobPage, jobPageSize),
-    [activeJobPage, jobPageSize, sortedActiveJobs],
-  );
-  const paginatedTrashedJobs = useMemo(
-    () => paginateItems(sortedTrashedJobs, trashedJobPage, jobPageSize),
-    [jobPageSize, sortedTrashedJobs, trashedJobPage],
-  );
-          const paginatedUsers = useMemo(
+  const paginatedUsers = useMemo(
     () => paginateItems(sortedUsers, userPage, userPageSize),
     [sortedUsers, userPage, userPageSize],
   );
@@ -1207,8 +1195,19 @@ const AdminDashboard: React.FC = () => {
                   <CardTitle style={{color: pageContent.usersPanelTextColor ? String(pageContent.usersPanelTextColor) : undefined}}>{uiText("admin.users.title", t("admin.users.title"))}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+                    <div className="flex flex-1 items-center gap-2 max-w-md">
+                      <div className="relative w-full">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          placeholder={t("admin.users.searchPlaceholder", { defaultValue: "Tìm kiếm email, họ tên..." })}
+                          value={userSearch}
+                          onChange={(e) => setUserSearch(e.target.value)}
+                          className="pl-9 h-10 bg-white"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
                       <Select value={userRoleFilter} onValueChange={(value) => setUserRoleFilter(value as UserRoleFilter)}>
                         <SelectTrigger className="w-full sm:w-40 h-10 bg-white">
                           <SelectValue placeholder={t("common.role")} />
@@ -1236,11 +1235,12 @@ const AdminDashboard: React.FC = () => {
                         type="button"
                         variant="outline"
                         onClick={() => {
+                          setUserSearch("");
                           setUserRoleFilter("ALL");
                           setUserStatusFilter("ALL");
                         }}
-                        className="h-10"
-                        disabled={userRoleFilter === "ALL" && userStatusFilter === "ALL"}
+                        className="h-10 border-slate-200 hover:bg-slate-50"
+                        disabled={!userSearch && userRoleFilter === "ALL" && userStatusFilter === "ALL"}
                       >
                         {t("jobs.filters.reset")}
                       </Button>
@@ -1343,7 +1343,18 @@ const AdminDashboard: React.FC = () => {
                   <CardTitle>{uiText("admin.jobs.title", t("admin.jobs.title"))}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+                  <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+                    <div className="flex flex-1 items-center gap-2 max-w-md">
+                      <div className="relative w-full">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          placeholder={t("admin.jobs.searchPlaceholder", { defaultValue: "Tìm kiếm tiêu đề, công ty..." })}
+                          value={jobSearch}
+                          onChange={(e) => setJobSearch(e.target.value)}
+                          className="pl-9 h-10 bg-white"
+                        />
+                      </div>
+                    </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <Select value={jobStatusFilter} onValueChange={(value) => setJobStatusFilter(value as JobStatusFilter)}>
                         <SelectTrigger className="w-full sm:w-40 h-10 bg-white">
@@ -1378,12 +1389,13 @@ const AdminDashboard: React.FC = () => {
                         type="button"
                         variant="outline"
                         onClick={() => {
+                          setJobSearch("");
                           setJobStatusFilter("ALL");
                           setJobHiddenFilter("ALL");
                           setJobDateFilter("");
                         }}
-                        className="h-10"
-                        disabled={jobStatusFilter === "ALL" && jobHiddenFilter === "ALL" && !jobDateFilter}
+                        className="h-10 border-slate-200 hover:bg-slate-50"
+                        disabled={!jobSearch && jobStatusFilter === "ALL" && jobHiddenFilter === "ALL" && !jobDateFilter}
                       >
                         {t("jobs.filters.reset")}
                       </Button>
@@ -1403,9 +1415,9 @@ const AdminDashboard: React.FC = () => {
                         <TableBody>
                           {paginatedTrashedJobs.items.map((job) => (
                             <TableRow key={job.id}>
-                              <TableCell className="font-medium">{job.title}</TableCell>
-                              <TableCell>{job.company || "-"}</TableCell>
-                              <TableCell>{formatAdminDate(job.deletedAt)}</TableCell>
+                              <TableCell className="font-semibold text-slate-900 max-w-[200px] truncate" title={job.title}>{job.title}</TableCell>
+                              <TableCell className="text-slate-700 max-w-[150px] truncate" title={job.company || ""}>{job.company || "-"}</TableCell>
+                              <TableCell className="text-slate-500 text-xs">{formatAdminDate(job.deletedAt)}</TableCell>
                               <TableCell>
                                 <div className="flex justify-center gap-2">
                                   <ActionIconButton
@@ -1459,13 +1471,15 @@ const AdminDashboard: React.FC = () => {
                             const jobStatus = normalizeJobStatus(job.status);
 
                             return (
-                              <TableRow key={job.id} className="cursor-pointer" onClick={() => navigate(`/jobs/${job.id}`)}>
-                                <TableCell className="font-medium">{job.title}</TableCell>
-                                <TableCell>{job.company || "-"}</TableCell>
-                                <TableCell>{job.employerEmail || job.employerName || "-"}</TableCell>
-                                <TableCell>{formatAdminDate(job.createdAt)}</TableCell>
+                              <TableRow key={job.id} className="cursor-pointer hover:bg-slate-50/50 transition-colors" onClick={() => navigate(`/jobs/${job.id}`)}>
+                                <TableCell className="font-semibold text-slate-900 max-w-[200px] truncate" title={job.title}>{job.title}</TableCell>
+                                <TableCell className="text-slate-700 max-w-[150px] truncate" title={job.company || ""}>{job.company || "-"}</TableCell>
+                                <TableCell className="text-slate-600 max-w-[150px] truncate" title={job.employerEmail || job.employerName || ""}>
+                                  {job.employerEmail || job.employerName || "-"}
+                                </TableCell>
+                                <TableCell className="text-slate-500 text-xs">{formatAdminDate(job.createdAt)}</TableCell>
                                 <TableCell>
-                                  <Badge variant="outline" className={getReviewStatusBadgeClassName(job.status)}>
+                                  <Badge variant="outline" className={`${getReviewStatusBadgeClassName(job.status)} font-medium`}>
                                     {t(`admin.jobs.statuses.${jobStatus}`)}
                                   </Badge>
                                 </TableCell>
@@ -1802,13 +1816,16 @@ const AdminDashboard: React.FC = () => {
                           {auditTargetTypes.map((target) => <SelectItem key={target} value={target}>{t(`admin.auditLogs.targets.${target}`, { defaultValue: target })}</SelectItem>)}
                         </SelectContent>
                       </Select>
-                      <Input
-                        type="text"
-                        value={auditActorEmail}
-                        onChange={(event) => { resetAuditPage(); setAuditActorEmail(event.target.value); }}
-                        placeholder={t("admin.auditLogs.actorPlaceholder")}
-                        className="w-full sm:w-48 h-10 bg-white"
-                      />
+                      <div className="relative w-full sm:w-48">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          type="text"
+                          value={auditActorEmail}
+                          onChange={(event) => { resetAuditPage(); setAuditActorEmail(event.target.value); }}
+                          placeholder={t("admin.auditLogs.actorPlaceholder")}
+                          className="pl-9 h-10 bg-white"
+                        />
+                      </div>
                       <Button
                         type="button"
                         variant="outline"
@@ -1818,7 +1835,7 @@ const AdminDashboard: React.FC = () => {
                           setAuditTargetType("");
                           setAuditActorEmail("");
                         }}
-                        className="h-10 w-full sm:w-auto"
+                        className="h-10 w-full sm:w-auto border-slate-200 hover:bg-slate-50"
                         disabled={!auditAction && !auditTargetType && !auditActorEmail}
                       >
                         {t("jobs.filters.reset")}
@@ -1838,10 +1855,12 @@ const AdminDashboard: React.FC = () => {
                     <TableBody>
                       {auditLogs.map((log) => (
                         <TableRow key={log.id}>
-                          <TableCell className="whitespace-nowrap text-xs">{formatAdminDate(log.createdAt)}</TableCell>
-                          <TableCell>{log.actorEmail}</TableCell>
+                          <TableCell className="text-slate-500 text-xs">{formatAdminDate(log.createdAt)}</TableCell>
+                          <TableCell className="font-medium text-slate-800 max-w-[180px] truncate" title={log.actorEmail}>{log.actorEmail}</TableCell>
                           <TableCell><Badge variant="outline">{t(`admin.auditLogs.actions.${log.action}`, { defaultValue: log.action })}</Badge></TableCell>
-                          <TableCell>{t(`admin.auditLogs.targets.${log.targetType}`, { defaultValue: log.targetType })} #{log.targetId ?? "-"}</TableCell>
+                          <TableCell className="text-slate-600 max-w-[150px] truncate" title={`${t(`admin.auditLogs.targets.${log.targetType}`, { defaultValue: log.targetType })} #${log.targetId ?? "-"}`}>
+                            {t(`admin.auditLogs.targets.${log.targetType}`, { defaultValue: log.targetType })} #{log.targetId ?? "-"}
+                          </TableCell>
                           <TableCell>
                             <div>{getAuditLogDescription(log)}</div>
                             {log.metadata && Object.keys(log.metadata).length > 0 && (

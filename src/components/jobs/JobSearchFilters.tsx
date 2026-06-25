@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronUp, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, ChevronUp, RotateCcw, SlidersHorizontal, Check, ChevronsUpDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import {
   defaultJobFilterOptions,
   emptyJobFilterValue,
@@ -99,13 +102,12 @@ function SelectFilter({
         disabled={disabled}
         onValueChange={(nextValue) => onChange(nextValue === ALL_VALUE ? "" : nextValue)}
       >
-        <SelectTrigger className="h-12 bg-white transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground">
+        <SelectTrigger className="h-12 bg-white transition-colors hover:border-primary">
           <SelectValue placeholder={resolvedPlaceholder} />
         </SelectTrigger>
         <SelectContent>
           <SelectItem
             value={ALL_VALUE}
-            className="focus:bg-primary focus:text-primary-foreground"
           >
             {resolvedPlaceholder}
           </SelectItem>
@@ -114,13 +116,111 @@ function SelectFilter({
               key={option.value}
               value={option.value}
               disabled={option.disabled}
-              className="focus:bg-primary focus:text-primary-foreground"
             >
               {option.labelKey ? t(option.labelKey) : option.label}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
+    </div>
+  );
+}
+
+type SearchableSelectFilterProps = {
+  label: string;
+  value: string;
+  options: JobFilterOption[];
+  placeholder?: string;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+};
+
+function SearchableSelectFilter({
+  label,
+  value,
+  options,
+  placeholder,
+  disabled,
+  onChange,
+}: SearchableSelectFilterProps) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const resolvedPlaceholder = placeholder ?? t("jobs.filters.all");
+
+  const selectedOption = options.find((o) => o.value === value);
+  const displayLabel = selectedOption
+    ? (selectedOption.labelKey ? t(selectedOption.labelKey) : selectedOption.label)
+    : resolvedPlaceholder;
+
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            role="combobox"
+            aria-expanded={open}
+            disabled={disabled}
+            className={cn(
+              "flex h-12 w-full items-center justify-between rounded-md border border-input bg-white px-3 py-2 text-sm text-left font-normal transition-colors hover:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+              open && "border-primary"
+            )}
+          >
+            <span className={cn("truncate", !value ? "text-muted-foreground" : "text-slate-900")}>
+              {displayLabel}
+            </span>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-muted-foreground/70" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+          <Command className="w-full">
+            <CommandInput placeholder={t("jobs.filters.keywordPlaceholder") || "Tìm kiếm..."} className="h-10" />
+            <CommandList className="max-h-[300px] overflow-y-auto">
+              <CommandEmpty>{t("jobs.page.emptyTitle") || "Không tìm thấy"}</CommandEmpty>
+              <CommandGroup>
+                <CommandItem
+                  value={resolvedPlaceholder}
+                  onSelect={() => {
+                    onChange("");
+                    setOpen(false);
+                  }}
+                  className="cursor-pointer data-[selected='true']:bg-primary/10 data-[selected='true']:text-primary data-[selected=true]:bg-primary/10 data-[selected=true]:text-primary"
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === "" ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {resolvedPlaceholder}
+                </CommandItem>
+                {options.map((option) => {
+                  const labelText = option.labelKey ? t(option.labelKey) : option.label;
+                  return (
+                    <CommandItem
+                      key={option.value}
+                      value={labelText}
+                      onSelect={() => {
+                        onChange(option.value);
+                        setOpen(false);
+                      }}
+                      className="cursor-pointer data-[selected='true']:bg-primary/10 data-[selected='true']:text-primary data-[selected=true]:bg-primary/10 data-[selected=true]:text-primary"
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          value === option.value ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      {labelText}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
@@ -179,8 +279,9 @@ export function JobSearchFilters({
   };
 
   const resetFilters = () => {
-    setInternalValue(emptyJobFilterValue);
-    onChange?.(emptyJobFilterValue);
+    const resetValue = { ...emptyJobFilterValue, city: "79" };
+    setInternalValue(resetValue);
+    onChange?.(resetValue);
     onReset?.();
   };
 
@@ -189,10 +290,10 @@ export function JobSearchFilters({
     ? t("jobs.filters.districtSelectPlaceholder") || "Chọn quận/huyện"
     : t("jobs.filters.districtPlaceholder") || "Vui lòng chọn tỉnh thành trước";
 
-  const wardDisabled = !filterValue.district || filterOptions.wards.length === 0;
-  const wardPlaceholder = filterValue.district
-    ? t("jobs.filters.wardSelectPlaceholder")
-    : t("jobs.filters.wardPlaceholder");
+  const wardDisabled = !filterValue.city || filterOptions.wards.length === 0;
+  const wardPlaceholder = filterValue.city
+    ? t("jobs.filters.wardSelectPlaceholder") || "Chọn phường/xã"
+    : t("jobs.filters.wardPlaceholder") || "Vui lòng chọn tỉnh thành trước";
 
   return (
     <div
@@ -287,19 +388,22 @@ export function JobSearchFilters({
                 placeholder={uiText("jobs.filters.all", t("jobs.filters.all"))}
                 value={filterValue.city}
                 options={filterOptions.cities}
+                disabled={true}
                 onChange={(nextValue) => updateValue("city", nextValue)}
               />
 
-              <SelectFilter
-                label={t("jobs.filters.district") || "Quận/Huyện"}
-                value={filterValue.district}
-                options={filterOptions.districts}
-                placeholder={districtPlaceholder}
-                disabled={districtDisabled}
-                onChange={(nextValue) => updateValue("district", nextValue)}
-              />
+              {filterOptions.districts && filterOptions.districts.length > 0 && (
+                <SelectFilter
+                  label={t("jobs.filters.district") || "Quận/Huyện"}
+                  value={filterValue.district}
+                  options={filterOptions.districts}
+                  placeholder={districtPlaceholder}
+                  disabled={districtDisabled}
+                  onChange={(nextValue) => updateValue("district", nextValue)}
+                />
+              )}
 
-              <SelectFilter
+              <SearchableSelectFilter
                 label={t("jobs.filters.ward")}
                 value={filterValue.ward}
                 options={filterOptions.wards}
@@ -336,18 +440,17 @@ export function JobSearchFilters({
                   value={filterValue.salaryRange || ALL_VALUE}
                   onValueChange={(nextValue) => updateSalaryRange(nextValue === ALL_VALUE ? "" : nextValue)}
                 >
-                  <SelectTrigger className="h-12 bg-white transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground">
+                  <SelectTrigger className="h-12 bg-white transition-colors hover:border-primary">
                     <SelectValue placeholder={uiText("jobs.filters.all", t("jobs.filters.all"))} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={ALL_VALUE} className="focus:bg-primary focus:text-primary-foreground">
+                    <SelectItem value={ALL_VALUE}>
                       {uiText("jobs.filters.all", t("jobs.filters.all"))}
                     </SelectItem>
                     {SALARY_RANGE_OPTIONS.map((option) => (
                       <SelectItem
                         key={option.value}
                         value={option.value}
-                        className="focus:bg-primary focus:text-primary-foreground"
                       >
                         {getSalaryRangeLabel(option, filterValue.currency, t)}
                       </SelectItem>
@@ -367,8 +470,8 @@ export function JobSearchFilters({
           )}
 
           <div className="mt-6 flex justify-end">
-            <Button type="button" variant="outline" onClick={resetFilters}>
-              <RotateCcw className="h-4 w-4" />
+            <Button type="button" variant="outline" onClick={resetFilters} className="transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground">
+              <RotateCcw className="h-4 w-4 mr-2" />
               {uiText("jobs.filters.reset", t("jobs.filters.reset"))}
             </Button>
           </div>

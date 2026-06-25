@@ -57,15 +57,20 @@ export const FavoriteJobButton = ({
       variant="outline"
       size="icon"
       className={cn(
-        "h-9 w-9 rounded-full bg-white/95 text-slate-600 shadow-sm hover:text-rose-600",
-        isFavorited && "border-rose-200 bg-rose-50 text-rose-600",
+        "h-9 w-9 rounded-full bg-white/95 text-slate-600 shadow-sm hover:text-rose-600 hover:bg-white hover:border-rose-600 group/fav transition-all duration-200",
+        isFavorited && "border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-50 hover:border-rose-200",
         className,
       )}
       aria-label={t(isFavorited ? "jobs.favorite.removeAria" : "jobs.favorite.addAria")}
       aria-pressed={isFavorited}
       onClick={toggleFavorite}
     >
-      <Heart className={cn("h-4 w-4", isFavorited && "fill-current")} />
+      <Heart
+        className={cn(
+          "h-4 w-4 transition-all duration-200",
+          isFavorited ? "fill-rose-600 text-rose-600" : "text-slate-600 group-hover/fav:fill-rose-600 group-hover/fav:text-rose-600"
+        )}
+      />
     </Button>
   );
 };

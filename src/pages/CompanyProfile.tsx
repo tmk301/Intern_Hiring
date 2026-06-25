@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Building2, Globe, ImageIcon, Loader2, Mail, MapPin, Phone } from "lucide-react";
+import { ArrowLeft, Building2, Globe, ImageIcon, Loader2, Mail, MapPin, Phone, Pencil } from "lucide-react";
 
 import { companyApi, CompanyProfile as CompanyProfileData } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/context/AuthContext";
 
 type CompanyAddress = {
   headOffice?: string;
@@ -32,6 +33,7 @@ const CompanyProfile: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { companyId } = useParams();
+  const { user } = useAuth();
   const [company, setCompany] = useState<CompanyProfileData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -66,6 +68,7 @@ const CompanyProfile: React.FC = () => {
   const addresses = parseJsonArray<CompanyAddress>(company.addresses);
   const galleryUrls = parseJsonArray<string>(company.galleryUrls);
   const displayName = company.companyDisplayName || company.companyFullName;
+  const isOwner = user && user.role === "RECRUITER" && String(user.id) === String(company.recruiterId);
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -84,21 +87,30 @@ const CompanyProfile: React.FC = () => {
                 <ImageIcon className="h-10 w-10 text-muted-foreground" />
               </div>
             )}
-            <div className="flex flex-col gap-4 p-5 md:flex-row md:items-end">
-              <div className="-mt-16 flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-white shadow-sm">
-                {company.logoUrl ? (
-                  <img src={company.logoUrl} alt="" className="h-full w-full object-contain" />
-                ) : (
-                  <Building2 className="h-10 w-10 text-muted-foreground" />
-                )}
+            <div className="flex flex-col gap-4 p-5 md:flex-row md:items-end justify-between">
+              <div className="flex flex-col gap-4 md:flex-row md:items-end min-w-0 flex-1">
+                <div className="-mt-16 flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-white shadow-sm">
+                  {company.logoUrl ? (
+                    <img src={company.logoUrl} alt="" className="h-full w-full object-contain" />
+                  ) : (
+                    <Building2 className="h-10 w-10 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h1 className="truncate text-3xl font-bold text-slate-950">{displayName}</h1>
+                  <p className="mt-1 text-sm text-muted-foreground">{company.companyFullName}</p>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <Badge variant="outline" className="mb-2 rounded-full border-emerald-200 bg-emerald-50 text-emerald-700">
-                  {t("profile.companyProfileTitle")}
-                </Badge>
-                <h1 className="truncate text-3xl font-bold text-slate-950">{displayName}</h1>
-                <p className="mt-1 text-sm text-muted-foreground">{company.companyFullName}</p>
-              </div>
+
+              {isOwner && (
+                <Button 
+                  onClick={() => navigate("/recruiter-verification")}
+                  className="shrink-0 flex items-center gap-2"
+                >
+                  <Pencil className="h-4 w-4" />
+                  {t("profile.companyProfileEdit") || "Chỉnh sửa hồ sơ"}
+                </Button>
+              )}
             </div>
           </div>
         </div>

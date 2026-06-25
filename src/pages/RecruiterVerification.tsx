@@ -635,9 +635,6 @@ const RecruiterVerification: React.FC = () => {
             {t("common.back")}
           </Button>
           <div className="max-w-3xl">
-            <div className="mb-3 inline-flex rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5 text-sm font-semibold text-blue-700">
-              {uiText(isRecruiter ? "recruiterVerification.updateBadge" : "recruiterVerification.badge", t(isRecruiter ? "recruiterVerification.updateBadge" : "recruiterVerification.badge"))}
-            </div>
             <h1 className="text-3xl font-bold text-slate-950">
               {uiText(isRecruiter ? "recruiterVerification.updateTitle" : "recruiterVerification.title", t(isRecruiter ? "recruiterVerification.updateTitle" : "recruiterVerification.title"))}
             </h1>

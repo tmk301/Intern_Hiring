@@ -200,6 +200,7 @@
     "featuredJobsTitle": "Featured jobs",
     "featuredJobsEmpty": "No job has more than 10 views yet.",
     "featuredJobViews": "{{views}} views",
+    "featuredJobLikes": "{{likes}} likes",
     "viewAll": "View all",
     "apply": "Apply",
     "partnersTitle": "Partners & Corporations",
@@ -922,14 +923,14 @@
       "companyIntro": "About company",
       "headOffice": "Head office",
       "province": "Province / City",
-      "district": "District",
+      "district": "Ward",
       "addressDetail": "Detailed address",
       "defaultAddress": "Default address"
     },
     "placeholders": {
       "companySize": "Select company size",
       "province": "Select province / city",
-      "district": "Select district"
+      "district": "Select ward"
     },
     "companySizes": {
       "micro": "Micro business (10 employees or fewer)",

@@ -200,6 +200,7 @@
     "featuredJobsTitle": "Việc làm nổi bật",
     "featuredJobsEmpty": "Chưa có việc làm nào có hơn 10 lượt xem.",
     "featuredJobViews": "{{views}} lượt xem",
+    "featuredJobLikes": "{{likes}} lượt thích",
     "viewAll": "Xem tất cả",
     "apply": "Nộp hồ sơ",
     "partnersTitle": "Đối tác & Tập đoàn",
@@ -945,14 +946,14 @@
       "companyIntro": "Giới thiệu về công ty",
       "headOffice": "Trụ sở chính",
       "province": "Tỉnh/Thành phố",
-      "district": "Quận/Huyện",
+      "district": "Phường/Xã",
       "addressDetail": "Địa chỉ chi tiết",
       "defaultAddress": "Địa chỉ mặc định"
     },
     "placeholders": {
       "companySize": "Chọn quy mô công ty",
       "province": "Chọn tỉnh/thành phố",
-      "district": "Chọn quận/huyện"
+      "district": "Chọn phường/xã"
     },
     "companySizes": {
       "micro": "Siêu nhỏ (tối đa 10 lao động)",

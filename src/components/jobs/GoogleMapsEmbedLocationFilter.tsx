@@ -100,7 +100,7 @@ export function GoogleMapsEmbedLocationFilter({
       const numbers = extractNumbers(checkText);
 
       let finalQuery = currentQuery;
-      let currentZoom = 15; // Độ zoom vừa vặn cho một Quận
+      const currentZoom = 15; // Độ zoom vừa vặn cho một Quận
 
       // Kiểm tra xem người dùng có đang gõ dạng Quận + Số (Ví dụ: q7, q 8, quan 9, dist 7)
       const isDistrictNumberSearch = 
@@ -216,7 +216,7 @@ export function GoogleMapsEmbedLocationFilter({
           type="button"
           variant="outline"
           onClick={applyLocation}
-          className="w-full md:w-44"
+          className="w-full md:w-44 transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground"
         >
           <Search className="h-4 w-4 mr-2" />
           {t("jobs.filters.locationMap.search")}
@@ -227,7 +227,7 @@ export function GoogleMapsEmbedLocationFilter({
           variant="outline"
           onClick={clearLocation}
           disabled={!draftLocation && !value}
-          className="w-full md:w-44"
+          className="w-full md:w-44 transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground"
         >
           <X className="h-4 w-4 mr-2" />
           {t("jobs.filters.locationMap.clear")}

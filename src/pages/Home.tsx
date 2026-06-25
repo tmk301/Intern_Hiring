@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { motion } from "framer-motion";
-import { ArrowRight, Briefcase, Users, Award, Eye, MapPin } from "lucide-react";
+import { ArrowRight, Briefcase, Users, Award, Eye, MapPin, Heart } from "lucide-react";
 import mscBackground from "@/assets/msc.jpg";
 import { useAuth } from "@/context/AuthContext";
 import { isCandidateRole } from "@/lib/roles";
@@ -239,6 +239,7 @@ const Home: React.FC = () => {
                             {paginatedFeaturedJobs.items.map((job) => {
                                 const company = job.company || job.employerName || t("jobs.page.notProvided");
                                 const viewCount = numberFormatter.format(job.viewCount ?? 0);
+                                const favoriteCount = numberFormatter.format(job.favoriteCount ?? 0);
                                 const jobTypeLabel = getOptionLabel(JOB_TYPE_OPTIONS, job.type, t);
                                 const workModeLabel = getOptionLabel(WORK_MODE_OPTIONS, job.mode, t);
                                 const salaryRange = job.salary ? getSalaryRangeOption(job.salary) : undefined;
@@ -299,6 +300,10 @@ const Home: React.FC = () => {
                                                 <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
                                                     <Eye className="h-4 w-4 shrink-0 text-primary" />
                                                     <span>{t("home.featuredJobViews", { views: viewCount })}</span>
+                                                </span>
+                                                <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
+                                                    <Heart className="h-4 w-4 shrink-0 text-red-500 fill-red-500" />
+                                                    <span>{t("home.featuredJobLikes", { likes: favoriteCount })}</span>
                                                 </span>
                                             </div>
                                         </CardContent>

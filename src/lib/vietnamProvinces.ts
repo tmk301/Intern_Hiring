@@ -2,7 +2,7 @@ import type { JobFilterOption } from "@/components/jobs/jobFilterConfig";
 
 const VIETNAM_PROVINCES_API_BASE_URL = "https://provinces.open-api.vn/api/v2";
 
-type VietnamProvince = {
+export type VietnamProvince = {
   name: string;
   code: number;
   division_type?: string;
@@ -11,7 +11,7 @@ type VietnamProvince = {
   wards?: VietnamWard[] | null;
 };
 
-type VietnamWard = {
+export type VietnamWard = {
   name: string;
   code: number;
   division_type?: string;
@@ -83,14 +83,14 @@ async function fetchJson<T>(path: string): Promise<T> {
   const response = await fetch(`${VIETNAM_PROVINCES_API_BASE_URL}${path}`);
 
   if (!response.ok) {
-    throw new Error(`Vietnam Province API ${response.status} ${response.statusText}`);
+    throw new Error(`Vietnam Province API v2 ${response.status} ${response.statusText}`);
   }
 
   return response.json() as Promise<T>;
 }
 
 export async function getVietnamProvinceOptions() {
-  provinceOptionsCache ??= fetchJson<unknown[]>("/?depth=1")
+  provinceOptionsCache ??= fetchJson<unknown[]>("/p/?depth=1")
     .then((data) => data.filter(hasRequiredAdministrativeFields).map(toFilterOption))
     .catch((error) => {
       provinceOptionsCache = null;

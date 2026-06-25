@@ -26,6 +26,12 @@ import {
   type JobFilterOption,
   type JobFilterOptions,
   type JobFilterValue,
+  CURRENCY_OPTIONS,
+  defaultJobFilterOptions,
+  getSalaryRangeOption,
+  JOB_TYPE_OPTIONS,
+  WORK_MODE_OPTIONS,
+  USD_TO_VND_RATE,
 } from "@/components/jobs/jobFilterConfig";
 import { getVietnamProvinceOptions, getVietnamWardOptions } from "@/lib/vietnamProvinces";
 import { paginateItems } from "@/lib/pagination";
@@ -33,6 +39,21 @@ import { useAuth } from "@/context/AuthContext"; // MỚI THÊM
 import { useToast } from "@/hooks/use-toast"; // MỚI THÊM
 import { SanityPageSections } from "@/components/sanity/SanityPageSections";
 import { useSanityManagedInterface } from "@/lib/sanityInterfaceText";
+import { FavoriteJobButton } from "@/components/jobs/FavoriteJobButton";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+
+const formatDateOnly = (value?: string | null, locale = "en-US") => {
+  if (!value) return "-";
+  try {
+    const d = new Date(value);
+    if (!Number.isNaN(d.getTime())) {
+      return d.toLocaleDateString(locale, { year: "numeric", month: "2-digit", day: "2-digit" });
+    }
+  } catch {
+    // ignore
+  }
+  return value;
+};
 
 const normalizeText = (value?: string | number | null) =>
   String(value ?? "")
@@ -95,21 +116,82 @@ const matchesText = (source: string | null, selectedValue: string) => {
   return Boolean(normalizedSelected && normalizedSource.includes(normalizedSelected));
 };
 
-const matchesSalaryRange = (source: string | null, minSalary: number, maxSalary: number, isActive: boolean) => {
+const matchesFilterWithAliases = (source: string | null, selectedValue: string, options: JobFilterOption[]) => {
+  if (!selectedValue) return true;
+  if (!source) return false;
+  const normalizedSource = normalizeText(source);
+  const normalizedSelected = normalizeText(selectedValue);
+  if (normalizedSource.includes(normalizedSelected)) return true;
+  const option = options.find((item) => item.value === selectedValue);
+  if (option?.aliases) {
+    return option.aliases.some((alias) => normalizedSource.includes(normalizeText(alias)));
+  }
+  return false;
+};
+
+const matchesWorkMode = (job: PublicJobPost, selectedValue: string, options: JobFilterOption[]) => {
+  if (!selectedValue) return true;
+  if (matchesFilterWithAliases(job.mode, selectedValue, options)) return true;
+  return matchesFilterWithAliases(job.description, selectedValue, options);
+};
+
+const isJobInUsd = (job: PublicJobPost) => {
+  if (job.currency?.trim().toUpperCase() === "USD") return true;
+  if (job.salary) {
+    const norm = normalizeText(job.salary);
+    return norm.includes("usd") || norm.includes("dollar") || job.salary.includes("$");
+  }
+  return false;
+};
+
+const getJobSalaryInVnd = (job: PublicJobPost) => {
+  const salaryNumbers = getSalaryNumbers(job.salary);
+  if (salaryNumbers.length === 0) return [];
+  const isUsd = isJobInUsd(job);
+  if (isUsd) {
+    return salaryNumbers.map((val) => (val < 100_000 ? val * USD_TO_VND_RATE : val));
+  }
+  return salaryNumbers;
+};
+
+const matchesSalaryRange = (job: PublicJobPost, minSalary: number, maxSalary: number, isActive: boolean) => {
   if (!isActive) return true;
-  const salaryNumbers = getSalaryNumbers(source);
+  const salaryNumbers = getJobSalaryInVnd(job);
   if (salaryNumbers.length === 0) return false;
   const jobMinSalary = Math.min(...salaryNumbers);
   const jobMaxSalary = Math.max(...salaryNumbers);
   return jobMaxSalary >= minSalary && jobMinSalary <= maxSalary;
 };
 
+const matchesCurrency = (job: PublicJobPost, selectedValue: string) => {
+  if (!selectedValue) return true;
+  if (job.currency) {
+    if (job.currency.trim().toUpperCase() === selectedValue.toUpperCase()) {
+      return true;
+    }
+  }
+  if (job.salary) {
+    const normalizedSalary = normalizeText(job.salary);
+    if (selectedValue.toUpperCase() === "USD") {
+      return normalizedSalary.includes("usd") || normalizedSalary.includes("dollar") || job.salary.includes("$");
+    } else if (selectedValue.toUpperCase() === "VND") {
+      return normalizedSalary.includes("vnd") || normalizedSalary.includes("dong") || normalizedSalary.includes("d");
+    }
+  }
+  return false;
+};
+
 const hasAnyPhrase = (source: string, phrases: string[]) =>
   phrases.some((phrase) => source.includes(normalizeText(phrase)));
 
-const matchesExperience = (source: string | null, selectedValue: string) => {
+const matchesExperience = (job: PublicJobPost, selectedValue: string) => {
   if (!selectedValue) return true;
-  const normalizedSource = normalizeText(source);
+  if (job.experience) {
+    const normalizedJobExp = normalizeText(job.experience);
+    const normalizedSelected = normalizeText(selectedValue);
+    if (normalizedJobExp === normalizedSelected) return true;
+  }
+  const normalizedSource = normalizeText(job.description);
   if (!normalizedSource) return false;
   switch (selectedValue) {
     case "no-experience":
@@ -241,12 +323,12 @@ const filterJobs = (
       matchesDistrict(job.location, value.district, options.districts, translate) &&
       matchesWard(job.location, value.ward, options.wards, translate) &&
       matchesLocationText(job.location, value.location) &&
-      matchesText(`${job.type ?? ""} ${job.description ?? ""}`, value.workMode) &&
-      matchesText(job.type, value.jobType) &&
+      matchesWorkMode(job, value.workMode, options.workModes) &&
+      matchesFilterWithAliases(job.type, value.jobType, options.jobTypes) &&
       matchesText(job.company, value.company) &&
-      matchesText(job.salary, value.currency) &&
-      matchesExperience(job.description, value.experience) &&
-      matchesSalaryRange(job.salary, minSalary, maxSalary, salaryFilterActive)
+      matchesCurrency(job, value.currency) &&
+      matchesExperience(job, value.experience) &&
+      matchesSalaryRange(job, minSalary, maxSalary, salaryFilterActive)
     );
   });
 
@@ -256,10 +338,12 @@ const Jobs: React.FC = () => {
   const initialKeyword = searchParams.get("keyword") ?? "";
   const [managedConfig, setManagedConfig] = useState<ManagedSiteConfig>(defaultManagedSiteConfig);
   const [provinceOptions, setProvinceOptions] = useState<JobFilterOption[]>([]);
+  const [districtOptions, setDistrictOptions] = useState<JobFilterOption[]>([]);
   const [wardOptions, setWardOptions] = useState<JobFilterOption[]>([]);
   const [jobs, setJobs] = useState<PublicJobPost[]>([]);
   const [filterValue, setFilterValue] = useState<JobFilterValue>({
     ...emptyJobFilterValue,
+    city: "79",
     keyword: initialKeyword,
   });
   const [loading, setLoading] = useState(true);
@@ -277,8 +361,13 @@ const Jobs: React.FC = () => {
   const [coords, setCoords] = useState({ lat: "", lng: "" });
   const [isUpdating, setIsUpdating] = useState(false);
 
+  const [jobPage, setJobPage] = useState(1);
+  const [jobPageSize, setJobPageSize] = useState(10);
+  const [favoriteJobIds, setFavoriteJobIds] = useState<Set<string | number>>(new Set());
+
   useEffect(() => {
     setFilterValue((current) => ({ ...current, keyword: initialKeyword }));
+    setJobPage(1);
   }, [initialKeyword]);
 
   useEffect(() => {
@@ -297,13 +386,14 @@ const Jobs: React.FC = () => {
 
   useEffect(() => {
     let mounted = true;
-    const selectedProvince = provinceOptions.find((option) => option.value === filterValue.city);
-    if (!selectedProvince) {
+    if (!filterValue.city) {
+      setDistrictOptions([]);
       setWardOptions([]);
       return () => {
         mounted = false;
       };
     }
+    setDistrictOptions([]);
     setWardOptions([]);
     getVietnamWardOptions(filterValue.city)
       .then((options) => {
@@ -315,7 +405,7 @@ const Jobs: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, [filterValue.city, provinceOptions]);
+  }, [filterValue.city]);
 
   useEffect(() => {
     let mounted = true;
@@ -348,15 +438,50 @@ const Jobs: React.FC = () => {
     };
   }, [t]);
 
+  useEffect(() => {
+    if (!token || user?.role !== "CANDIDATE") {
+      setFavoriteJobIds(new Set());
+      return;
+    }
+
+    let mounted = true;
+    candidateApi.listFavoriteJobs(token)
+      .then((favoriteJobs) => {
+        if (mounted) setFavoriteJobIds(new Set(favoriteJobs.map((job) => job.id)));
+      })
+      .catch(() => {
+        if (mounted) setFavoriteJobIds(new Set());
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [token, user?.role]);
+
+  const handleFilterChange = (nextValue: JobFilterValue) => {
+    setFilterValue(nextValue);
+    setJobPage(1);
+  };
+
+  const handleFavoriteChange = (updatedJob: PublicJobPost, isFavorited: boolean) => {
+    setFavoriteJobIds((current) => {
+      const next = new Set(current);
+      if (isFavorited) next.add(updatedJob.id);
+      else next.delete(updatedJob.id);
+      return next;
+    });
+    setJobs((current) => current.map((job) => (String(job.id) === String(updatedJob.id) ? updatedJob : job)));
+  };
+
   const filterOptions = useMemo<JobFilterOptions>(() => {
-    if (provinceOptions.length === 0) return managedConfig.filters;
+    if (provinceOptions.length === 0) return { ...managedConfig.filters, cities: [] };
     return {
       ...managedConfig.filters,
       cities: provinceOptions,
-      districts: managedConfig.filters.districts || [],
+      districts: districtOptions,
       wards: wardOptions,
     };
-  }, [managedConfig.filters, provinceOptions, wardOptions]);
+  }, [managedConfig.filters, provinceOptions, districtOptions, wardOptions]);
 
   const filteredJobs = useMemo(() => {
     const baseFiltered = filterJobs(jobs, filterValue, filterOptions, t);
@@ -382,6 +507,11 @@ const Jobs: React.FC = () => {
     }
     return baseFiltered;
   }, [jobs, filterValue, filterOptions, t]);
+
+  const paginatedJobs = useMemo(
+    () => paginateItems(filteredJobs, jobPage, jobPageSize),
+    [filteredJobs, jobPage, jobPageSize],
+  );
 
   const mapCenterPosition = useMemo(() => {
     if (filteredJobs.length > 0) {
@@ -469,7 +599,7 @@ const Jobs: React.FC = () => {
           options={filterOptions}
           value={filterValue}
           onChange={handleFilterChange}
-          onReset={() => handleFilterChange(emptyJobFilterValue)}
+          onReset={() => handleFilterChange({ ...emptyJobFilterValue, city: "79" })}
         />}
 
         {pageContent.resultsVisible !== false && <div id="ket-qua-tim-kiem" className="space-y-6">
@@ -497,108 +627,104 @@ const Jobs: React.FC = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4">
-            {paginatedJobs.items.map((job) => (
-              <Card
-                key={job.id}
-                className="group relative overflow-hidden flex flex-col h-full hover:shadow-medium shadow-soft border bg-card transition-smooth hover:-translate-y-1"
-                style={{
-                  backgroundColor: pageContent.jobCardBackgroundColor ? String(pageContent.jobCardBackgroundColor) : undefined,
-                  borderColor: pageContent.jobCardBorderColor ? String(pageContent.jobCardBorderColor) : undefined,
-                }}
-              >
-                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-primary-light" />
-                <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary/10 transition-smooth group-hover:scale-125" />
-                <div
-                  className="relative cursor-pointer flex flex-col flex-1"
-                  onClick={() => navigate(`/jobs/${job.id}`)}
+          <div className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-2 min-h-[400px]">
+              {paginatedJobs.items.map((job) => (
+                <Card
+                  key={job.id}
+                  className="group relative overflow-hidden flex flex-col h-full hover:shadow-medium shadow-soft border bg-card transition-smooth hover:-translate-y-1"
+                  style={{
+                    backgroundColor: pageContent.jobCardBackgroundColor ? String(pageContent.jobCardBackgroundColor) : undefined,
+                    borderColor: pageContent.jobCardBorderColor ? String(pageContent.jobCardBorderColor) : undefined,
+                  }}
                 >
-                  <CardHeader className="space-y-3">
-                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                      <div>
-                        <CardTitle className="text-xl" style={{color: pageContent.jobCardTitleColor ? String(pageContent.jobCardTitleColor) : undefined}}>{job.title || t("jobs.page.untitled")}</CardTitle>
-                        <p className="mt-1 text-sm font-medium text-slate-700" style={{color: pageContent.jobCardTextColor ? String(pageContent.jobCardTextColor) : undefined}}>
-                          {job.company || job.employerName || t("jobs.page.notProvided")}
-                        </p>
-                      </div>
-                      <FavoriteJobButton
-                        jobId={job.id}
-                        isFavorited={favoriteJobIds.has(job.id)}
-                        onFavoriteChange={handleFavoriteChange}
-                        className="self-start relative z-10"
-                      />
-                    </div>
-                    <div className="flex flex-wrap gap-2.5 text-sm text-muted-foreground">
-                      {job.location && (
-                        <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
-                          <MapPin className="h-4 w-4 text-primary" />
-                          {job.location}
-                        </span>
-                      )}
-                      {job.createdAt && (
-                        <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
-                          <CalendarDays className="h-4 w-4 text-primary" />
-                          {new Date(job.createdAt).toLocaleDateString(dateLocale)}
-                        </span>
-                      )}
-                      {job.applicationDeadline && (
-                        <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
-                          <CalendarDays className="h-4 w-4 text-primary" />
-                          {uiText("jobs.page.applicationDeadline", t("jobs.page.applicationDeadline"))}: {formatDateOnly(job.applicationDeadline, dateLocale)}
-                        </span>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4 flex-1">
-                    <div className="flex flex-wrap gap-2">
-                      {job.type && <Badge variant="secondary" className="rounded-full px-3 py-1">{JOB_TYPE_OPTIONS.find(o => o.value === job.type)?.labelKey ? t(JOB_TYPE_OPTIONS.find(o => o.value === job.type)!.labelKey!) : job.type}</Badge>}
-                      {job.salary && (
-                        <Badge variant="secondary" className="rounded-full px-3 py-1">
-                          {getSalaryRangeOption(job.salary)?.labelKey ? t(getSalaryRangeOption(job.salary)!.labelKey!) : job.salary} {job.currency ? (CURRENCY_OPTIONS.find(o => o.value === job.currency)?.labelKey ? t(CURRENCY_OPTIONS.find(o => o.value === job.currency)!.labelKey!) : job.currency) : ""}
-                        </Badge>
-                      )}
-                      {job.mode && <Badge variant="secondary" className="rounded-full px-3 py-1">{WORK_MODE_OPTIONS.find(o => o.value === job.mode)?.labelKey ? t(WORK_MODE_OPTIONS.find(o => o.value === job.mode)!.labelKey!) : job.mode}</Badge>}
-                      {job.experience && <Badge variant="secondary" className="rounded-full px-3 py-1">{defaultJobFilterOptions.experience.find(o => o.value === job.experience)?.labelKey ? t(defaultJobFilterOptions.experience.find(o => o.value === job.experience)!.labelKey!) : job.experience}</Badge>}
-                    </div>
-                    {job.description && (
-                      <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-600" style={{color: pageContent.jobCardTextColor ? String(pageContent.jobCardTextColor) : undefined}}>
-                        {job.description}
-                      </p>
-                    </div>
-                    {job.status && <Badge variant="secondary">{job.status}</Badge>}
-                  </div>
-                  <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-                    {job.location && (
-                      <span className="inline-flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        {job.location}
-                      </span>
-                    )}
-                    {job.createdAt && (
-                      <span className="inline-flex items-center gap-1">
-                        <CalendarDays className="h-4 w-4" />
-                        {new Date(job.createdAt).toLocaleDateString(dateLocale)}
-                      </span>
-                    )}
-                  </CardContent>
-                </div>
-                
-                {/* MỚI THÊM: Nút nộp đơn */}
-                <CardFooter className="relative bg-slate-50/50 border-t p-4 flex justify-end z-10">
-                  <Button
-                    variant="cta"
-                    className="bg-primary text-primary-foreground hover:bg-primary-dark w-auto px-5"
-                    style={{
-                      backgroundColor: pageContent.applyButtonBackgroundColor ? String(pageContent.applyButtonBackgroundColor) : undefined,
-                      color: pageContent.applyButtonTextColor ? String(pageContent.applyButtonTextColor) : undefined,
-                    }}
-                    onClick={() => handleOpenApplyModal(job.id)}
+                  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-primary-light" />
+                  <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary/10 transition-smooth group-hover:scale-125" />
+                  <div
+                    className="relative cursor-pointer flex flex-col flex-1"
+                    onClick={() => navigate(`/jobs/${job.id}`)}
                   >
-                    {uiText("jobs.apply.button", t("jobs.apply.button"))}
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
+                    <CardHeader className="space-y-3">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <CardTitle className="text-xl" style={{color: pageContent.jobCardTitleColor ? String(pageContent.jobCardTitleColor) : undefined}}>{job.title || t("jobs.page.untitled")}</CardTitle>
+                          <p className="mt-1 text-sm font-medium text-slate-700" style={{color: pageContent.jobCardTextColor ? String(pageContent.jobCardTextColor) : undefined}}>
+                            {job.company || job.employerName || t("jobs.page.notProvided")}
+                          </p>
+                        </div>
+                        <FavoriteJobButton
+                          jobId={job.id}
+                          isFavorited={favoriteJobIds.has(job.id)}
+                          onFavoriteChange={handleFavoriteChange}
+                          className="self-start relative z-10"
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-2.5 text-sm text-muted-foreground">
+                        {job.location && (
+                          <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
+                            <MapPin className="h-4 w-4 text-primary" />
+                            {job.location}
+                          </span>
+                        )}
+                        {job.createdAt && (
+                          <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
+                            <CalendarDays className="h-4 w-4 text-primary" />
+                            {new Date(job.createdAt).toLocaleDateString(dateLocale)}
+                          </span>
+                        )}
+                        {job.applicationDeadline && (
+                          <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1">
+                            <CalendarDays className="h-4 w-4 text-primary" />
+                            {uiText("jobs.page.applicationDeadline", t("jobs.page.applicationDeadline"))}: {formatDateOnly(job.applicationDeadline, dateLocale)}
+                          </span>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4 flex-1">
+                      <div className="flex flex-wrap gap-2">
+                        {job.type && <Badge variant="secondary" className="rounded-full px-3 py-1">{JOB_TYPE_OPTIONS.find(o => o.value === job.type)?.labelKey ? t(JOB_TYPE_OPTIONS.find(o => o.value === job.type)!.labelKey!) : job.type}</Badge>}
+                        {job.salary && (
+                          <Badge variant="secondary" className="rounded-full px-3 py-1">
+                            {getSalaryRangeOption(job.salary)?.labelKey ? t(getSalaryRangeOption(job.salary)!.labelKey!) : job.salary} {job.currency ? (CURRENCY_OPTIONS.find(o => o.value === job.currency)?.labelKey ? t(CURRENCY_OPTIONS.find(o => o.value === job.currency)!.labelKey!) : job.currency) : ""}
+                          </Badge>
+                        )}
+                        {job.mode && <Badge variant="secondary" className="rounded-full px-3 py-1">{WORK_MODE_OPTIONS.find(o => o.value === job.mode)?.labelKey ? t(WORK_MODE_OPTIONS.find(o => o.value === job.mode)!.labelKey!) : job.mode}</Badge>}
+                        {job.experience && <Badge variant="secondary" className="rounded-full px-3 py-1">{defaultJobFilterOptions.experience.find(o => o.value === job.experience)?.labelKey ? t(defaultJobFilterOptions.experience.find(o => o.value === job.experience)!.labelKey!) : job.experience}</Badge>}
+                      </div>
+                      {job.description && (
+                        <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-600" style={{color: pageContent.jobCardTextColor ? String(pageContent.jobCardTextColor) : undefined}}>
+                          {job.description}
+                        </p>
+                      )}
+                    </CardContent>
+                  </div>
+                  
+                  {/* MỚI THÊM: Nút nộp đơn */}
+                  {(!user || user.role === "CANDIDATE") && (
+                    <CardFooter className="relative bg-slate-50/50 border-t p-4 flex justify-end z-10">
+                      <Button
+                        variant="cta"
+                        className="bg-primary text-primary-foreground hover:bg-primary-dark w-auto px-5"
+                        style={{
+                          backgroundColor: pageContent.applyButtonBackgroundColor ? String(pageContent.applyButtonBackgroundColor) : undefined,
+                          color: pageContent.applyButtonTextColor ? String(pageContent.applyButtonTextColor) : undefined,
+                        }}
+                        onClick={() => handleOpenApplyModal(job.id)}
+                      >
+                        {uiText("jobs.apply.button", t("jobs.apply.button"))}
+                      </Button>
+                    </CardFooter>
+                  )}
+                </Card>
+              ))}
+            </div>
+            <PaginationControls
+              page={jobPage}
+              totalPages={paginatedJobs.totalPages}
+              onPageChange={setJobPage}
+              pageSize={jobPageSize}
+              onPageSizeChange={setJobPageSize}
+            />
           </div>
         )}
         </div>}
