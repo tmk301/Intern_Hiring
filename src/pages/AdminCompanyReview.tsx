@@ -217,6 +217,52 @@ const AdminCompanyReview: React.FC = () => {
               ))}
             </CardContent>
           </Card>
+
+          {/* Google Map Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-primary" />
+                {t("profile.mapTitle", { defaultValue: "Bản đồ vị trí" })}
+              </CardTitle>
+            </CardHeader>
+            <Separator />
+            <CardContent className="p-4">
+              {formData.mapUrl ? (
+                <div className="w-full overflow-hidden rounded-lg border bg-white p-1">
+                  <iframe
+                    src={formData.mapUrl}
+                    width="100%"
+                    height="320"
+                    style={{ border: 0 }}
+                    allowFullScreen={true}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    title="Google Maps"
+                    className="rounded-md"
+                    sandbox="allow-scripts allow-same-origin allow-popups"
+                  />
+                </div>
+              ) : (
+                <div className="flex h-48 flex-col items-center justify-center rounded-lg border border-dashed bg-slate-50 p-4 text-center text-muted-foreground">
+                  <MapPin className="mb-2 h-7 w-7 opacity-40 text-muted-foreground" />
+                  <p className="text-sm">{t("companyProfile.noMap", { defaultValue: "Chưa cấu hình bản đồ vị trí." })}</p>
+                  {addresses.length > 0 && (
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                        [addresses[0].detail, addresses[0].district, addresses[0].province].filter(Boolean).join(", ")
+                      )}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 text-xs font-semibold text-primary hover:underline"
+                    >
+                      {t("companyProfile.viewOnGoogleMaps", { defaultValue: "Xem trên Google Maps" })}
+                    </a>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         <div className="space-y-6">
