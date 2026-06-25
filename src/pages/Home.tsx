@@ -158,7 +158,7 @@ const Home: React.FC = () => {
         <div className="min-h-screen bg-background">
             <SanityPageSections routePath="/" placement="top" />
             {/* Hero: Job search */}
-            {homeHero.isVisible !== false && <section id="trang-chu" className="relative scroll-mt-24 overflow-hidden py-20">
+            {homeHero.isVisible !== false && <section id="trang-chu" className="relative scroll-mt-16 overflow-hidden py-20">
                 <div
                     className="absolute inset-0 bg-cover bg-center bg-no-repeat hero-bg-zoom"
                     style={{ backgroundImage: `url(${homeHero.imageUrl || mscBackground})` }}
@@ -189,7 +189,7 @@ const Home: React.FC = () => {
             {/* About / Introduction */}
             {homeContent.aboutVisible !== false && <section
                 id="gioi-thieu"
-                className="scroll-mt-24 border-y py-12"
+                className="scroll-mt-16 border-y py-12"
                 style={{
                     backgroundColor: homeColor("aboutSectionBackgroundColor") || "#ffffff",
                     borderColor: homeColor("aboutSectionBorderColor") || undefined,
@@ -246,7 +246,7 @@ const Home: React.FC = () => {
             </section>}
 
             {/* Featured Jobs */}
-            {homeContent.featuredJobsVisible !== false && <section id="viec-lam-noi-bat" className="scroll-mt-24 py-16">
+            {homeContent.featuredJobsVisible !== false && <section id="viec-lam-noi-bat" className="scroll-mt-16 py-16">
                 <div className="container mx-auto px-4">
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="text-2xl font-bold">{uiText("home.featuredJobsTitle", t("home.featuredJobsTitle"))}</h2>
@@ -349,7 +349,7 @@ const Home: React.FC = () => {
             </section>}
 
             {/* Partners (keep) */}
-            {homeContent.partnersVisible !== false && <section id="doi-tac" className="scroll-mt-24 pt-20 pb-44 bg-white">
+            {homeContent.partnersVisible !== false && <section id="doi-tac" className="scroll-mt-16 pt-10 pb-44 bg-white">
                 <div className="container mx-auto px-4">
                     <div className="text-center mb-14">
                         <h2 className="text-4xl md:text-5xl font-extrabold mb-2 text-primary">
@@ -411,7 +411,7 @@ const Home: React.FC = () => {
 
             {/* CTA */}
             {canRequestRecruiterVerification && homeContent.recruiterCtaVisible !== false && (
-                <section id="tuyen-dung" className="scroll-mt-24 py-16 hero-gradient">
+                <section id="tuyen-dung" className="scroll-mt-16 py-16 hero-gradient">
                     <div className="container mx-auto px-4 text-center text-white">
                         <h2 className="text-3xl font-bold mb-4">
                             {uiText("home.recruiterCtaTitle", t("home.recruiterCtaTitle"))}

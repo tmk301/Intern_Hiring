@@ -258,6 +258,7 @@
       "districtSelectPlaceholder": "Select district",
       "wardPlaceholder": "Select province/city first",
       "wardSelectPlaceholder": "Select ward/commune/special zone",
+      "wardSearchPlaceholder": "Search ward/commune/special zone...",
       "locationMap": {
         "label": "Google Maps location",
         "placeholder": "Enter a province/city, ward/commune, or address",
@@ -683,6 +684,7 @@
     },
     "jobs": {
       "title": "Manage job posts",
+      "searchPlaceholder": "Search title, company name...",
       "activeTab": "Visible",
       "pendingTab": "Pending",
       "approvedTab": "Approved",
@@ -898,7 +900,8 @@
       "imageUploadSuccess": "Header image uploaded.",
       "imageUploadError": "Could not upload image.",
       "dragDropText": "Drag & drop header image here, or click to select",
-      "imageHint": "PNG, JPG, JPEG (max 2MB)"
+      "imageHint": "PNG, JPG, JPEG (max 2MB)",
+      "defaultFooter": "This email was sent from InternHiring notification system."
     }
   },
   "notFound": {

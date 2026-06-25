@@ -258,6 +258,7 @@
       "districtSelectPlaceholder": "Chọn quận/huyện",
       "wardPlaceholder": "Chọn tỉnh/thành phố trước",
       "wardSelectPlaceholder": "Chọn phường/xã/đặc khu",
+      "wardSearchPlaceholder": "Tìm kiếm phường/xã/đặc khu...",
       "locationMap": {
         "label": "Vị trí Google Maps",
         "placeholder": "Nhập tỉnh/thành phố, phường/xã hoặc địa chỉ",
@@ -686,7 +687,7 @@
       "categoriesDescription": "Danh mục & Form xác thực",
       "loginBrandingTitle": "Ô login & đăng ký",
       "loginBrandingDescription": "Chỉnh ô bên trái trong Sanity",
-      "auditLogsTitle": "Nhật ký hoạt động",
+      "auditLogsTitle": "Nhật ký chỉnh sửa",
       "auditLogsDescription": "Theo dõi thao tác admin",
       "emailFormatTitle": "Định dạng email",
       "emailFormatDescription": "Màu sắc, cỡ chữ, ảnh tiêu đề"
@@ -706,6 +707,7 @@
     },
     "jobs": {
       "title": "Quản lý tin tuyển dụng",
+      "searchPlaceholder": "Tìm kiếm tiêu đề, công ty...",
       "activeTab": "Đang hiển thị",
       "pendingTab": "Chờ",
       "approvedTab": "Duyệt",
@@ -921,7 +923,8 @@
       "imageUploadSuccess": "Đã tải ảnh tiêu đề lên thành công.",
       "imageUploadError": "Không thể tải ảnh tiêu đề lên.",
       "dragDropText": "Kéo thả ảnh vào đây hoặc click để tải lên",
-      "imageHint": "PNG, JPG, JPEG (tối đa 2MB)"
+      "imageHint": "PNG, JPG, JPEG (tối đa 2MB)",
+      "defaultFooter": "Email này được gửi từ hệ thống thông báo InternHiring."
     }
   },
   "notFound": {

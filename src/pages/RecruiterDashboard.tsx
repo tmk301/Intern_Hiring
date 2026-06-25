@@ -21,6 +21,7 @@ import {
   FileText,
   History,
   Pencil,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -877,7 +878,7 @@ const RecruiterDashboard: React.FC = () => {
               <h1 className="text-3xl font-bold text-white">{uiText("recruiter.title", t("recruiter.title"))}</h1>
               <p className="mt-2 max-w-3xl text-sm text-blue-100/90">{t("recruiter.description")}</p>
             </div>
-            <Button type="button" variant="outline" className="bg-white text-slate-900 hover:bg-slate-50 border-transparent shadow-sm w-auto" onClick={loadJobs} disabled={loadingJobs}>
+            <Button type="button" variant="outline" className="bg-white text-slate-900 hover:bg-slate-50 border-transparent shadow-sm w-auto gap-2" onClick={loadJobs} disabled={loadingJobs}>
               {loadingJobs ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               {t("common.refresh")}
             </Button>
@@ -1253,16 +1254,17 @@ const RecruiterDashboard: React.FC = () => {
                       />
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="cta"
                         onClick={() => {
                           setJobSearch("");
                           setJobFilterStatus("ALL");
                           setJobFilterCreatedAt("");
                           setJobFilterDeadline("");
                         }}
-                        className="h-10 border-slate-200 hover:bg-slate-50"
+                        className="w-auto"
                         disabled={!jobSearch && jobFilterStatus === "ALL" && !jobFilterCreatedAt && !jobFilterDeadline}
                       >
+                        <RotateCcw className="h-4 w-4 mr-2" />
                         {t("jobs.filters.reset")}
                       </Button>
                     </div>
@@ -1424,15 +1426,16 @@ const RecruiterDashboard: React.FC = () => {
                       />
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="cta"
                         onClick={() => {
                           setAppSearch("");
                           setAppFilterStatus("ALL");
                           setAppFilterAppliedAt("");
                         }}
-                        className="h-10 border-slate-200 hover:bg-slate-50"
+                        className="w-auto"
                         disabled={!appSearch && appFilterStatus === "ALL" && !appFilterAppliedAt}
                       >
+                        <RotateCcw className="h-4 w-4 mr-2" />
                         {t("jobs.filters.reset")}
                       </Button>
                     </div>

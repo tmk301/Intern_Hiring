@@ -131,6 +131,7 @@ type SearchableSelectFilterProps = {
   value: string;
   options: JobFilterOption[];
   placeholder?: string;
+  searchPlaceholder?: string;
   disabled?: boolean;
   onChange: (value: string) => void;
 };
@@ -140,6 +141,7 @@ function SearchableSelectFilter({
   value,
   options,
   placeholder,
+  searchPlaceholder,
   disabled,
   onChange,
 }: SearchableSelectFilterProps) {
@@ -174,7 +176,7 @@ function SearchableSelectFilter({
         </PopoverTrigger>
         <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
           <Command className="w-full">
-            <CommandInput placeholder={t("jobs.filters.keywordPlaceholder") || "Tìm kiếm..."} className="h-10" />
+            <CommandInput placeholder={searchPlaceholder || `${t("search")}...`} className="h-10" />
             <CommandList className="max-h-[300px] overflow-y-auto">
               <CommandEmpty>{t("jobs.page.emptyTitle") || "Không tìm thấy"}</CommandEmpty>
               <CommandGroup>
@@ -408,6 +410,7 @@ export function JobSearchFilters({
                 value={filterValue.ward}
                 options={filterOptions.wards}
                 placeholder={wardPlaceholder}
+                searchPlaceholder={t("jobs.filters.wardSearchPlaceholder") || "Tìm kiếm phường/xã/đặc khu..."}
                 disabled={wardDisabled}
                 onChange={(nextValue) => updateValue("ward", nextValue)}
               />
@@ -470,7 +473,7 @@ export function JobSearchFilters({
           )}
 
           <div className="mt-6 flex justify-end">
-            <Button type="button" variant="outline" onClick={resetFilters} className="transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground">
+            <Button type="button" variant="cta" onClick={resetFilters} className="w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               {uiText("jobs.filters.reset", t("jobs.filters.reset"))}
             </Button>

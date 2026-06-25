@@ -1054,7 +1054,7 @@ const AdminDashboard: React.FC = () => {
     <main className="min-h-screen bg-slate-50">
       <SanityPageSections routePath="/admin" placement="top" />
       {pageContent.heroVisible !== false && <section
-        className="hero-gradient flex min-h-[220px] items-center bg-cover bg-center bg-no-repeat py-8 text-white shadow-sm md:min-h-[300px]"
+        className="hero-gradient text-white py-8 shadow-sm"
         style={theme.headerImageUrl ? {
           backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.72), rgba(30, 64, 175, 0.72)), url(${theme.headerImageUrl})`,
           backgroundSize: "cover",
@@ -1073,7 +1073,7 @@ const AdminDashboard: React.FC = () => {
                 {uiText("admin.description", t("admin.description"))}
               </p>
             </div>
-            <Button variant="outline" className="bg-white text-slate-900 hover:bg-slate-50 border-transparent shadow-sm w-auto" onClick={loadData} disabled={loadingData}>
+            <Button variant="outline" className="bg-white text-slate-900 hover:bg-slate-50 border-transparent shadow-sm w-auto gap-2" onClick={loadData} disabled={loadingData}>
               {loadingData ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               {t("common.refresh")}
             </Button>
@@ -1135,12 +1135,12 @@ const AdminDashboard: React.FC = () => {
             onClick={() => openSection("audit-logs")}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("auditLogs")}>{uiText("admin.stats.auditLogsTitle", t("admin.stats.auditLogsTitle"))}</CardTitle>
+              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("auditLogs")}>{t("admin.stats.auditLogsTitle")}</CardTitle>
               {adminCardImage("auditLogs") ? <img src={adminCardImage("auditLogs")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <ClipboardList className="h-5 w-5 text-red-600" />}
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{auditTotal}</div>
-              <p className="text-xs text-muted-foreground" style={adminCardTextStyle("auditLogs")}>{uiText("admin.stats.auditLogsDescription", t("admin.stats.auditLogsDescription"))}</p>
+              <p className="text-xs text-muted-foreground" style={adminCardTextStyle("auditLogs")}>{t("admin.stats.auditLogsDescription")}</p>
             </CardContent>
           </Card>}
 
@@ -1151,13 +1151,13 @@ const AdminDashboard: React.FC = () => {
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium" style={adminCardTextStyle("emailFormat")}>
-                {uiText("admin.stats.emailFormatTitle", t("admin.stats.emailFormatTitle", { defaultValue: "Email format" }))}
+                {t("admin.stats.emailFormatTitle")}
               </CardTitle>
               {adminCardImage("emailFormat") ? <img src={adminCardImage("emailFormat")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Mail className="h-5 w-5 text-emerald-600" />}
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground" style={adminCardTextStyle("emailFormat")}>
-                {uiText("admin.stats.emailFormatDescription", t("admin.stats.emailFormatDescription", { defaultValue: "Colors, font size, header image" }))}
+                {t("admin.stats.emailFormatDescription")}
               </p>
             </CardContent>
           </Card>}
@@ -1200,7 +1200,7 @@ const AdminDashboard: React.FC = () => {
                       <div className="relative w-full">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <Input
-                          placeholder={t("admin.users.searchPlaceholder", { defaultValue: "Tìm kiếm email, họ tên..." })}
+                          placeholder={t("admin.users.searchPlaceholder")}
                           value={userSearch}
                           onChange={(e) => setUserSearch(e.target.value)}
                           className="pl-9 h-10 bg-white"
@@ -1233,15 +1233,16 @@ const AdminDashboard: React.FC = () => {
                       </Select>
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="cta"
                         onClick={() => {
                           setUserSearch("");
                           setUserRoleFilter("ALL");
                           setUserStatusFilter("ALL");
                         }}
-                        className="h-10 border-slate-200 hover:bg-slate-50"
+                        className="w-auto"
                         disabled={!userSearch && userRoleFilter === "ALL" && userStatusFilter === "ALL"}
                       >
+                        <RotateCcw className="h-4 w-4 mr-2" />
                         {t("jobs.filters.reset")}
                       </Button>
                     </div>
@@ -1348,7 +1349,7 @@ const AdminDashboard: React.FC = () => {
                       <div className="relative w-full">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <Input
-                          placeholder={t("admin.jobs.searchPlaceholder", { defaultValue: "Tìm kiếm tiêu đề, công ty..." })}
+                          placeholder={t("admin.jobs.searchPlaceholder")}
                           value={jobSearch}
                           onChange={(e) => setJobSearch(e.target.value)}
                           className="pl-9 h-10 bg-white"
@@ -1387,16 +1388,17 @@ const AdminDashboard: React.FC = () => {
                       />
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="cta"
                         onClick={() => {
                           setJobSearch("");
                           setJobStatusFilter("ALL");
                           setJobHiddenFilter("ALL");
                           setJobDateFilter("");
                         }}
-                        className="h-10 border-slate-200 hover:bg-slate-50"
+                        className="w-auto"
                         disabled={!jobSearch && jobStatusFilter === "ALL" && jobHiddenFilter === "ALL" && !jobDateFilter}
                       >
+                        <RotateCcw className="h-4 w-4 mr-2" />
                         {t("jobs.filters.reset")}
                       </Button>
                     </div>
@@ -1715,10 +1717,10 @@ const AdminDashboard: React.FC = () => {
                             <>
                               <Upload className="mb-2 h-6 w-6 text-slate-400 group-hover:text-primary transition-colors duration-200" />
                               <span className="text-sm font-medium text-slate-700 text-center">
-                                {t("admin.emailFormat.dragDropText", { defaultValue: "Kéo thả ảnh vào đây hoặc click để tải lên" })}
+                                {t("admin.emailFormat.dragDropText")}
                               </span>
                               <span className="text-xs text-muted-foreground mt-1 text-center">
-                                {t("admin.emailFormat.imageHint", { defaultValue: "PNG, JPG, JPEG (tối đa 2MB)" })}
+                                {t("admin.emailFormat.imageHint")}
                               </span>
                             </>
                           )}
@@ -1733,16 +1735,16 @@ const AdminDashboard: React.FC = () => {
                         id="email-footer"
                         value={isDefaultFooterText(emailTemplate.footerText) ? "" : emailTemplate.footerText}
                         onChange={(event) => updateEmailTemplate("footerText", event.target.value)}
-                        placeholder="Email này được gửi từ hệ thống thông báo InternHiring. / This email was sent from InternHiring notification system."
+                        placeholder={t("admin.emailFormat.defaultFooter")}
                         rows={3}
                       />
                     </div>
                     <div className="flex flex-wrap gap-2 sm:col-span-2">
-                      <Button onClick={handleSaveEmailTemplate} disabled={savingEmailTemplate}>
+                      <Button variant="cta" className="w-auto" onClick={handleSaveEmailTemplate} disabled={savingEmailTemplate}>
                         {savingEmailTemplate ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                         {t("common.save", { defaultValue: "Save" })}
                       </Button>
-                      <Button type="button" variant="outline" onClick={handleResetEmailTemplate}>
+                      <Button type="button" variant="outline" className="w-auto border-slate-200 text-slate-900 hover:bg-slate-50 gap-2" onClick={handleResetEmailTemplate}>
                         <RotateCcw className="h-4 w-4" />
                         {t("admin.emailFormat.reset", { defaultValue: "Reset defaults" })}
                       </Button>
@@ -1782,7 +1784,7 @@ const AdminDashboard: React.FC = () => {
                       </div>
                       <div className="my-5 h-px bg-slate-200" />
                       <p className="text-center text-xs text-slate-500">
-                        {emailTemplate.footerText || "Email này được gửi từ hệ thống thông báo InternHiring. / This email was sent from InternHiring notification system."}
+                        {emailTemplate.footerText || t("admin.emailFormat.defaultFooter")}
                       </p>
                     </div>
                   </div>

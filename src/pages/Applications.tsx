@@ -98,7 +98,7 @@ const ApplicationCard = ({ application }: { application: CandidateApplication })
           </div>
         </div>
         <div className="flex flex-wrap gap-2 lg:justify-end relative z-10" onClick={(e) => e.stopPropagation()}>
-          <Button asChild variant="outline" className="border-primary text-primary hover:bg-primary/10 hover:text-primary"><a href={application.appliedCvUrl} target="_blank" rel="noreferrer"><FileText className="mr-2 h-4 w-4" />{t("candidateDashboard.sentCv")}</a></Button>
+          <Button asChild variant="cta" className="w-auto"><a href={application.appliedCvUrl} target="_blank" rel="noreferrer"><FileText className="mr-2 h-4 w-4" />{t("candidateDashboard.sentCv")}</a></Button>
         </div>
       </div>
     </article>
@@ -350,7 +350,7 @@ const Applications = () => {
                 {uiText("applications.hero.description", t("candidateDashboard.description"))}
               </p>
             </div>
-            <Button variant="outline" className="bg-white text-slate-900 hover:bg-slate-50 border-transparent shadow-sm w-auto" onClick={() => { refetch(); refetchFavorites(); }} disabled={isLoading || isFavoritesLoading}>
+            <Button variant="outline" className="bg-white text-slate-900 hover:bg-slate-50 border-transparent shadow-sm w-auto gap-2" onClick={() => { refetch(); refetchFavorites(); }} disabled={isLoading || isFavoritesLoading}>
               {isLoading || isFavoritesLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               {t("common.refresh")}
             </Button>

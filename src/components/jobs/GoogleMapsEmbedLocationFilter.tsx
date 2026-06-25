@@ -214,9 +214,9 @@ export function GoogleMapsEmbedLocationFilter({
 
         <Button
           type="button"
-          variant="outline"
+          variant="cta"
           onClick={applyLocation}
-          className="w-full md:w-44 transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground"
+          className="w-full md:w-44"
         >
           <Search className="h-4 w-4 mr-2" />
           {t("jobs.filters.locationMap.search")}
@@ -224,10 +224,10 @@ export function GoogleMapsEmbedLocationFilter({
 
         <Button
           type="button"
-          variant="outline"
+          variant="cta"
           onClick={clearLocation}
           disabled={!draftLocation && !value}
-          className="w-full md:w-44 transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground"
+          className="w-full md:w-44"
         >
           <X className="h-4 w-4 mr-2" />
           {t("jobs.filters.locationMap.clear")}

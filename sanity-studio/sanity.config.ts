@@ -3,11 +3,19 @@ import {structureTool} from 'sanity/structure'
 import {visionTool} from '@sanity/vision'
 import {schemaTypes} from './schemaTypes'
 
-const textItem = (key: string, label: string, value: string) => ({
+const textItem = (
+  key: string,
+  label: string,
+  value: string,
+  valueVi?: string,
+  valueEn?: string,
+) => ({
   _type: 'managedInterfaceText',
   key,
   label,
   value,
+  ...(valueVi ? {valueVi} : {}),
+  ...(valueEn ? {valueEn} : {}),
 })
 
 const sectionSlug = (current: string) => ({_type: 'slug', current})
@@ -288,12 +296,12 @@ export default defineConfig({
           textItem('admin.stats.jobsTitle', 'Tiêu đề thẻ tin tuyển dụng', 'Tin tuyển dụng'),
           textItem('admin.stats.categoriesTitle', 'Tiêu đề thẻ danh mục', 'Quản lý danh mục'),
           textItem('admin.stats.categoriesDescription', 'Mô tả thẻ danh mục', 'Danh mục & Form xác thực'),
-          textItem('admin.stats.auditLogsTitle', 'Tiêu đề thẻ audit log', 'Audit log'),
-          textItem('admin.stats.auditLogsDescription', 'Mô tả thẻ audit log', 'Theo dõi thao tác admin'),
-          textItem('admin.stats.emailFormatTitle', 'Tiêu đề thẻ định dạng email', 'Email format'),
-          textItem('admin.stats.emailFormatDescription', 'Mô tả thẻ định dạng email', 'Colors, font size, header image'),
-          textItem('admin.stats.loginBrandingTitle', 'Tiêu đề thẻ login/register', 'Ô login & đăng ký'),
-          textItem('admin.stats.loginBrandingDescription', 'Mô tả thẻ login/register', 'Chỉnh ở bên trái trong Sanity'),
+          textItem('admin.stats.auditLogsTitle', 'Tiêu đề thẻ audit log', 'Audit log', 'Nhật ký chỉnh sửa', 'Audit log'),
+          textItem('admin.stats.auditLogsDescription', 'Mô tả thẻ audit log', 'Theo dõi thao tác admin', 'Theo dõi thao tác admin', 'Track admin activity'),
+          textItem('admin.stats.emailFormatTitle', 'Tiêu đề thẻ định dạng email', 'Email format', 'Định dạng email', 'Email format'),
+          textItem('admin.stats.emailFormatDescription', 'Mô tả thẻ định dạng email', 'Colors, font size, header image', 'Màu sắc, cỡ chữ, ảnh tiêu đề', 'Colors, font size, header image'),
+          textItem('admin.stats.loginBrandingTitle', 'Tiêu đề thẻ login/register', 'Ô login & đăng ký', 'Ô login & đăng ký', 'Login & register panels'),
+          textItem('admin.stats.loginBrandingDescription', 'Mô tả thẻ login/register', 'Chỉnh ở bên trái trong Sanity', 'Chỉnh ở bên trái trong Sanity', 'Edit left panels in Sanity'),
           textItem('admin.users.title', 'Tiêu đề bảng người dùng', 'Danh sách tài khoản người dùng'),
           textItem('admin.jobs.title', 'Tiêu đề khu vực tin tuyển dụng', 'Tin tuyển dụng'),
           textItem('admin.emailFormat.title', 'Tiêu đề định dạng email', 'Email format'),

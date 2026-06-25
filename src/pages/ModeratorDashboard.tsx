@@ -26,6 +26,7 @@ import {
   ArrowUp,
   ArrowDown,
   Trash2,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext.tsx";
@@ -507,7 +508,7 @@ const ModeratorDashboard: React.FC = () => {
 
             <Button
               variant="outline"
-              className="w-auto gap-2 border-white bg-white text-primary shadow-sm hover:bg-white/95 hover:text-primary"
+              className="bg-white text-slate-900 hover:bg-slate-50 border-transparent shadow-sm w-auto gap-2"
               onClick={handleRefresh}
               disabled={loadingData}
             >
@@ -745,16 +746,17 @@ const ModeratorDashboard: React.FC = () => {
                   {/* Reset Button */}
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="cta"
                     onClick={() => {
                       setJobSearch("");
                       setJobStatusFilter("ALL");
                       setJobVisibilityFilter("ALL");
                       setJobDateFilter("");
                     }}
-                    className="h-10 border-slate-200 hover:bg-slate-50"
+                    className="w-auto"
                     disabled={!jobSearch && jobStatusFilter === "ALL" && jobVisibilityFilter === "ALL" && !jobDateFilter}
                   >
+                    <RotateCcw className="h-4 w-4 mr-2" />
                     {t("jobs.filters.reset", { defaultValue: "Đặt lại" })}
                   </Button>
                 </div>
@@ -953,14 +955,15 @@ const ModeratorDashboard: React.FC = () => {
 
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="cta"
                     onClick={() => {
                       setAppSearch("");
                       setAppStatusFilter("ALL");
                     }}
-                    className="h-10 border-slate-200 hover:bg-slate-50"
+                    className="w-auto"
                     disabled={!appSearch && appStatusFilter === "ALL"}
                   >
+                    <RotateCcw className="h-4 w-4 mr-2" />
                     {t("jobs.filters.reset", { defaultValue: "Đặt lại" })}
                   </Button>
                 </div>
