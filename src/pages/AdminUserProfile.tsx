@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { SanityPageSections } from "@/components/sanity/SanityPageSections";
 
 const getInitials = (user?: AdminUser | null) =>
   `${user?.lastName?.[0] ?? ""}${user?.firstName?.[0] ?? ""}`.trim().toUpperCase() || user?.email?.[0]?.toUpperCase() || "U";
@@ -146,11 +147,13 @@ const AdminUserProfile: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+      <SanityPageSections routePath="/admin/users/:userId" placement="top" />
       <div className="container mx-auto max-w-5xl px-4 py-6">
         <Button variant="ghost" className="mb-4" onClick={() => navigate("/admin")}>
           <ArrowLeft className="h-4 w-4" />
           {t("common.back")}
         </Button>
+        <SanityPageSections routePath="/admin/users/:userId" placement="afterHero" />
 
         <div className="grid gap-6 md:grid-cols-[320px_1fr]">
           <Card className="overflow-hidden">
@@ -308,6 +311,7 @@ const AdminUserProfile: React.FC = () => {
           </div>
         </div>
       </div>
+      <SanityPageSections routePath="/admin/users/:userId" placement="bottom" />
     </main>
   );
 };

@@ -8,7 +8,7 @@ const colorField = (name: string, title: string, initialValue: string) =>
     type: 'string',
     initialValue,
     components: {input: ColorInput},
-    validation: (rule) => rule.regex(/^#[0-9a-fA-F]{6}$/, {name: 'màu HEX'}),
+    validation: (rule) => rule.regex(/^#[0-9a-fA-F]{6}$/, {name: 'HEX color'}),
   })
 
 const defaultItems = [
@@ -20,43 +20,43 @@ const defaultItems = [
 
 export const headerMenuItem = defineType({
   name: 'headerMenuItem',
-  title: 'Mục menu',
+  title: 'Header Navigation Item',
   type: 'object',
   fields: [
-    defineField({name: 'isVisible', title: 'Hiển thị', type: 'boolean', initialValue: true}),
-    defineField({name: 'labelVi', title: 'Tên tiếng Việt', type: 'string', validation: (rule) => rule.required()}),
-    defineField({name: 'labelEn', title: 'Tên tiếng Anh', type: 'string'}),
-    colorField('textColor', 'Màu chữ riêng', '#0f172a'),
+    defineField({name: 'isVisible', title: 'Show Item', type: 'boolean', initialValue: true}),
+    defineField({name: 'labelVi', title: 'Label VI', type: 'string', validation: (rule) => rule.required()}),
+    defineField({name: 'labelEn', title: 'Label EN', type: 'string'}),
+    colorField('textColor', 'Custom Text Color', '#0f172a'),
     defineField({
       name: 'targetId',
-      title: 'ID section để cuộn tới',
+      title: 'Anchor Target ID',
       type: 'string',
-      description: 'Ví dụ: gioi-thieu. Để trống nếu dùng đường dẫn trang.',
+      description: 'Example: gioi-thieu. Will scroll to this element ID on the home page. Omit if using page route path.',
     }),
     defineField({
       name: 'path',
-      title: 'Đường dẫn trang',
+      title: 'Destination Page Route Path',
       type: 'string',
-      description: 'Ví dụ: /jobs. Đường dẫn được ưu tiên hơn ID section.',
+      description: 'Example: /jobs. Route path takes priority over Anchor Target ID.',
     }),
   ],
-  validation: (rule) => rule.custom((value) => value?.path || value?.targetId ? true : 'Nhập đường dẫn trang hoặc ID section.'),
+  validation: (rule) => rule.custom((value) => value?.path || value?.targetId ? true : 'Please enter either a Destination Page Route Path or an Anchor Target ID.'),
   preview: {
-    select: {title: 'labelVi', subtitle: 'path', targetId: 'targetId', isVisible: 'isVisible'},
-    prepare: ({title, subtitle, targetId, isVisible}) => ({
-      title: title || 'Mục menu',
-      subtitle: `${isVisible === false ? 'Đang ẩn · ' : ''}${subtitle || targetId || ''}`,
+    select: {title: 'labelEn', titleVi: 'labelVi', subtitle: 'path', targetId: 'targetId', isVisible: 'isVisible'},
+    prepare: ({title, titleVi, subtitle, targetId, isVisible}) => ({
+      title: title || titleVi || 'Navigation Link Item',
+      subtitle: `${isVisible === false ? 'Hidden · ' : ''}${subtitle || targetId || ''}`,
     }),
   },
 })
 
 export const siteHeader = defineType({
   name: 'siteHeader',
-  title: 'Cấu hình Header/navbar',
+  title: 'Global Header & Navbar Configuration',
   type: 'document',
-  description: 'Quản lý menu toàn website. Nút Đăng nhập/Đăng ký không nằm trong danh sách này.',
+  description: 'Manages the navigation links globally for the website. Custom user authentication CTAs (Login/Register) are fixed on the frontend.',
   initialValue: {
-    title: 'Header chính',
+    title: 'Primary Header',
     isEnabled: true,
     backgroundColor: '#ffffff',
     textColor: '#0f172a',
@@ -65,28 +65,28 @@ export const siteHeader = defineType({
   fields: [
     defineField({
       name: 'title',
-      title: 'Tên cấu hình',
+      title: 'Configuration Profile Name',
       type: 'string',
-      initialValue: 'Header chính',
+      initialValue: 'Primary Header',
       validation: (rule) => rule.required(),
     }),
     defineField({
       name: 'isEnabled',
-      title: 'Dùng menu từ Sanity',
+      title: 'Enable Custom Navigation Menu',
       type: 'boolean',
       initialValue: true,
-      description: 'Tắt để website quay lại menu mặc định.',
+      description: 'Disable to fall back to default frontend hardcoded navigation items.',
     }),
-    colorField('backgroundColor', 'Màu nền thanh header', '#ffffff'),
-    colorField('textColor', 'Màu chữ mặc định', '#0f172a'),
+    colorField('backgroundColor', 'Header Background Color', '#ffffff'),
+    colorField('textColor', 'Navigation Text Color Accent', '#0f172a'),
     defineField({
       name: 'items',
-      title: 'Các mục trong header/navbar',
+      title: 'Navigation Menu Link Items',
       type: 'array',
       initialValue: defaultItems,
-      description: 'Thêm, xóa, sửa, ẩn/hiện và kéo thả để đổi thứ tự. Không bao gồm nút Đăng nhập/Đăng ký.',
+      description: 'Add, edit, remove, hide, or drag and drop links to reorder.',
       of: [{type: 'headerMenuItem'}],
     }),
   ],
-  preview: {select: {title: 'title'}, prepare: ({title}) => ({title: title || 'Header chính'})},
+  preview: {select: {title: 'title'}, prepare: ({title}) => ({title: title || 'Primary Header'})},
 })

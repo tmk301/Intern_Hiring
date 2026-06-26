@@ -53,6 +53,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useSanityInterfaceText } from "@/lib/sanityInterfaceText";
+import { SanityPageSections } from "@/components/sanity/SanityPageSections";
 
 type JobSortKey = "title" | "company" | "type" | "applicationDeadline" | "status" | "createdAt";
 type ApplicationSortKey = "applicant" | "jobTitle" | "status" | "appliedAt";
@@ -868,6 +869,7 @@ const RecruiterDashboard: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-slate-50">
+      <SanityPageSections routePath="/recruiter" placement="top" />
       <section className="hero-gradient text-white py-8 shadow-sm">
         <div className="container mx-auto px-4 max-w-6xl">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -885,6 +887,7 @@ const RecruiterDashboard: React.FC = () => {
           </div>
         </div>
       </section>
+      <SanityPageSections routePath="/recruiter" placement="afterHero" />
 
       <section className="container mx-auto space-y-6 px-4 py-8 max-w-6xl">
         {/* Thống kê */}
@@ -1215,7 +1218,7 @@ const RecruiterDashboard: React.FC = () => {
                       <div className="relative w-full">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <Input
-                          placeholder={t("recruiter.jobs.searchPlaceholder", { defaultValue: "Tìm kiếm tiêu đề, công ty..." })}
+                          placeholder={t("recruiter.jobs.searchPlaceholder")}
                           value={jobSearch}
                           onChange={(e) => setJobSearch(e.target.value)}
                           className="pl-9 h-10 bg-white"
@@ -1397,7 +1400,7 @@ const RecruiterDashboard: React.FC = () => {
                       <div className="relative w-full">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <Input
-                          placeholder={t("recruiter.applications.searchPlaceholder", { defaultValue: "Tìm kiếm ứng viên, tiêu đề..." })}
+                          placeholder={t("recruiter.applications.searchPlaceholder")}
                           value={appSearch}
                           onChange={(e) => setAppSearch(e.target.value)}
                           className="pl-9 h-10 bg-white"
@@ -1584,6 +1587,7 @@ const RecruiterDashboard: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <SanityPageSections routePath="/recruiter" placement="bottom" />
     </main>
   );
 };

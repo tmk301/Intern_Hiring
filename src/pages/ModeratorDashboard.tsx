@@ -527,7 +527,7 @@ const ModeratorDashboard: React.FC = () => {
           {/* Job posts stats */}
           <div className="space-y-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-              {uiText("moderator.stats.jobsTitle", t("moderator.stats.jobsTitle", { defaultValue: "THỐNG KÊ BÀI ĐĂNG" }))}
+              {uiText("moderator.stats.jobsTitle", t("moderator.stats.jobsTitle"))}
             </h2>
             <div className="grid gap-4 md:grid-cols-3">
               <Card
@@ -540,7 +540,7 @@ const ModeratorDashboard: React.FC = () => {
               >
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
-                    {t("moderator.stats.totalJobs", { defaultValue: "Tổng số bài đăng" })}
+                    {t("moderator.stats.totalJobs")}
                   </CardTitle>
                   <Briefcase className="h-5 w-5 text-primary" />
                 </CardHeader>
@@ -559,7 +559,7 @@ const ModeratorDashboard: React.FC = () => {
               >
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
-                    {t("moderator.stats.visibleJobs", { defaultValue: "Đang hiển thị" })}
+                    {t("moderator.stats.visibleJobs")}
                   </CardTitle>
                   <Eye className="h-5 w-5 text-emerald-600" />
                 </CardHeader>
@@ -578,7 +578,7 @@ const ModeratorDashboard: React.FC = () => {
               >
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
-                    {t("moderator.stats.hiddenJobs", { defaultValue: "Đã ẩn" })}
+                    {t("moderator.stats.hiddenJobs")}
                   </CardTitle>
                   <EyeOff className="h-5 w-5 text-amber-600" />
                 </CardHeader>
@@ -592,7 +592,7 @@ const ModeratorDashboard: React.FC = () => {
           {/* Company stats */}
           <div className="space-y-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-              {uiText("moderator.stats.companiesTitle", t("moderator.stats.companiesTitle", { defaultValue: "THỐNG KÊ CÔNG TY" }))}
+              {uiText("moderator.stats.companiesTitle", t("moderator.stats.companiesTitle"))}
             </h2>
             <div className="grid gap-4 md:grid-cols-3">
               <Card
@@ -604,7 +604,7 @@ const ModeratorDashboard: React.FC = () => {
               >
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
-                    {t("moderator.stats.totalCompanies", { defaultValue: "Tổng số công ty" })}
+                    {t("moderator.stats.totalCompanies")}
                   </CardTitle>
                   <Building2 className="h-5 w-5 text-primary" />
                 </CardHeader>
@@ -622,7 +622,7 @@ const ModeratorDashboard: React.FC = () => {
               >
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
-                    {t("moderator.stats.approvedCompanies", { defaultValue: "Đã duyệt" })}
+                    {t("moderator.stats.approvedCompanies")}
                   </CardTitle>
                   <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                 </CardHeader>
@@ -640,7 +640,7 @@ const ModeratorDashboard: React.FC = () => {
               >
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
-                    {t("moderator.stats.rejectedCompanies", { defaultValue: "Đã từ chối" })}
+                    {t("moderator.stats.rejectedCompanies")}
                   </CardTitle>
                   <XCircle className="h-5 w-5 text-rose-600" />
                 </CardHeader>
@@ -660,7 +660,7 @@ const ModeratorDashboard: React.FC = () => {
               tabIndex={0}
               aria-expanded={showJobManagement}
               aria-label={t(showJobManagement ? "common.collapse" : "common.expand", {
-                defaultValue: showJobManagement ? "Thu gọn" : "Mở rộng",
+                defaultValue: showJobManagement ? t("moderator.collapse") : t("moderator.expand"),
               })}
               className="flex cursor-pointer flex-row items-center justify-between space-y-0 pb-4 transition hover:bg-slate-50"
               onClick={() => setShowJobManagement((current) => !current)}
@@ -674,7 +674,7 @@ const ModeratorDashboard: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Briefcase className="h-5 w-5 text-primary" />
                 <CardTitle className="text-lg font-bold">
-                  {t("moderator.jobs.title", { defaultValue: "Quản lý tin tuyển dụng" })}
+                  {t("moderator.jobs.title")}
                 </CardTitle>
               </div>
               <Button
@@ -684,7 +684,7 @@ const ModeratorDashboard: React.FC = () => {
                 size="icon"
                 className="pointer-events-none h-9 w-9 text-slate-600 hover:bg-slate-100"
                 aria-label={t(showJobManagement ? "common.collapse" : "common.expand", {
-                  defaultValue: showJobManagement ? "Thu gọn" : "Mở rộng",
+                  defaultValue: showJobManagement ? t("moderator.collapse") : t("moderator.expand"),
                 })}
                 aria-expanded={showJobManagement}
                 onClick={() => setShowJobManagement((current) => !current)}
@@ -700,7 +700,7 @@ const ModeratorDashboard: React.FC = () => {
                   <div className="relative w-full">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <Input
-                      placeholder={t("moderator.jobs.searchPlaceholder", { defaultValue: "Tìm kiếm tiêu đề, công ty..." })}
+                      placeholder={t("moderator.jobs.searchPlaceholder")}
                       value={jobSearch}
                       onChange={(e) => setJobSearch(e.target.value)}
                       className="pl-9 h-10 bg-white"
@@ -715,7 +715,7 @@ const ModeratorDashboard: React.FC = () => {
                       <SelectValue placeholder={t("admin.jobs.filters.status")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ALL">{t("moderator.jobs.allStatuses", { defaultValue: "Tất cả trạng thái" })}</SelectItem>
+                      <SelectItem value="ALL">{t("moderator.jobs.allStatuses")}</SelectItem>
                       <SelectItem value="PENDING">{t("admin.jobs.statuses.PENDING")}</SelectItem>
                       <SelectItem value="APPROVED">{t("admin.jobs.statuses.APPROVED")}</SelectItem>
                       <SelectItem value="REJECTED">{t("admin.jobs.statuses.REJECTED")}</SelectItem>
@@ -728,9 +728,9 @@ const ModeratorDashboard: React.FC = () => {
                       <SelectValue placeholder={t("admin.jobs.filters.hidden")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ALL">{t("moderator.jobs.allVisibility", { defaultValue: "Tất cả hiển thị" })}</SelectItem>
-                      <SelectItem value="VISIBLE">{t("moderator.jobs.visibleOnly", { defaultValue: "Đang hiển thị" })}</SelectItem>
-                      <SelectItem value="HIDDEN">{t("moderator.jobs.hiddenOnly", { defaultValue: "Đã ẩn" })}</SelectItem>
+                      <SelectItem value="ALL">{t("moderator.jobs.allVisibility")}</SelectItem>
+                      <SelectItem value="VISIBLE">{t("moderator.jobs.visibleOnly")}</SelectItem>
+                      <SelectItem value="HIDDEN">{t("moderator.jobs.hiddenOnly")}</SelectItem>
                     </SelectContent>
                   </Select>
 
@@ -757,7 +757,7 @@ const ModeratorDashboard: React.FC = () => {
                     disabled={!jobSearch && jobStatusFilter === "ALL" && jobVisibilityFilter === "ALL" && !jobDateFilter}
                   >
                     <RotateCcw className="h-4 w-4 mr-2" />
-                    {t("jobs.filters.reset", { defaultValue: "Đặt lại" })}
+                    {t("jobs.filters.reset")}
                   </Button>
                 </div>
               </div>
@@ -768,7 +768,7 @@ const ModeratorDashboard: React.FC = () => {
                 </div>
               ) : filteredJobs.length === 0 ? (
                 <div className="rounded-xl border border-dashed py-16 text-center text-sm text-slate-500 bg-slate-50/50">
-                  {t("moderator.jobs.empty", { defaultValue: "Không tìm thấy bài đăng tuyển dụng nào." })}
+                  {t("moderator.jobs.empty")}
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -892,7 +892,7 @@ const ModeratorDashboard: React.FC = () => {
               tabIndex={0}
               aria-expanded={showCompanyRequests}
               aria-label={t(showCompanyRequests ? "common.collapse" : "common.expand", {
-                defaultValue: showCompanyRequests ? "Thu gọn" : "Mở rộng",
+                defaultValue: showCompanyRequests ? t("moderator.collapse") : t("moderator.expand"),
               })}
               className="flex cursor-pointer flex-row items-center justify-between space-y-0 pb-4 transition hover:bg-slate-50"
               onClick={() => setShowCompanyRequests((current) => !current)}
@@ -906,7 +906,7 @@ const ModeratorDashboard: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-primary" />
                 <CardTitle className="text-lg font-bold">
-                  {t("moderator.companies.title", { defaultValue: "Yêu cầu xác thực công ty" })}
+                  {t("moderator.companies.title")}
                 </CardTitle>
               </div>
               <Button
@@ -916,7 +916,7 @@ const ModeratorDashboard: React.FC = () => {
                 size="icon"
                 className="pointer-events-none h-9 w-9 text-slate-600 hover:bg-slate-100"
                 aria-label={t(showCompanyRequests ? "common.collapse" : "common.expand", {
-                  defaultValue: showCompanyRequests ? "Thu gọn" : "Mở rộng",
+                  defaultValue: showCompanyRequests ? t("moderator.collapse") : t("moderator.expand"),
                 })}
                 aria-expanded={showCompanyRequests}
                 onClick={() => setShowCompanyRequests((current) => !current)}
@@ -932,7 +932,7 @@ const ModeratorDashboard: React.FC = () => {
                   <div className="relative w-full">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <Input
-                      placeholder={t("moderator.companies.searchPlaceholder", { defaultValue: "Tìm kiếm email, tên công ty..." })}
+                      placeholder={t("moderator.companies.searchPlaceholder")}
                       value={appSearch}
                       onChange={(e) => setAppSearch(e.target.value)}
                       className="pl-9 h-10 bg-white"
@@ -946,7 +946,7 @@ const ModeratorDashboard: React.FC = () => {
                       <SelectValue placeholder={t("admin.jobs.filters.status")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ALL">{t("moderator.companies.allStatuses", { defaultValue: "Tất cả trạng thái" })}</SelectItem>
+                      <SelectItem value="ALL">{t("moderator.companies.allStatuses")}</SelectItem>
                       <SelectItem value="PENDING">{t("admin.jobs.statuses.PENDING")}</SelectItem>
                       <SelectItem value="APPROVED">{t("admin.jobs.statuses.APPROVED")}</SelectItem>
                       <SelectItem value="REJECTED">{t("admin.jobs.statuses.REJECTED")}</SelectItem>
@@ -964,7 +964,7 @@ const ModeratorDashboard: React.FC = () => {
                     disabled={!appSearch && appStatusFilter === "ALL"}
                   >
                     <RotateCcw className="h-4 w-4 mr-2" />
-                    {t("jobs.filters.reset", { defaultValue: "Đặt lại" })}
+                    {t("jobs.filters.reset")}
                   </Button>
                 </div>
               </div>
@@ -975,7 +975,7 @@ const ModeratorDashboard: React.FC = () => {
                 </div>
               ) : filteredApplications.length === 0 ? (
                 <div className="rounded-xl border border-dashed py-16 text-center text-sm text-slate-500 bg-slate-50/50">
-                  {t("moderator.companies.empty", { defaultValue: "Không tìm thấy yêu cầu xác thực nào." })}
+                  {t("moderator.companies.empty")}
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -983,10 +983,10 @@ const ModeratorDashboard: React.FC = () => {
                     <Table>
                       <TableHeader className="bg-slate-50/85">
                         <TableRow>
-                          <TableHead>{renderAppSortableHeader("applicant", t("moderator.companies.applicant", { defaultValue: "Người yêu cầu" }))}</TableHead>
-                          <TableHead>{renderAppSortableHeader("companyName", t("moderator.companies.companyName", { defaultValue: "Tên doanh nghiệp" }))}</TableHead>
-                          <TableHead>{renderAppSortableHeader("taxCode", t("moderator.companies.taxCode", { defaultValue: "Mã số thuế" }))}</TableHead>
-                          <TableHead>{renderAppSortableHeader("createdAt", t("moderator.companies.submittedDate", { defaultValue: "Ngày gửi" }))}</TableHead>
+                          <TableHead>{renderAppSortableHeader("applicant", t("moderator.companies.applicant"))}</TableHead>
+                          <TableHead>{renderAppSortableHeader("companyName", t("moderator.companies.companyName"))}</TableHead>
+                          <TableHead>{renderAppSortableHeader("taxCode", t("moderator.companies.taxCode"))}</TableHead>
+                          <TableHead>{renderAppSortableHeader("createdAt", t("moderator.companies.submittedDate"))}</TableHead>
                           <TableHead>{renderAppSortableHeader("status", t("common.status"))}</TableHead>
                           <TableHead className="text-center">{t("common.actions")}</TableHead>
                         </TableRow>
@@ -1115,7 +1115,7 @@ const ModeratorDashboard: React.FC = () => {
               <div className="space-y-1.5 text-sm">
                 <span className="text-xs font-semibold text-slate-500 uppercase flex items-center gap-1.5">
                   <Building2 className="h-4 w-4 text-slate-455" />
-                  {t("recruiterVerification.sections.gallery", { defaultValue: "Hình ảnh công ty" })}
+                  {t("recruiterVerification.sections.gallery")}
                 </span>
                 <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
                   {parseJsonArray<string>(selectedApplication.formData?.galleryUrls).map((url, i) => (
@@ -1131,7 +1131,7 @@ const ModeratorDashboard: React.FC = () => {
                   ))}
                   {parseJsonArray<string>(selectedApplication.formData?.galleryUrls).length === 0 && (
                     <span className="text-slate-400 text-xs italic">
-                      {t("moderator.companies.emptyGallery", { defaultValue: "Không có hình ảnh." })}
+                      {t("moderator.companies.emptyGallery")}
                     </span>
                   )}
                 </div>
@@ -1141,14 +1141,14 @@ const ModeratorDashboard: React.FC = () => {
               {normalizeReviewStatus(selectedApplication.status) === "PENDING" ? (
                 <div className="space-y-2 border-t border-slate-150 pt-4">
                   <Label htmlFor="review-reason" className="font-bold text-slate-700">
-                    {t("moderator.companies.reviewNote", { defaultValue: "Ghi chú duyệt" })}
+                    {t("moderator.companies.reviewNote")}
                   </Label>
                   <Textarea
                     id="review-reason"
                     value={reviewNote}
                     onChange={(e) => setReviewNote(e.target.value)}
                     placeholder={t("moderator.companies.reviewNotePlaceholder", {
-                      defaultValue: "Nhập lý do nếu từ chối yêu cầu...",
+                      defaultValue: t("moderator.rejectReasonPlaceholder"),
                     })}
                     rows={3}
                     className="rounded-xl border-slate-200"
@@ -1158,7 +1158,7 @@ const ModeratorDashboard: React.FC = () => {
                 selectedApplication.reviewNote && (
                   <div className="space-y-1.5 border-t border-slate-150 pt-4 text-sm">
                     <span className="text-xs font-semibold text-slate-500 uppercase block">
-                      {t("moderator.companies.reviewNote", { defaultValue: "Ghi chú duyệt" })}
+                      {t("moderator.companies.reviewNote")}
                     </span>
                     <p className="bg-slate-50 border border-slate-100 p-3 rounded-lg text-slate-700 text-xs whitespace-pre-wrap italic">
                       {selectedApplication.reviewNote}
@@ -1225,7 +1225,7 @@ const ModeratorDashboard: React.FC = () => {
         <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto rounded-xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold">
-              {t("moderator.companies.dialogTitle", { defaultValue: "Chi tiết hồ sơ xác thực công ty" })}
+              {t("moderator.companies.dialogTitle")}
             </DialogTitle>
             <DialogDescription>{selectedApplication?.applicantEmail}</DialogDescription>
           </DialogHeader>
@@ -1236,7 +1236,7 @@ const ModeratorDashboard: React.FC = () => {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-1.5">
                   <span className="text-xs font-semibold text-slate-500 uppercase">
-                    {t("recruiterVerification.fields.logo", { defaultValue: "Ảnh đại diện/logo" })}
+                    {t("recruiterVerification.fields.logo")}
                   </span>
                   {selectedApplication.formData?.logoUrl ? (
                     <div className="rounded-xl border border-slate-100 p-2 bg-slate-50/50 flex justify-center items-center h-40">
@@ -1255,7 +1255,7 @@ const ModeratorDashboard: React.FC = () => {
 
                 <div className="space-y-1.5">
                   <span className="text-xs font-semibold text-slate-500 uppercase">
-                    {t("recruiterVerification.fields.cover", { defaultValue: "Ảnh bìa" })}
+                    {t("recruiterVerification.fields.cover")}
                   </span>
                   {selectedApplication.formData?.coverUrl ? (
                     <div className="rounded-xl border border-slate-100 p-2 bg-slate-50/50 flex justify-center items-center h-40">
@@ -1278,13 +1278,13 @@ const ModeratorDashboard: React.FC = () => {
                 <CardHeader className="py-3 bg-slate-50/80 border-b border-slate-100">
                   <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                     <Building2 className="h-4 w-4 text-slate-500" />
-                    {t("recruiterVerification.sections.legal", { defaultValue: "Thông tin công ty" })}
+                    {t("recruiterVerification.sections.legal")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="grid gap-4 p-4 md:grid-cols-2 text-sm">
                   <div>
                     <span className="text-slate-400 text-xs block mb-0.5">
-                      {t("recruiterVerification.fields.companyFullName", { defaultValue: "Tên công ty đầy đủ" })}
+                      {t("recruiterVerification.fields.companyFullName")}
                     </span>
                     <span className="text-slate-900 font-semibold">
                       {selectedApplication.formData?.companyFullName || "-"}
@@ -1292,7 +1292,7 @@ const ModeratorDashboard: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-slate-400 text-xs block mb-0.5">
-                      {t("recruiterVerification.fields.companyDisplayName", { defaultValue: "Tên công ty hiển thị" })}
+                      {t("recruiterVerification.fields.companyDisplayName")}
                     </span>
                     <span className="text-slate-900 font-semibold">
                       {selectedApplication.formData?.companyDisplayName || "-"}
@@ -1300,7 +1300,7 @@ const ModeratorDashboard: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-slate-400 text-xs block mb-0.5">
-                      {t("recruiterVerification.fields.taxCode", { defaultValue: "Mã số thuế" })}
+                      {t("recruiterVerification.fields.taxCode")}
                     </span>
                     <span className="text-slate-800 font-mono font-medium">
                       {selectedApplication.formData?.taxCode || "-"}
@@ -1308,7 +1308,7 @@ const ModeratorDashboard: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-slate-400 text-xs block mb-0.5">
-                      {t("recruiterVerification.fields.companyPhone", { defaultValue: "Số điện thoại công ty" })}
+                      {t("recruiterVerification.fields.companyPhone")}
                     </span>
                     <span className="text-slate-850 flex items-center gap-1">
                       <Phone className="h-3.5 w-3.5 text-slate-450" />
@@ -1317,7 +1317,7 @@ const ModeratorDashboard: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-slate-400 text-xs block mb-0.5">
-                      {t("recruiterVerification.fields.companySize", { defaultValue: "Quy mô công ty" })}
+                      {t("recruiterVerification.fields.companySize")}
                     </span>
                     <span className="text-slate-800">
                       {selectedApplication.formData?.companySize
@@ -1329,7 +1329,7 @@ const ModeratorDashboard: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-slate-400 text-xs block mb-0.5">
-                      {t("recruiterVerification.fields.companyWebsite", { defaultValue: "Website công ty" })}
+                      {t("recruiterVerification.fields.companyWebsite")}
                     </span>
                     {selectedApplication.formData?.companyWebsite ? (
                       <a
@@ -1347,13 +1347,13 @@ const ModeratorDashboard: React.FC = () => {
                   </div>
                   <div className="md:col-span-2">
                     <span className="text-slate-400 text-xs block mb-0.5">
-                      {t("recruiterVerification.fields.billingAddress", { defaultValue: "Địa chỉ xuất hoá đơn" })}
+                      {t("recruiterVerification.fields.billingAddress")}
                     </span>
                     <span className="text-slate-800">{selectedApplication.formData?.billingAddress || "-"}</span>
                   </div>
                   <div className="md:col-span-2">
                     <span className="text-slate-400 text-xs block mb-0.5">
-                      {t("recruiterVerification.fields.companyIntro", { defaultValue: "Giới thiệu về công ty" })}
+                      {t("recruiterVerification.fields.companyIntro")}
                     </span>
                     <p className="text-slate-700 bg-white border border-slate-100 p-3 rounded-lg text-sm whitespace-pre-wrap leading-relaxed max-h-40 overflow-y-auto">
                       {selectedApplication.formData?.companyIntro || "-"}
@@ -1366,7 +1366,7 @@ const ModeratorDashboard: React.FC = () => {
               <div className="space-y-1.5 text-sm">
                 <span className="text-xs font-semibold text-slate-500 uppercase flex items-center gap-1.5">
                   <MapPin className="h-4 w-4 text-slate-455" />
-                  {t("recruiterVerification.sections.addresses", { defaultValue: "Địa chỉ công ty" })}
+                  {t("recruiterVerification.sections.addresses")}
                 </span>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {parseJsonArray<CompanyAddress>(selectedApplication.formData?.addresses).map((address, index) => (
@@ -1387,11 +1387,56 @@ const ModeratorDashboard: React.FC = () => {
                 </div>
               </div>
 
+              {/* Google Map */}
+              <div className="space-y-1.5 text-sm">
+                <span className="text-xs font-semibold text-slate-500 uppercase flex items-center gap-1.5">
+                  <MapPin className="h-4 w-4 text-slate-455" />
+                  {t("profile.mapTitle")}
+                </span>
+                {selectedApplication.formData?.mapUrl ? (
+                  <div className="w-full overflow-hidden rounded-xl border border-slate-100 bg-white p-1 shadow-sm">
+                    <iframe
+                      src={selectedApplication.formData.mapUrl}
+                      width="100%"
+                      height="320"
+                      style={{ border: 0 }}
+                      allowFullScreen={true}
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      title="Google Maps"
+                      className="rounded-lg"
+                      sandbox="allow-scripts allow-same-origin allow-popups"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex h-48 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-muted-foreground">
+                    <MapPin className="mb-2 h-7 w-7 opacity-40 text-muted-foreground" />
+                    <p className="text-sm">{t("companyProfile.noMap")}</p>
+                    {parseJsonArray<CompanyAddress>(selectedApplication.formData?.addresses).length > 0 && (
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                          [
+                            parseJsonArray<CompanyAddress>(selectedApplication.formData?.addresses)[0].detail, 
+                            parseJsonArray<CompanyAddress>(selectedApplication.formData?.addresses)[0].district, 
+                            parseJsonArray<CompanyAddress>(selectedApplication.formData?.addresses)[0].province
+                          ].filter(Boolean).join(", ")
+                        )}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 text-xs font-semibold text-primary hover:underline"
+                      >
+                        {t("companyProfile.viewOnGoogleMaps")}
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Company Gallery */}
               <div className="space-y-1.5 text-sm">
                 <span className="text-xs font-semibold text-slate-500 uppercase flex items-center gap-1.5">
                   <Building2 className="h-4 w-4 text-slate-455" />
-                  {t("recruiterVerification.sections.gallery", { defaultValue: "Hình ảnh công ty" })}
+                  {t("recruiterVerification.sections.gallery")}
                 </span>
                 <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
                   {parseJsonArray<string>(selectedApplication.formData?.galleryUrls).map((url, i) => (
@@ -1407,7 +1452,7 @@ const ModeratorDashboard: React.FC = () => {
                   ))}
                   {parseJsonArray<string>(selectedApplication.formData?.galleryUrls).length === 0 && (
                     <span className="text-slate-400 text-xs italic">
-                      {t("moderator.companies.emptyGallery", { defaultValue: "Không có hình ảnh." })}
+                      {t("moderator.companies.emptyGallery")}
                     </span>
                   )}
                 </div>
@@ -1417,14 +1462,14 @@ const ModeratorDashboard: React.FC = () => {
               {normalizeReviewStatus(selectedApplication.status) === "PENDING" ? (
                 <div className="space-y-2 border-t border-slate-150 pt-4">
                   <Label htmlFor="review-reason" className="font-bold text-slate-700">
-                    {t("moderator.companies.reviewNote", { defaultValue: "Ghi chú duyệt" })}
+                    {t("moderator.companies.reviewNote")}
                   </Label>
                   <Textarea
                     id="review-reason"
                     value={reviewNote}
                     onChange={(e) => setReviewNote(e.target.value)}
                     placeholder={t("moderator.companies.reviewNotePlaceholder", {
-                      defaultValue: "Nhập lý do nếu từ chối yêu cầu...",
+                      defaultValue: t("moderator.rejectReasonPlaceholder"),
                     })}
                     rows={3}
                     className="rounded-xl border-slate-200"
@@ -1434,7 +1479,7 @@ const ModeratorDashboard: React.FC = () => {
                 selectedApplication.reviewNote && (
                   <div className="space-y-1.5 border-t border-slate-150 pt-4 text-sm">
                     <span className="text-xs font-semibold text-slate-500 uppercase block">
-                      {t("moderator.companies.reviewNote", { defaultValue: "Ghi chú duyệt" })}
+                      {t("moderator.companies.reviewNote")}
                     </span>
                     <p className="bg-slate-50 border border-slate-100 p-3 rounded-lg text-slate-700 text-xs whitespace-pre-wrap italic">
                       {selectedApplication.reviewNote}
@@ -1455,7 +1500,7 @@ const ModeratorDashboard: React.FC = () => {
                   disabled={actionId === selectedApplication.id}
                 >
                   <XCircle className="h-4 w-4 mr-1.5" />
-                  {t("admin.requests.reject", { defaultValue: "Từ chối" })}
+                  {t("admin.requests.reject")}
                 </Button>
                 <Button
                   className="bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -1463,7 +1508,7 @@ const ModeratorDashboard: React.FC = () => {
                   disabled={actionId === selectedApplication.id}
                 >
                   <CheckCircle2 className="h-4 w-4 mr-1.5" />
-                  {t("admin.requests.approve", { defaultValue: "Duyệt" })}
+                  {t("admin.requests.approve")}
                 </Button>
               </div>
             )}

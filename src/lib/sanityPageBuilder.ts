@@ -362,6 +362,15 @@ const managedPageQuery = `*[_type == "managedPage" && routePath == $routePath][0
   }
 }`;
 
+const normalizeRoutePath = (pathname: string): string => {
+  if (pathname === "/" || pathname === "") return "/";
+  if (pathname.startsWith("/jobs/")) return "/jobs/:jobId";
+  if (pathname.startsWith("/companies/")) return "/companies/:companyId";
+  if (pathname.startsWith("/admin/users/")) return "/admin/users/:userId";
+  if (pathname.startsWith("/admin/company-reviews/")) return "/admin/company-reviews/:applicationId";
+  return pathname;
+};
+
 const hasSanityConfig = () => Boolean(SANITY_PROJECT_ID && SANITY_DATASET);
 
 const retiredSectionKeysByRoute: Record<string, string[]> = {
@@ -379,11 +388,12 @@ export const loadSanityPageSections = async (
     return [];
   }
 
+  const normalizedPath = normalizeRoutePath(routePath);
   const url = new URL(
     `https://${SANITY_PROJECT_ID}.api.sanity.io/v${SANITY_API_VERSION}/data/query/${SANITY_DATASET}`,
   );
   url.searchParams.set("query", managedPageQuery);
-  url.searchParams.set("$routePath", JSON.stringify(routePath));
+  url.searchParams.set("$routePath", JSON.stringify(normalizedPath));
 
   try {
     console.log("Fetching Sanity sections...", { routePath, placement });

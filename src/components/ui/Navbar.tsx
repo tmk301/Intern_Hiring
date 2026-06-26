@@ -316,15 +316,15 @@ const Navbar = () => {
         <DialogContent className="max-w-[400px] rounded-xl" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle className="text-lg font-bold">
-              {t("nav.logoutConfirmTitle", { defaultValue: "Xác nhận đăng xuất" })}
+              {t("nav.logoutConfirmTitle")}
             </DialogTitle>
             <DialogDescription className="text-sm mt-1 text-slate-500">
-              {t("nav.logoutConfirmDescription", { defaultValue: "Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?" })}
+              {t("nav.logoutConfirmDescription")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4 flex gap-2 justify-end">
             <Button variant="outline" onClick={() => setIsLogoutDialogOpen(false)} className="w-auto px-4 border-slate-200 hover:bg-slate-50 hover:text-slate-900">
-              {t("common.cancel", { defaultValue: "Hủy" })}
+              {t("common.cancel")}
             </Button>
             <Button variant="destructive" onClick={confirmLogout} className="w-auto px-4 bg-red-600 hover:bg-red-700 text-white border-transparent">
               {t("nav.logout")}

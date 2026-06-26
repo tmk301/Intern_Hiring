@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { SanityPageSections } from "@/components/sanity/SanityPageSections";
 
 const OTP_TIMEOUT_SECONDS = 60; // Đồng bộ thời gian hết hạn 60 giây
 
@@ -141,6 +142,8 @@ const ResetPasswordPage: React.FC = () => {
 
     return (
         <main className="h-[calc(100dvh-4rem)] overflow-hidden bg-gradient-subtle">
+            <SanityPageSections routePath="/reset-password" placement="top" />
+            <SanityPageSections routePath="/reset-password" placement="afterHero" />
             <div className="container mx-auto flex h-full items-center justify-center px-4 py-4">
                 <Card className="w-full max-w-lg">
                     <CardHeader className="px-6 pt-6 pb-2">
@@ -184,6 +187,7 @@ const ResetPasswordPage: React.FC = () => {
                     </CardContent>
                 </Card>
             </div>
+            <SanityPageSections routePath="/reset-password" placement="bottom" />
         </main>
     );
 };

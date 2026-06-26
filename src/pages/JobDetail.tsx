@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { SanityPageSections } from "@/components/sanity/SanityPageSections";
 import {
   jobApi,
   companyApi,
@@ -147,12 +148,12 @@ const JobDetail: React.FC = () => {
 
   const handleOpenApplyModal = () => {
     if (!user || !token) {
-      toast({ description: t("jobs.apply.loginRequired", { defaultValue: "Vui lòng đăng nhập để nộp đơn" }), variant: "default" });
+      toast({ description: t("jobs.apply.loginRequired"), variant: "default" });
       navigate("/login");
       return;
     }
     if (user.role !== "CANDIDATE") {
-      toast({ description: t("jobs.apply.candidateOnly", { defaultValue: "Chỉ tài khoản Ứng viên mới có thể nộp đơn" }), variant: "destructive" });
+      toast({ description: t("jobs.apply.candidateOnly"), variant: "destructive" });
       return;
     }
     const defaultCv = user.cvList?.find((cv) => cv.isDefault) ?? user.cvList?.[0];
@@ -166,13 +167,13 @@ const JobDetail: React.FC = () => {
     setIsApplying(true);
     try {
       await candidateApi.applyJob(token, job.id, selectedCvId);
-      toast({ title: t("toast.success"), description: t("jobs.apply.success", { defaultValue: "Đã nộp CV thành công cho công việc này." }) });
+      toast({ title: t("toast.success"), description: t("jobs.apply.success") });
       setIsApplyOpen(false);
       setSelectedCvId("");
     } catch (err: unknown) {
       toast({
         title: t("toast.error"),
-        description: getErrorMessage(err, t("jobs.apply.error", { defaultValue: "Bạn đã nộp đơn cho công việc này rồi hoặc có lỗi xảy ra." })),
+        description: getErrorMessage(err, t("jobs.apply.error")),
         variant: "destructive"
       });
     } finally {
@@ -225,6 +226,7 @@ const JobDetail: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-slate-50 pb-12">
+      <SanityPageSections routePath="/jobs/:jobId" placement="top" />
       {/* Top Banner and Header */}
       <section className="hero-gradient text-white py-8 shadow-sm">
         <div className="container mx-auto px-4">
@@ -273,13 +275,14 @@ const JobDetail: React.FC = () => {
                   className="w-full md:w-auto bg-white hover:bg-white/95 text-primary font-bold px-8 shadow-md hover:shadow-lg transition-all"
                   onClick={handleOpenApplyModal}
                 >
-                  {t("jobs.apply.button", { defaultValue: "Nộp đơn ứng tuyển" })}
+                  {t("jobs.apply.button")}
                 </Button>
               </div>
             )}
           </div>
         </div>
       </section>
+      <SanityPageSections routePath="/jobs/:jobId" placement="afterHero" />
 
       {/* Main Grid Details */}
       <section className="container mx-auto px-4 py-8">
@@ -440,7 +443,7 @@ const JobDetail: React.FC = () => {
                 <CardHeader className="py-4">
                   <CardTitle className="text-sm font-bold flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-primary" />
-                    {t("profile.mapTitle", { defaultValue: "Bản đồ vị trí" })}
+                    {t("profile.mapTitle")}
                   </CardTitle>
                 </CardHeader>
                 <Separator />
@@ -478,9 +481,9 @@ const JobDetail: React.FC = () => {
       >
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>{t("jobs.apply.dialogTitle", { defaultValue: "Chọn CV ứng tuyển" })}</DialogTitle>
+            <DialogTitle>{t("jobs.apply.dialogTitle")}</DialogTitle>
             <DialogDescription>
-              {t("jobs.apply.dialogDescription", { defaultValue: "Vui lòng chọn 1 CV từ hồ sơ của bạn để nộp cho vị trí này." })}
+              {t("jobs.apply.dialogDescription")}
             </DialogDescription>
           </DialogHeader>
 
@@ -488,12 +491,12 @@ const JobDetail: React.FC = () => {
             {!user?.cvList || user.cvList.length === 0 ? (
               <div className="text-center py-6 border-2 border-dashed rounded-lg bg-slate-50">
                 <FileText className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
-                <p className="text-sm font-medium text-slate-900">{t("jobs.apply.noCv", { defaultValue: "Bạn chưa có CV nào" })}</p>
+                <p className="text-sm font-medium text-slate-900">{t("jobs.apply.noCv")}</p>
                 <p className="text-sm text-muted-foreground mt-1 mb-4">
-                  {t("jobs.apply.noCvDesc", { defaultValue: "Vui lòng tải lên CV trước khi nộp đơn." })}
+                  {t("jobs.apply.noCvDesc")}
                 </p>
                 <Button variant="outline" onClick={() => navigate("/profile")}>
-                  {t("jobs.apply.goToProfile", { defaultValue: "Tải lên CV" })}
+                  {t("jobs.apply.goToProfile")}
                 </Button>
               </div>
             ) : (
@@ -520,7 +523,7 @@ const JobDetail: React.FC = () => {
                         {cv.name}
                       </p>
                       <p className="text-xs text-slate-500 mt-1">
-                        {t("profile.cv_upload_time", { defaultValue: "Ngày tải lên" })}:{" "}
+                        {t("profile.cv_upload_time")}:{" "}
                         {new Date(cv.uploadedAt).toLocaleDateString(dateLocale)}
                         {cv.isDefault && (
                           <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
@@ -551,11 +554,12 @@ const JobDetail: React.FC = () => {
               disabled={!selectedCvId || isApplying || !user?.cvList?.length}
             >
               {isApplying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {t("jobs.apply.submit", { defaultValue: "Gửi hồ sơ" })}
+              {t("jobs.apply.submit")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <SanityPageSections routePath="/jobs/:jobId" placement="bottom" />
     </main>
   );
 };

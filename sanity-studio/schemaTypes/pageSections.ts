@@ -26,43 +26,43 @@ const sectionBaseFields = [
   }),
   defineField({
     name: 'placement',
-    title: 'Vị trí chèn',
+    title: 'Placement Position',
     type: 'string',
     initialValue: 'custom',
     options: {
       list: [
-        {title: 'Tùy chọn — chèn cạnh bất kỳ phần tử nào', value: 'custom'},
-        {title: 'Đầu trang (tương thích nội dung cũ)', value: 'top'},
-        {title: 'Sau hero (tương thích nội dung cũ)', value: 'afterHero'},
-        {title: 'Cuối trang (tương thích nội dung cũ)', value: 'bottom'},
+        {title: 'Custom CSS selector insertion point', value: 'custom'},
+        {title: 'Top of page (legacy compatibility)', value: 'top'},
+        {title: 'After hero (legacy compatibility)', value: 'afterHero'},
+        {title: 'Bottom of page (legacy compatibility)', value: 'bottom'},
       ],
     },
   }),
   defineField({
     name: 'targetSelector',
-    title: 'Phần tử đích (CSS selector)',
+    title: 'Target Element (CSS selector)',
     type: 'string',
-    description: 'Ví dụ #gioi-thieu, #viec-lam-noi-bat hoặc main. Section sẽ được chèn cạnh phần tử này.',
+    description: 'Example: #about, #featured-jobs or main. The section will be inserted relative to this element.',
     hidden: ({parent}) => parent?.placement !== 'custom',
     validation: (rule) => rule.custom((value, context) =>
       (context.parent as {placement?: string})?.placement !== 'custom' || value
         ? true
-        : 'Nhập phần tử đích để chèn section.',
+        : 'Please specify a target element selector for custom placement.',
     ),
   }),
   defineField({
     name: 'insertPosition',
-    title: 'Chèn ở đâu so với phần tử đích',
+    title: 'Insertion Position Relative to Target',
     type: 'string',
     initialValue: 'after',
     hidden: ({parent}) => parent?.placement !== 'custom',
     options: {
       layout: 'radio',
       list: [
-        {title: 'Ngay trước', value: 'before'},
-        {title: 'Ngay sau', value: 'after'},
-        {title: 'Bên trong, ở đầu', value: 'insideStart'},
-        {title: 'Bên trong, ở cuối', value: 'insideEnd'},
+        {title: 'Immediately before target element', value: 'before'},
+        {title: 'Immediately after target element', value: 'after'},
+        {title: 'Inside target element, at the beginning', value: 'insideStart'},
+        {title: 'Inside target element, at the end', value: 'insideEnd'},
       ],
     },
   }),

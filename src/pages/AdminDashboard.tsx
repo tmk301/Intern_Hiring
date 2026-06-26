@@ -622,7 +622,7 @@ const AdminDashboard: React.FC = () => {
       setManagedConfig(config);
       setEmailTemplate(config.emailTemplate);
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, t("admin.emailFormat.loadError", { defaultValue: "Could not load email format." })));
+      toast.error(getErrorMessage(error, t("admin.emailFormat.loadError")));
     }
   }, [t]);
 
@@ -681,7 +681,7 @@ const AdminDashboard: React.FC = () => {
       })
       .catch(() => {
         if (!cancelled) {
-          toast.error(t("admin.emailFormat.loadError", { defaultValue: "Could not load email format." }));
+          toast.error(t("admin.emailFormat.loadError"));
         }
       });
 
@@ -976,9 +976,9 @@ const AdminDashboard: React.FC = () => {
       const savedConfig = await saveManagedSiteConfig(nextConfig, token);
       setManagedConfig(savedConfig);
       setEmailTemplate(savedConfig.emailTemplate);
-      toast.success(t("admin.emailFormat.saveSuccess", { defaultValue: "Email format updated." }));
+      toast.success(t("admin.emailFormat.saveSuccess"));
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, t("admin.emailFormat.saveError", { defaultValue: "Could not update email format." })));
+      toast.error(getErrorMessage(error, t("admin.emailFormat.saveError")));
     } finally {
       setSavingEmailTemplate(false);
     }
@@ -990,12 +990,12 @@ const AdminDashboard: React.FC = () => {
 
   const uploadEmailHeaderImage = async (file: File) => {
     if (!file.type.startsWith("image/")) {
-      toast.error(t("admin.emailFormat.imageInvalid", { defaultValue: "Please choose a valid image file." }));
+      toast.error(t("admin.emailFormat.imageInvalid"));
       return;
     }
 
     if (file.size > EMAIL_TEMPLATE_IMAGE_MAX_BYTES) {
-      toast.error(t("admin.emailFormat.imageTooLarge", { defaultValue: "Image must be 2MB or smaller." }));
+      toast.error(t("admin.emailFormat.imageTooLarge"));
       return;
     }
 
@@ -1019,9 +1019,9 @@ const AdminDashboard: React.FC = () => {
 
       const publicUrl = supabase.storage.from(EMAIL_TEMPLATE_IMAGE_BUCKET).getPublicUrl(filePath).data.publicUrl;
       updateEmailTemplate("headerImageUrl", publicUrl);
-      toast.success(t("admin.emailFormat.imageUploadSuccess", { defaultValue: "Header image uploaded." }));
+      toast.success(t("admin.emailFormat.imageUploadSuccess"));
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, t("admin.emailFormat.imageUploadError", { defaultValue: "Could not upload image." })));
+      toast.error(getErrorMessage(error, t("admin.emailFormat.imageUploadError")));
     } finally {
       setUploadingEmailImage(false);
     }
@@ -1548,13 +1548,13 @@ const AdminDashboard: React.FC = () => {
             {activeSection === "email-format" && pageContent.emailPanelVisible !== false && (
               <Card>
                 <CardHeader>
-                  <CardTitle>{uiText("admin.emailFormat.title", t("admin.emailFormat.title", { defaultValue: "Email format" }))}</CardTitle>
+                  <CardTitle>{uiText("admin.emailFormat.title", t("admin.emailFormat.title"))}</CardTitle>
                 </CardHeader>
                 <CardContent className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
                    <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="email-brand">
-                        {t("admin.emailFormat.brandName", { defaultValue: "Brand name" })}
+                        {t("admin.emailFormat.brandName")}
                       </Label>
                       <Input
                         id="email-brand"
@@ -1565,7 +1565,7 @@ const AdminDashboard: React.FC = () => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="email-font-size">
-                        {t("admin.emailFormat.fontSize", { defaultValue: "Font size" })}
+                        {t("admin.emailFormat.fontSize")}
                       </Label>
                       <Input
                         id="email-font-size"
@@ -1582,7 +1582,7 @@ const AdminDashboard: React.FC = () => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="email-background">
-                        {t("admin.emailFormat.backgroundColor", { defaultValue: "Background color" })}
+                        {t("admin.emailFormat.backgroundColor")}
                       </Label>
                       <Input
                         id="email-background"
@@ -1593,7 +1593,7 @@ const AdminDashboard: React.FC = () => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="email-card-color">
-                        {t("admin.emailFormat.cardColor", { defaultValue: "Card color" })}
+                        {t("admin.emailFormat.cardColor")}
                       </Label>
                       <Input
                         id="email-card-color"
@@ -1604,7 +1604,7 @@ const AdminDashboard: React.FC = () => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="email-text-color">
-                        {t("admin.emailFormat.textColor", { defaultValue: "Text color" })}
+                        {t("admin.emailFormat.textColor")}
                       </Label>
                       <Input
                         id="email-text-color"
@@ -1615,7 +1615,7 @@ const AdminDashboard: React.FC = () => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="email-accent-color">
-                        {t("admin.emailFormat.accentColor", { defaultValue: "Accent color" })}
+                        {t("admin.emailFormat.accentColor")}
                       </Label>
                       <Input
                         id="email-accent-color"
@@ -1626,7 +1626,7 @@ const AdminDashboard: React.FC = () => {
                     </div>
                     <div className="space-y-2 sm:col-span-2">
                       <Label>
-                        {t("admin.emailFormat.headerImage", { defaultValue: "Header image" })}
+                        {t("admin.emailFormat.headerImage")}
                       </Label>
                       <input
                         ref={emailImageInputRef}
@@ -1671,7 +1671,7 @@ const AdminDashboard: React.FC = () => {
                               disabled={uploadingEmailImage}
                             >
                               <Upload className="h-4 w-4 mr-1" />
-                              {t("admin.emailFormat.uploadImage", { defaultValue: "Change image" })}
+                              {t("admin.emailFormat.uploadImage")}
                             </Button>
                             <Button
                               type="button"
@@ -1681,7 +1681,7 @@ const AdminDashboard: React.FC = () => {
                               disabled={uploadingEmailImage}
                             >
                               <Trash2 className="h-4 w-4 mr-1" />
-                              {t("admin.emailFormat.clearImage", { defaultValue: "Delete" })}
+                              {t("admin.emailFormat.clearImage")}
                             </Button>
                           </div>
                           {uploadingEmailImage && (
@@ -1730,7 +1730,7 @@ const AdminDashboard: React.FC = () => {
                     </div>
                     <div className="space-y-2 sm:col-span-2">
                       <Label htmlFor="email-footer">
-                        {t("admin.emailFormat.footerText", { defaultValue: "Footer text" })}
+                        {t("admin.emailFormat.footerText")}
                       </Label>
                       <Textarea
                         id="email-footer"
@@ -1743,11 +1743,11 @@ const AdminDashboard: React.FC = () => {
                     <div className="flex flex-wrap gap-2 sm:col-span-2">
                       <Button variant="cta" className="w-auto" onClick={handleSaveEmailTemplate} disabled={savingEmailTemplate}>
                         {savingEmailTemplate ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                        {t("common.save", { defaultValue: "Save" })}
+                        {t("common.save")}
                       </Button>
                       <Button type="button" variant="outline" className="w-auto border-slate-200 text-slate-900 hover:bg-slate-50 gap-2" onClick={handleResetEmailTemplate}>
                         <RotateCcw className="h-4 w-4" />
-                        {t("admin.emailFormat.reset", { defaultValue: "Reset defaults" })}
+                        {t("admin.emailFormat.reset")}
                       </Button>
                     </div>
                   </div>
@@ -1770,16 +1770,16 @@ const AdminDashboard: React.FC = () => {
                         {emailTemplate.brandName || "InternHiring"}
                       </div>
                       <h3 className="mb-3 text-xl font-semibold text-slate-950">
-                        {t("admin.emailFormat.previewTitle", { defaultValue: "Application update" })}
+                        {t("admin.emailFormat.previewTitle")}
                       </h3>
                       <div
                         className="space-y-3 leading-7"
                         style={{ color: emailTemplate.textColor, fontSize: `${emailTemplate.fontSize}px` }}
                       >
-                        <p>{t("admin.emailFormat.previewGreeting", { defaultValue: "Xin chao Nguyen Van A," })}</p>
+                        <p>{t("admin.emailFormat.previewGreeting")}</p>
                         <p>
                           {t("admin.emailFormat.previewBody", {
-                            defaultValue: "Nha tuyen dung da xem xet ho so cua ban cho vi tri Frontend Developer Intern.",
+                            defaultValue: t("admin.auditLogs.testDescription"),
                           })}
                         </p>
                       </div>

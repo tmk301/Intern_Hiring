@@ -565,12 +565,12 @@ const RecruiterVerification: React.FC = () => {
           const regex = new RegExp(field.validationRegex);
           if (!regex.test(value)) {
             nextErrors[errorKey] = t("recruiterVerification.errors.invalidFormat", {
-              defaultValue: "Định dạng không hợp lệ",
+              defaultValue: t("validation.invalidFormat"),
             });
           }
         } catch {
           nextErrors[errorKey] = t("admin.categories.invalidRegex", {
-            defaultValue: "Regex không hợp lệ",
+            defaultValue: t("validation.invalidRegex"),
           });
         }
       }
@@ -666,6 +666,7 @@ const RecruiterVerification: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-slate-50">
+      <SanityPageSections routePath="/recruiter-verification" placement="top" />
       <section className="border-b bg-white">
         <div className="container mx-auto px-4 py-8">
           <Button variant="ghost" className="mb-4 w-auto" onClick={() => navigate(isRecruiter ? "/profile" : "/")}>

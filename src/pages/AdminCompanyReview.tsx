@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { SanityPageSections } from "@/components/sanity/SanityPageSections";
 
 const parseJsonArray = <T,>(value?: string | null): T[] => {
   if (!value) return [];
@@ -107,6 +108,7 @@ const AdminCompanyReview: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-slate-50">
+      <SanityPageSections routePath="/admin/company-reviews/:applicationId" placement="top" />
       <section className="hero-gradient text-white py-8 shadow-sm">
         <div className="container mx-auto px-4">
           <Button
@@ -150,6 +152,7 @@ const AdminCompanyReview: React.FC = () => {
           </div>
         </div>
       </section>
+      <SanityPageSections routePath="/admin/company-reviews/:applicationId" placement="afterHero" />
 
       <section className="container mx-auto grid gap-6 px-4 py-8 lg:grid-cols-[1fr_360px]">
         <div className="space-y-6">
@@ -223,7 +226,7 @@ const AdminCompanyReview: React.FC = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-primary" />
-                {t("profile.mapTitle", { defaultValue: "Bản đồ vị trí" })}
+                {t("profile.mapTitle")}
               </CardTitle>
             </CardHeader>
             <Separator />
@@ -246,7 +249,7 @@ const AdminCompanyReview: React.FC = () => {
               ) : (
                 <div className="flex h-48 flex-col items-center justify-center rounded-lg border border-dashed bg-slate-50 p-4 text-center text-muted-foreground">
                   <MapPin className="mb-2 h-7 w-7 opacity-40 text-muted-foreground" />
-                  <p className="text-sm">{t("companyProfile.noMap", { defaultValue: "Chưa cấu hình bản đồ vị trí." })}</p>
+                  <p className="text-sm">{t("companyProfile.noMap")}</p>
                   {addresses.length > 0 && (
                     <a
                       href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -256,7 +259,7 @@ const AdminCompanyReview: React.FC = () => {
                       rel="noreferrer"
                       className="mt-2 text-xs font-semibold text-primary hover:underline"
                     >
-                      {t("companyProfile.viewOnGoogleMaps", { defaultValue: "Xem trên Google Maps" })}
+                      {t("companyProfile.viewOnGoogleMaps")}
                     </a>
                   )}
                 </div>
@@ -291,6 +294,7 @@ const AdminCompanyReview: React.FC = () => {
           </Card>
         </div>
       </section>
+      <SanityPageSections routePath="/admin/company-reviews/:applicationId" placement="bottom" />
     </main>
   );
 };

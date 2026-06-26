@@ -38,6 +38,7 @@ import {
   Building2,
   AlertTriangle,
 } from "lucide-react";
+import { SanityPageSections } from "@/components/sanity/SanityPageSections";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { useSanityInterfaceText } from "@/lib/sanityInterfaceText";
@@ -215,23 +216,23 @@ const Profile = () => {
     if (!user) return { percentage: 0, completedCount: 0, totalCount: 0, items: [] };
 
     const items = [
-      { name: t("profile.last_name", { defaultValue: "Họ" }), isComplete: Boolean(user.lastName?.trim()) },
-      { name: t("profile.first_name", { defaultValue: "Tên" }), isComplete: Boolean(user.firstName?.trim()) },
-      { name: t("profile.phone", { defaultValue: "Số điện thoại" }), isComplete: Boolean(user.phoneNumber?.trim()) },
-      { name: t("profile.dob", { defaultValue: "Ngày sinh" }), isComplete: Boolean(user.dob) },
-      { name: t("profile.gender_label", { defaultValue: "Giới tính" }), isComplete: Boolean(user.gender) },
-      { name: t("profile.email", { defaultValue: "Email" }), isComplete: Boolean(user.email?.trim()) },
-      { name: t("profile.avatar", { defaultValue: "Ảnh đại diện" }), isComplete: Boolean(user.avatarUrl?.trim()) },
+      { name: t("profile.last_name"), isComplete: Boolean(user.lastName?.trim()) },
+      { name: t("profile.first_name"), isComplete: Boolean(user.firstName?.trim()) },
+      { name: t("profile.phone"), isComplete: Boolean(user.phoneNumber?.trim()) },
+      { name: t("profile.dob"), isComplete: Boolean(user.dob) },
+      { name: t("profile.gender_label"), isComplete: Boolean(user.gender) },
+      { name: t("profile.email"), isComplete: Boolean(user.email?.trim()) },
+      { name: t("profile.avatar"), isComplete: Boolean(user.avatarUrl?.trim()) },
     ];
 
     if (isCandidateRole(user.role)) {
       items.push({
-        name: t("profile.cv_title", { defaultValue: "CV" }),
+        name: t("profile.cv_title"),
         isComplete: Boolean(user.cvList && user.cvList.length > 0)
       });
     } else if (isRecruiterRole(user.role)) {
       items.push({
-        name: t("profile.companyProfileTitle", { defaultValue: "Hồ sơ công ty" }),
+        name: t("profile.companyProfileTitle"),
         isComplete: Boolean(companyProfile)
       });
     }
@@ -605,13 +606,13 @@ const Profile = () => {
       await refreshUser();
       toast({
         title: t("toast.success"),
-        description: t("profile.emailNotificationsSaved", { defaultValue: "Da luu tuy chon thong bao qua email." }),
+        description: t("profile.emailNotificationsSaved"),
       });
     } catch (err: unknown) {
       setEmailNotificationsEnabled(previousValue);
       toast({
         title: t("toast.error"),
-        description: getErrorMessage(err, t("profile.emailNotificationsSaveError", { defaultValue: "Khong the luu tuy chon thong bao qua email." })),
+        description: getErrorMessage(err, t("profile.emailNotificationsSaveError")),
         variant: "destructive",
       });
     } finally {
@@ -644,6 +645,7 @@ const Profile = () => {
 
   return (
     <main className="h-[calc(100dvh-4rem)] overflow-hidden bg-gradient-to-b from-slate-50 to-white">
+      <SanityPageSections routePath="/profile" placement="top" />
       <div className="container mx-auto flex h-full items-start justify-center px-4 py-4">
         <div className="w-full max-w-5xl overflow-hidden">
           <div className="grid grid-rows-[auto_auto] gap-6">
@@ -788,7 +790,7 @@ const Profile = () => {
                           {/* Info section */}
                           <div className="flex-1 min-w-0">
                             <h4 className="text-sm font-bold text-slate-900 truncate">
-                              {t("profile.completenessTitle", { defaultValue: "Hoàn thiện hồ sơ" })}
+                              {t("profile.completenessTitle")}
                             </h4>
                             <span
                               className={cn(
@@ -801,8 +803,8 @@ const Profile = () => {
                               )}
                             >
                               {completionData.percentage === 100
-                                ? t("profile.statusComplete", { defaultValue: "Hoàn tất" })
-                                : t("profile.statusIncomplete", { defaultValue: "Chưa hoàn tất" })}
+                                ? t("profile.statusComplete")
+                                : t("profile.statusIncomplete")}
                             </span>
                           </div>
                         </CardContent>
@@ -810,7 +812,7 @@ const Profile = () => {
                     </TooltipTrigger>
                     <TooltipContent className="p-3 w-64 bg-white border border-slate-200 shadow-lg rounded-xl text-slate-900 z-50">
                       <p className="font-bold text-xs mb-2 text-slate-950">
-                        {t("profile.completenessChecklist", { defaultValue: "Chi tiết các trường thông tin" })}
+                        {t("profile.completenessChecklist")}
                       </p>
                       <div className="space-y-1.5">
                         {completionData.items.map((item, idx) => (
@@ -976,10 +978,10 @@ const Profile = () => {
                       <div className="min-w-0">
                         <Label htmlFor="email-notifications" className="flex items-center gap-2 font-medium">
                           <Mail className="h-4 w-4 text-muted-foreground" />
-                          {uiText("profile.emailNotifications", t("profile.emailNotifications", { defaultValue: "Thông báo qua email" }))}
+                          {uiText("profile.emailNotifications", t("profile.emailNotifications"))}
                         </Label>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          {uiText("profile.emailNotificationsDescription", t("profile.emailNotificationsDescription", { defaultValue: "Nhận cập nhật quan trọng về tài khoản và hồ sơ qua email." }))}
+                          {uiText("profile.emailNotificationsDescription", t("profile.emailNotificationsDescription"))}
                         </p>
                       </div>
                       <Switch
@@ -994,6 +996,7 @@ const Profile = () => {
                 </Card>
               </div>
             </div>
+            <SanityPageSections routePath="/profile" placement="afterHero" />
 
             {/* BOTTOM ROW: CV (when allowed) + password change */}
             <div className="grid items-stretch gap-6 md:grid-cols-[48px_320px_1fr]">
@@ -1401,6 +1404,7 @@ const Profile = () => {
         }}
         isLoading={isUploading}
       />
+      <SanityPageSections routePath="/profile" placement="bottom" />
     </main>
   );
 };

@@ -190,14 +190,24 @@ const ScrollToTop = () => {
   return null;
 };
 
+export const getNormalizedRoutePath = (pathname: string): string => {
+  if (pathname === "/" || pathname === "") return "/";
+  if (pathname.startsWith("/jobs/")) return "/jobs/:jobId";
+  if (pathname.startsWith("/companies/")) return "/companies/:companyId";
+  if (pathname.startsWith("/admin/users/")) return "/admin/users/:userId";
+  if (pathname.startsWith("/admin/company-reviews/")) return "/admin/company-reviews/:applicationId";
+  return pathname;
+};
+
 const managedPageRoutes = new Set([
-  "/", "/jobs", "/profile", "/applications", "/recruiter-verification", "/admin", "/recruiter", "/moderator",
+  "/", "/jobs", "/jobs/:jobId", "/profile", "/applications", "/recruiter-verification", "/companies/:companyId", "/reset-password", "/admin", "/admin/users/:userId", "/admin/company-reviews/:applicationId", "/recruiter", "/moderator",
 ]);
 
 const SanityContentGate = ({children}: {children: React.ReactNode}) => {
   const { t } = useTranslation();
   const {pathname} = useLocation();
-  const routePath = managedPageRoutes.has(pathname) ? pathname : "/";
+  const normalizedPath = getNormalizedRoutePath(pathname);
+  const routePath = managedPageRoutes.has(normalizedPath) ? normalizedPath : "/";
   const homeInterface = useSanityManagedInterface("/");
   const routeInterface = useSanityManagedInterface(routePath);
 

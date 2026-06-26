@@ -35,7 +35,7 @@
     "nextPage": "Trang sau",
     "lastPage": "Trang cuối",
     "itemsPerPage": "Số lượng mỗi trang",
-    "save": "Lưu",
+    "save": "Save",
     "search": "Tìm kiếm"
   },
   "toast": {
@@ -47,7 +47,9 @@
     "passwordMin": "Mật khẩu phải có ít nhất 6 ký tự",
     "firstNameShort": "Tên quá ngắn",
     "lastNameShort": "Họ quá ngắn",
-    "passwordMismatch": "Mật khẩu xác nhận không khớp"
+    "passwordMismatch": "Mật khẩu xác nhận không khớp",
+    "invalidFormat": "Định dạng không hợp lệ",
+    "invalidRegex": "Regex không hợp lệ"
   },
   "gender": {
     "MALE": "Nam",
@@ -277,7 +279,7 @@
       "currency": "Đơn vị tiền tệ",
       "currencyPlaceholder": "Chọn đơn vị tiền tệ",
       "experience": "Kinh nghiệm",
-      "reset": "Đặt lại bộ lọc",
+      "reset": "Đặt lại",
       "options": {
         "cities": {
           "hoChiMinh": "Hồ Chí Minh",
@@ -433,13 +435,14 @@
       "delete": "Xóa",
       "edit": "Sửa",
       "history": "Lịch sử",
-      "allStatuses": "Tất cả trạng thái"
+      "allStatuses": "Tất cả trạng thái",
+      "searchPlaceholder": "Tìm kiếm tiêu đề, công ty..."
     },
     "applications": {
       "approve": "Duyệt",
       "reject": "Từ chối",
       "title": "Hồ sơ ứng tuyển",
-      "searchPlaceholder": "Tìm kiếm ứng viên, công việc...",
+      "searchPlaceholder": "Tìm kiếm ứng viên, tiêu đề...",
       "empty": "Chưa có ứng viên nào nộp hồ sơ.",
       "applicant": "Ứng viên",
       "jobTitle": "Vị trí ứng tuyển",
@@ -574,8 +577,9 @@
     "companyAddress": "Địa chỉ",
     "emailNotifications": "Thông báo qua email",
     "emailNotificationsDescription": "Nhận cập nhật quan trọng về tài khoản và hồ sơ qua email.",
-    "emailNotificationsSaved": "Đã lưu tùy chọn thông báo qua email.",
-    "emailNotificationsSaveError": "Không thể lưu tùy chọn thông báo qua email."
+    "emailNotificationsSaved": "Da luu tuy chon thong bao qua email.",
+    "emailNotificationsSaveError": "Khong the luu tuy chon thong bao qua email.",
+    "cv_upload_time": "Ngày tải lên"
   },
   "avatarCrop": {
     "title": "Cắt ảnh đại diện",
@@ -589,8 +593,8 @@
     "stats": {
       "pendingTitle": "Tin chờ duyệt",
       "pendingDescription": "Các tin tuyển dụng đang ở trạng thái chờ duyệt",
-      "jobsTitle": "Thống kê Bài đăng",
-      "companiesTitle": "Thống kê Công ty",
+      "jobsTitle": "THỐNG KÊ BÀI ĐĂNG",
+      "companiesTitle": "THỐNG KÊ CÔNG TY",
       "totalJobs": "Tổng số bài đăng",
       "visibleJobs": "Đang hiển thị",
       "hiddenJobs": "Đã ẩn",
@@ -604,7 +608,7 @@
     },
     "jobs": {
       "title": "Quản lý tin tuyển dụng",
-      "empty": "Không có bài đăng tuyển dụng nào.",
+      "empty": "Không tìm thấy bài đăng tuyển dụng nào.",
       "allStatuses": "Tất cả trạng thái",
       "allVisibility": "Tất cả hiển thị",
       "visibleOnly": "Đang hiển thị",
@@ -613,7 +617,7 @@
     },
     "companies": {
       "title": "Yêu cầu xác thực công ty",
-      "empty": "Không có yêu cầu xác thực công ty nào.",
+      "empty": "Không tìm thấy yêu cầu xác thực nào.",
       "searchPlaceholder": "Tìm kiếm email, tên công ty...",
       "allStatuses": "Tất cả trạng thái",
       "applicant": "Người yêu cầu",
@@ -622,8 +626,12 @@
       "submittedDate": "Ngày gửi",
       "dialogTitle": "Chi tiết hồ sơ xác thực công ty",
       "reviewNote": "Ghi chú duyệt",
-      "reviewNotePlaceholder": "Nhập lý do nếu từ chối yêu cầu..."
-    }
+      "reviewNotePlaceholder": "Nhập lý do nếu từ chối yêu cầu...",
+      "emptyGallery": "Không có hình ảnh."
+    },
+    "collapse": "Thu gọn",
+    "expand": "Mở rộng",
+    "rejectReasonPlaceholder": "Nhập lý do nếu từ chối yêu cầu..."
   },
   "candidateDashboard": {
     "title": "Ứng tuyển",
@@ -906,32 +914,33 @@
         "RECRUITER_FORM_FIELD_CREATED": "Tạo trường form xác thực: {{label}} ({{name}})",
         "RECRUITER_FORM_FIELD_UPDATED": "Cập nhật trường form xác thực: {{label}} ({{name}})",
         "RECRUITER_FORM_FIELD_DELETED": "Xóa trường form xác thực ID #{{fieldId}}"
-      }
+      },
+      "testDescription": "Nhà tuyển dụng đã xem xét hồ sơ của bạn cho vị trí Frontend Developer Intern."
     },
     "emailFormat": {
-      "title": "Định dạng email",
-      "brandName": "Tên thương hiệu",
-      "fontSize": "Cỡ chữ",
-      "backgroundColor": "Màu nền",
-      "cardColor": "Màu thẻ",
-      "textColor": "Màu chữ",
-      "accentColor": "Màu nhấn",
-      "headerImage": "Ảnh tiêu đề",
+      "title": "Email format",
+      "brandName": "Brand name",
+      "fontSize": "Font size",
+      "backgroundColor": "Background color",
+      "cardColor": "Card color",
+      "textColor": "Text color",
+      "accentColor": "Accent color",
+      "headerImage": "Header image",
       "noHeaderImage": "Chưa tải ảnh lên",
-      "uploadImage": "Tải ảnh lên",
-      "clearImage": "Xóa ảnh",
-      "footerText": "Chữ ở chân trang",
-      "reset": "Đặt lại mặc định",
-      "previewTitle": "Cập nhật đơn ứng tuyển",
-      "previewGreeting": "Xin chào Nguyễn Văn A,",
+      "uploadImage": "Change image",
+      "clearImage": "Delete",
+      "footerText": "Footer text",
+      "reset": "Reset defaults",
+      "previewTitle": "Application update",
+      "previewGreeting": "Xin chao Nguyen Van A,",
       "previewBody": "Nhà tuyển dụng đã xem xét hồ sơ của bạn cho vị trí Frontend Developer Intern.",
-      "loadError": "Không thể tải cấu hình email.",
-      "saveSuccess": "Cấu hình email đã được cập nhật thành công.",
-      "saveError": "Không thể cập nhật cấu hình email.",
-      "imageInvalid": "Vui lòng chọn một file ảnh hợp lệ.",
-      "imageTooLarge": "Kích thước ảnh không được vượt quá 2MB.",
-      "imageUploadSuccess": "Đã tải ảnh tiêu đề lên thành công.",
-      "imageUploadError": "Không thể tải ảnh tiêu đề lên.",
+      "loadError": "Could not load email format.",
+      "saveSuccess": "Email format updated.",
+      "saveError": "Could not update email format.",
+      "imageInvalid": "Please choose a valid image file.",
+      "imageTooLarge": "Image must be 2MB or smaller.",
+      "imageUploadSuccess": "Header image uploaded.",
+      "imageUploadError": "Could not upload image.",
       "dragDropText": "Kéo thả ảnh vào đây hoặc click để tải lên",
       "imageHint": "PNG, JPG, JPEG (tối đa 2MB)",
       "defaultFooter": "Email này được gửi từ hệ thống thông báo InternHiring."
@@ -1045,5 +1054,9 @@
   },
   "app": {
     "loading": "Đang tải giao diện"
+  },
+  "companyProfile": {
+    "noMap": "Chưa cấu hình bản đồ vị trí.",
+    "viewOnGoogleMaps": "Xem trên Google Maps"
   }
 }

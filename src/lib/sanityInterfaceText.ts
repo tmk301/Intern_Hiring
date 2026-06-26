@@ -211,7 +211,7 @@ const interfaceDocumentProjection = `{
 const managedInterfaceQuery = `{
   "page": *[_type == "managedPage" && routePath == $routePath][0]${interfaceDocumentProjection},
   "legacy": *[_type == "managedInterface" && routePath == $routePath][0]${interfaceDocumentProjection},
-  "header": *[_id == "siteHeader"][0]{
+  "header": *[_type == "siteHeader"][0]{
     isEnabled,
     backgroundColor,
     textColor,
@@ -476,14 +476,24 @@ const mergeProfileDefaultTextItems = (
     { ...textItems },
   );
 
+const normalizeRoutePath = (pathname: string): string => {
+  if (pathname === "/" || pathname === "") return "/";
+  if (pathname.startsWith("/jobs/")) return "/jobs/:jobId";
+  if (pathname.startsWith("/companies/")) return "/companies/:companyId";
+  if (pathname.startsWith("/admin/users/")) return "/admin/users/:userId";
+  if (pathname.startsWith("/admin/company-reviews/")) return "/admin/company-reviews/:applicationId";
+  return pathname;
+};
+
 const fetchSanityManagedInterface = async (routePath: string): Promise<SanityManagedInterface> => {
   if (!hasSanityConfig()) return { texts: {}, textItems: {}, theme: {}, navbar: {}, homeHero: {}, profileDefaults: {} };
 
+  const normalizedPath = normalizeRoutePath(routePath);
   const url = new URL(
     `https://${SANITY_PROJECT_ID}.api.sanity.io/v${SANITY_API_VERSION}/data/query/${SANITY_DATASET}`,
   );
   url.searchParams.set("query", managedInterfaceQuery);
-  url.searchParams.set("$routePath", JSON.stringify(routePath));
+  url.searchParams.set("$routePath", JSON.stringify(normalizedPath));
 
   try {
     const response = await fetch(url.toString());

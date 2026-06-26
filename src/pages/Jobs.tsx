@@ -572,7 +572,7 @@ const Jobs: React.FC = () => {
 
       toast({ 
         title: t("toast.error"), 
-        description: getErrorMessage(error, t("jobs.apply.error", { defaultValue: "Bạn đã nộp đơn cho công việc này rồi hoặc có lỗi xảy ra." })),
+        description: getErrorMessage(error, t("jobs.apply.error")),
         variant: "destructive" 
       });
     } finally {

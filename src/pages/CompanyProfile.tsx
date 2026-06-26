@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/context/AuthContext";
+import { SanityPageSections } from "@/components/sanity/SanityPageSections";
 
 type CompanyAddress = {
   headOffice?: string;
@@ -72,6 +73,7 @@ const CompanyProfile: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-slate-50">
+      <SanityPageSections routePath="/companies/:companyId" placement="top" />
       <section className="border-b bg-white">
         <div className="container mx-auto px-4 py-6">
           <Button variant="ghost" className="mb-4" onClick={() => navigate(-1)}>
@@ -115,6 +117,7 @@ const CompanyProfile: React.FC = () => {
           </div>
         </div>
       </section>
+      <SanityPageSections routePath="/companies/:companyId" placement="afterHero" />
 
       <section className="container mx-auto grid gap-6 px-4 py-8 lg:grid-cols-[1fr_360px]">
         <div className="space-y-6">
@@ -196,7 +199,7 @@ const CompanyProfile: React.FC = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-primary" />
-                {t("profile.mapTitle", { defaultValue: "Bản đồ vị trí" })}
+                {t("profile.mapTitle")}
               </CardTitle>
             </CardHeader>
             <Separator />
@@ -219,7 +222,7 @@ const CompanyProfile: React.FC = () => {
               ) : (
                 <div className="flex h-48 flex-col items-center justify-center rounded-lg border border-dashed bg-slate-50 p-4 text-center text-muted-foreground">
                   <MapPin className="mb-2 h-7 w-7 opacity-40 text-muted-foreground" />
-                  <p className="text-sm">{t("companyProfile.noMap", { defaultValue: "Chưa cấu hình bản đồ vị trí." })}</p>
+                  <p className="text-sm">{t("companyProfile.noMap")}</p>
                   {addresses.length > 0 ? (
                     <a
                       href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -229,7 +232,7 @@ const CompanyProfile: React.FC = () => {
                       rel="noreferrer"
                       className="mt-2 text-xs font-semibold text-primary hover:underline"
                     >
-                      {t("companyProfile.viewOnGoogleMaps", { defaultValue: "Xem trên Google Maps" })} ↗
+                      {t("companyProfile.viewOnGoogleMaps")} ↗
                     </a>
                   ) : company.billingAddress && (
                     <a
@@ -238,7 +241,7 @@ const CompanyProfile: React.FC = () => {
                       rel="noreferrer"
                       className="mt-2 text-xs font-semibold text-primary hover:underline"
                     >
-                      {t("companyProfile.viewOnGoogleMaps", { defaultValue: "Xem trên Google Maps" })} ↗
+                      {t("companyProfile.viewOnGoogleMaps")} ↗
                     </a>
                   )}
                 </div>
@@ -262,6 +265,7 @@ const CompanyProfile: React.FC = () => {
           </CardContent>
         </Card>
       </section>
+      <SanityPageSections routePath="/companies/:companyId" placement="bottom" />
     </main>
   );
 };

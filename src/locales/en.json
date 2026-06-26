@@ -47,7 +47,9 @@
     "passwordMin": "Password must be at least 6 characters",
     "firstNameShort": "First name is too short",
     "lastNameShort": "Last name is too short",
-    "passwordMismatch": "Password confirmation does not match"
+    "passwordMismatch": "Password confirmation does not match",
+    "invalidFormat": "Định dạng không hợp lệ",
+    "invalidRegex": "Regex không hợp lệ"
   },
   "gender": {
     "MALE": "Male",
@@ -420,7 +422,8 @@
       "delete": "Delete",
       "edit": "Edit",
       "history": "History",
-      "allStatuses": "All statuses"
+      "allStatuses": "All statuses",
+      "searchPlaceholder": "Tìm kiếm tiêu đề, công ty..."
     },
     "applications": {
       "approve": "Approve",
@@ -550,7 +553,8 @@
     "emailNotifications": "Email notifications",
     "emailNotificationsDescription": "Receive important account and application updates by email.",
     "emailNotificationsSaved": "Email notification preference saved.",
-    "emailNotificationsSaveError": "Could not save email notification preference."
+    "emailNotificationsSaveError": "Could not save email notification preference.",
+    "cv_upload_time": "Ngày tải lên"
   },
   "avatarCrop": {
     "title": "Crop avatar",
@@ -597,8 +601,12 @@
       "submittedDate": "Submitted Date",
       "dialogTitle": "Company Profile Details",
       "reviewNote": "Review Note",
-      "reviewNotePlaceholder": "Enter reason if rejecting the request..."
-    }
+      "reviewNotePlaceholder": "Enter reason if rejecting the request...",
+      "emptyGallery": "Không có hình ảnh."
+    },
+    "collapse": "Thu gọn",
+    "expand": "Mở rộng",
+    "rejectReasonPlaceholder": "Nhập lý do nếu từ chối yêu cầu..."
   },
   "candidateDashboard": {
     "title": "Applications",
@@ -883,7 +891,8 @@
         "RECRUITER_FORM_FIELD_CREATED": "Created recruiter form field: {{label}} ({{name}})",
         "RECRUITER_FORM_FIELD_UPDATED": "Updated recruiter form field: {{label}} ({{name}})",
         "RECRUITER_FORM_FIELD_DELETED": "Deleted recruiter form field ID #{{fieldId}}"
-      }
+      },
+      "testDescription": "Nhà tuyển dụng đã xem xét hồ sơ của bạn cho vị trí Frontend Developer Intern."
     },
     "emailFormat": {
       "title": "Email format",
@@ -1022,5 +1031,9 @@
   },
   "app": {
     "loading": "Loading application interface"
+  },
+  "companyProfile": {
+    "noMap": "Chưa cấu hình bản đồ vị trí.",
+    "viewOnGoogleMaps": "Xem trên Google Maps"
   }
 }
