@@ -456,7 +456,7 @@ export const managedPage = defineType({
                 }),
               ],
               validation: (rule) =>
-                rule.custom((value) =>
+                rule.custom((value: any) =>
                   value?.targetId || value?.path ? true : 'Please configure either a Page Anchor Target Section ID or a Destination Page Route Path.',
                 ),
               preview: {
