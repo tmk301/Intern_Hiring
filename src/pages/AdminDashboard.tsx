@@ -20,7 +20,6 @@ import {
   RotateCcw,
   Save,
   Search,
-  Settings2,
   ShieldAlert,
   Trash2,
   Upload,
@@ -32,7 +31,6 @@ import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { adminApi, isApiError, moderatorApi, recruiterApi, type AdminJobPost, type AdminUser, type AuditAction, type AuditLog, type AuditTargetType, type RecruiterApplication } from "@/lib/api";
 import { isAdminRole, USER_ROLES, type UserRole } from "@/lib/roles";
-import { CategoryManagementPanel } from "@/components/admin/CategoryManagementPanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ActionIconButton } from "@/components/ui/action-icon-button";
@@ -83,7 +81,7 @@ import { supabase } from "@/lib/supabase";
 import { SanityPageSections } from "@/components/sanity/SanityPageSections";
 import { useSanityManagedInterface } from "@/lib/sanityInterfaceText";
 
-type AdminSection = "users" | "jobs" | "employer-requests" | "categories" | "audit-logs" | "email-format";
+type AdminSection = "users" | "jobs" | "employer-requests" | "audit-logs" | "email-format";
 type JobStatusFilter = "ALL" | "PENDING" | "APPROVED" | "REJECTED";
 type JobHiddenFilter = "ALL" | "HIDDEN" | "VISIBLE" | "TRASH";
 type JobDeleteMode = "trash" | "permanent";
@@ -195,7 +193,7 @@ const auditActions: AuditAction[] = [
 
 const auditTargetTypes: AuditTargetType[] = ["USER", "JOB", "CATEGORY_OPTION", "RECRUITER_APPLICATION", "RECRUITER_FORM_FIELD"];
 
-const adminSections: AdminSection[] = ["users", "jobs", "employer-requests", "categories", "audit-logs", "email-format"];
+const adminSections: AdminSection[] = ["users", "jobs", "employer-requests", "audit-logs", "email-format"];
 const SANITY_STUDIO_URL = import.meta.env.VITE_SANITY_STUDIO_URL || "http://localhost:3333";
 const EMAIL_TEMPLATE_IMAGE_BUCKET = "company";
 const EMAIL_TEMPLATE_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
@@ -1085,7 +1083,7 @@ const AdminDashboard: React.FC = () => {
       <SanityPageSections routePath="/admin" placement="afterHero" />
 
       <section className="container mx-auto space-y-6 px-4 py-8 max-w-6xl">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {pageContent.usersCardVisible !== false && <Card
             className={`cursor-pointer transition hover:shadow-md ${activeSection === "users" ? "border-primary" : ""}`}
             style={adminCardStyle("users")}
@@ -1113,20 +1111,6 @@ const AdminDashboard: React.FC = () => {
             <CardContent>
               <div className="text-3xl font-bold">{jobs.length}</div>
               <p className="text-xs text-muted-foreground" style={adminCardTextStyle("jobs")}>{t("admin.stats.trashCount", { count: trashedJobs.length })}</p>
-            </CardContent>
-          </Card>}
-
-          {pageContent.categoriesCardVisible !== false && <Card
-            className={`cursor-pointer transition hover:shadow-md ${activeSection === "categories" ? "border-primary" : ""}`}
-            style={adminCardStyle("categories")}
-            onClick={() => openSection("categories")}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("categories")}>{uiText("admin.stats.categoriesTitle", t("admin.stats.categoriesTitle"))}</CardTitle>
-              {adminCardImage("categories") ? <img src={adminCardImage("categories")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Settings2 className="h-5 w-5 text-amber-600" />}
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground" style={adminCardTextStyle("categories")}>{uiText("admin.stats.categoriesDescription", t("admin.stats.categoriesDescription"))}</p>
             </CardContent>
           </Card>}
 
@@ -1169,11 +1153,11 @@ const AdminDashboard: React.FC = () => {
             onClick={openLoginBrandingStudio}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("loginBranding")}>{uiText("admin.stats.loginBrandingTitle", t("admin.stats.loginBrandingTitle"))}</CardTitle>
+              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("loginBranding")}>{t("admin.stats.sanityTitle")}</CardTitle>
               {adminCardImage("loginBranding") ? <img src={adminCardImage("loginBranding")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Palette className="h-5 w-5 text-amber-600" />}
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground" style={adminCardTextStyle("loginBranding")}>{uiText("admin.stats.loginBrandingDescription", t("admin.stats.loginBrandingDescription"))}</p>
+              <p className="text-sm text-muted-foreground" style={adminCardTextStyle("loginBranding")}>{t("admin.stats.sanityDescription")}</p>
             </CardContent>
           </Card>}
         </div>
@@ -1539,10 +1523,6 @@ const AdminDashboard: React.FC = () => {
                   )}
                 </CardContent>
               </Card>
-            )}
-
-            {activeSection === "categories" && token && pageContent.categoriesPanelVisible !== false && (
-              <CategoryManagementPanel token={token} />
             )}
 
             {activeSection === "email-format" && pageContent.emailPanelVisible !== false && (

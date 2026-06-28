@@ -355,19 +355,6 @@ export const adminPageContent = defineType({
     }).map((field) => ({...field, fieldset: 'stats'})),
     ...adminCardAppearance('jobs', 'Jobs').map((field) => ({...field, fieldset: 'stats'})),
 
-    {...sectionToggle('categoriesCardVisible', 'Show Categories Card'), fieldset: 'stats'},
-    ...localized('categoriesTitle', 'Categories Card Title', 'string', {
-      default: 'Quản lý danh mục',
-      vi: 'Quản lý danh mục',
-      en: 'Manage Categories'
-    }).map((field) => ({...field, fieldset: 'stats'})),
-    ...localized('categoriesDescription', 'Categories Card Description', 'string', {
-      default: 'Danh mục & Form xác thực',
-      vi: 'Danh mục & Form xác thực',
-      en: 'Categories & verification forms'
-    }).map((field) => ({...field, fieldset: 'stats'})),
-    ...adminCardAppearance('categories', 'Categories').map((field) => ({...field, fieldset: 'stats'})),
-
     {...sectionToggle('auditLogsCardVisible', 'Show Audit Logs Card'), fieldset: 'stats'},
     ...localized('auditLogsTitle', 'Audit Logs Card Title', 'string', {
       default: 'Audit log',
@@ -394,18 +381,18 @@ export const adminPageContent = defineType({
     }).map((field) => ({...field, fieldset: 'stats'})),
     ...adminCardAppearance('emailFormat', 'Email Format').map((field) => ({...field, fieldset: 'stats'})),
 
-    {...sectionToggle('loginBrandingCardVisible', 'Show Login/Register Card'), fieldset: 'stats'},
-    ...localized('loginBrandingTitle', 'Login/Register Card Title', 'string', {
-      default: 'Ô login & đăng ký',
-      vi: 'Ô login & đăng ký',
-      en: 'Login & register panels'
+    {...sectionToggle('loginBrandingCardVisible', 'Show Sanity Card'), fieldset: 'stats'},
+    ...localized('loginBrandingTitle', 'Sanity Card Title', 'string', {
+      default: 'Sanity',
+      vi: 'Sanity',
+      en: 'Sanity'
     }).map((field) => ({...field, fieldset: 'stats'})),
-    ...localized('loginBrandingDescription', 'Login/Register Card Description', 'string', {
-      default: 'Chỉnh ở bên trái trong Sanity',
-      vi: 'Chỉnh ở bên trái trong Sanity',
-      en: 'Edit left panels in Sanity'
+    ...localized('loginBrandingDescription', 'Sanity Card Description', 'string', {
+      default: 'Mở Sanity Studio để quản lý nội dung trang và văn bản giao diện',
+      vi: 'Mở Sanity Studio để quản lý nội dung trang và văn bản giao diện',
+      en: 'Open Sanity Studio to manage page content and interface text'
     }).map((field) => ({...field, fieldset: 'stats'})),
-    ...adminCardAppearance('loginBranding', 'Login/Register').map((field) => ({...field, fieldset: 'stats'})),
+    ...adminCardAppearance('loginBranding', 'Sanity').map((field) => ({...field, fieldset: 'stats'})),
 
     {...sectionToggle('usersPanelVisible', 'Show Users Panel List'), fieldset: 'panels'},
     ...localized('usersPanelTitle', 'Users Panel Title', 'string', {
@@ -424,7 +411,6 @@ export const adminPageContent = defineType({
       en: 'Job posts'
     }).map((field) => ({...field, fieldset: 'panels'})),
 
-    {...sectionToggle('categoriesPanelVisible', 'Show Categories Panel List'), fieldset: 'panels'},
     {...sectionToggle('emailPanelVisible', 'Show Email Format Panel List'), fieldset: 'panels'},
     ...localized('emailPanelTitle', 'Email Panel Title', 'string', {
       default: 'Email format',

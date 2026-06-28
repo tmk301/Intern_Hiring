@@ -171,7 +171,6 @@ const interfaceDocumentProjection = `{
       ...,
       "usersCardImageUrl": usersCardImage.asset->url,
       "jobsCardImageUrl": jobsCardImage.asset->url,
-      "categoriesCardImageUrl": categoriesCardImage.asset->url,
       "auditLogsCardImageUrl": auditLogsCardImage.asset->url,
       "emailFormatCardImageUrl": emailFormatCardImage.asset->url,
       "loginBrandingCardImageUrl": loginBrandingCardImage.asset->url
@@ -377,11 +376,9 @@ const fixedPageContentKeyMaps: Record<string, Record<string, string>> = {
   "/admin": {
     roleLabel: "role.ADMIN", title: "admin.title", description: "admin.description",
     usersTitle: "admin.stats.usersTitle", usersDescription: "admin.stats.usersDescription",
-    jobsTitle: "admin.stats.jobsTitle", categoriesTitle: "admin.stats.categoriesTitle",
-    categoriesDescription: "admin.stats.categoriesDescription", auditLogsTitle: "admin.stats.auditLogsTitle",
+    jobsTitle: "admin.stats.jobsTitle", auditLogsTitle: "admin.stats.auditLogsTitle",
     auditLogsDescription: "admin.stats.auditLogsDescription", emailFormatTitle: "admin.stats.emailFormatTitle",
-    emailFormatDescription: "admin.stats.emailFormatDescription", loginBrandingTitle: "admin.stats.loginBrandingTitle",
-    loginBrandingDescription: "admin.stats.loginBrandingDescription", usersPanelTitle: "admin.users.title",
+    emailFormatDescription: "admin.stats.emailFormatDescription", usersPanelTitle: "admin.users.title",
     jobsPanelTitle: "admin.jobs.title", emailPanelTitle: "admin.emailFormat.title", auditPanelTitle: "admin.auditLogs.title",
   },
   "/recruiter": {

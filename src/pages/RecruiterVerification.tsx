@@ -569,7 +569,7 @@ const RecruiterVerification: React.FC = () => {
             });
           }
         } catch {
-          nextErrors[errorKey] = t("admin.categories.invalidRegex", {
+          nextErrors[errorKey] = t("recruiterVerification.errors.invalidRegex", {
             defaultValue: t("validation.invalidRegex"),
           });
         }
@@ -743,7 +743,7 @@ const RecruiterVerification: React.FC = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-xl">
                   <Building2 className="h-5 w-5 text-primary" />
-                  {uiText("admin.categories.verificationTab", t("admin.categories.verificationTab"))}
+                  {uiText("recruiterVerification.sections.verification", t("recruiterVerification.sections.verification"))}
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2">
