@@ -321,6 +321,7 @@ const RecruiterDashboard: React.FC = () => {
   const [appFilterAppliedAt, setAppFilterAppliedAt] = useState<string>("");
 
   // Refs to cards for scrolling
+  const jobFormRef = useRef<HTMLDivElement>(null);
   const jobListRef = useRef<HTMLDivElement>(null);
   const applicationsRef = useRef<HTMLDivElement>(null);
 
@@ -582,7 +583,7 @@ const RecruiterDashboard: React.FC = () => {
     } finally {
       setLoadingApps(false);
     }
-  }, [token, jobs]);
+  }, [token, jobs, t]);
 
   useEffect(() => {
     loadApplications();
@@ -679,7 +680,9 @@ const RecruiterDashboard: React.FC = () => {
       experience: job.experience || "",
       description: job.description || "",
     });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.requestAnimationFrame(() => {
+      scrollToElement(jobFormRef);
+    });
   };
 
   const cancelEditJob = () => {
@@ -976,7 +979,7 @@ const RecruiterDashboard: React.FC = () => {
         </div>
 
         {/* Form tạo việc làm mới */}
-        <Card>
+        <Card ref={jobFormRef}>
           <CardHeader className="p-0">
             <button
               type="button"

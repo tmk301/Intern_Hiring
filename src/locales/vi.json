@@ -552,6 +552,7 @@
     "changeAvatar": "Đổi ảnh đại diện",
     "themeColor": "Màu trang cá nhân",
     "changeThemeColor": "Đổi màu trang cá nhân",
+    "themeColorDialogDescription": "Chọn màu nền trang cá nhân mới, sau đó bấm lưu khi đã sẵn sàng.",
     "themeColorSaved": "Đã lưu màu trang cá nhân",
     "themeColorSaveError": "Không thể lưu màu trang cá nhân",
     "matchAvatarColor": "Chọn màu trùng màu chủ đạo của avatar",

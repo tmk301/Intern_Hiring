@@ -527,6 +527,7 @@
     "changeAvatar": "Change avatar",
     "themeColor": "Profile theme color",
     "changeThemeColor": "Change profile theme color",
+    "themeColorDialogDescription": "Pick a new profile background color, then save when you are ready.",
     "themeColorSaved": "Profile color saved",
     "themeColorSaveError": "Could not save profile color",
     "matchAvatarColor": "Match the avatar dominant color",

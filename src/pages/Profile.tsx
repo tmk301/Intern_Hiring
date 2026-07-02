@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AvatarCropDialog } from "@/components/AvatarCropDialog";
 import {
@@ -176,7 +176,6 @@ const Profile = () => {
   const uiText = useSanityInterfaceText("/profile");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resumeInputRef = useRef<HTMLInputElement>(null);
-  const themeColorInputRef = useRef<HTMLInputElement>(null);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -205,6 +204,8 @@ const Profile = () => {
   });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isSavingTheme, setIsSavingTheme] = useState(false);
+  const [isThemeColorDialogOpen, setIsThemeColorDialogOpen] = useState(false);
+  const [draftThemeColor, setDraftThemeColor] = useState(user?.themeColor || "#2563eb");
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
   const [pendingCompanyApplication, setPendingCompanyApplication] = useState<RecruiterApplication | undefined>();
   const [isLoadingCompanyProfile, setIsLoadingCompanyProfile] = useState(false);
@@ -290,6 +291,12 @@ const Profile = () => {
     setEmailNotificationsEnabled(user?.emailNotificationsEnabled ?? false);
   }, [user?.emailNotificationsEnabled, user?.id]);
 
+  useEffect(() => {
+    if (!isThemeColorDialogOpen) {
+      setDraftThemeColor(user?.themeColor || "#2563eb");
+    }
+  }, [isThemeColorDialogOpen, user?.id, user?.themeColor]);
+
   if (isLoading) {
     return (
       <main className="flex h-[calc(100dvh-4rem)] items-center justify-center bg-gradient-subtle">
@@ -304,6 +311,7 @@ const Profile = () => {
   }
 
   const profileThemeColor = user.themeColor || "#2563eb";
+  const previewThemeColor = isThemeColorDialogOpen ? draftThemeColor : profileThemeColor;
 
   const togglePasswordVisibility = (field: keyof typeof visiblePasswords) => {
     setVisiblePasswords((current) => ({
@@ -581,19 +589,40 @@ const Profile = () => {
       await userApi.updateProfile(token, { themeColor });
       await refreshUser();
       toast({ title: t("toast.success"), description: successMessage });
+      return true;
     } catch (err: unknown) {
       toast({
         title: t("toast.error"),
         description: getErrorMessage(err, t("profile.themeColorSaveError")),
         variant: "destructive",
       });
+      return false;
     } finally {
       setIsSavingTheme(false);
     }
   };
 
   const handleThemeColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    saveThemeColor(e.target.value);
+    setDraftThemeColor(e.target.value);
+  };
+
+  const handleThemeColorDialogOpenChange = (open: boolean) => {
+    setIsThemeColorDialogOpen(open);
+    if (open) {
+      setDraftThemeColor(profileThemeColor);
+    }
+  };
+
+  const handleSaveThemeColor = async () => {
+    if (draftThemeColor === profileThemeColor) {
+      setIsThemeColorDialogOpen(false);
+      return;
+    }
+
+    const saved = await saveThemeColor(draftThemeColor);
+    if (saved) {
+      setIsThemeColorDialogOpen(false);
+    }
   };
 
   const handleEmailNotificationsChange = async (checked: boolean) => {
@@ -669,17 +698,17 @@ const Profile = () => {
                 <Card className="overflow-hidden">
                   <div
                     className="relative h-28 transition-colors duration-300"
-                    style={{ background: `linear-gradient(135deg, ${profileThemeColor}cc, ${profileThemeColor})` }}
+                    style={{ background: `linear-gradient(135deg, ${previewThemeColor}cc, ${previewThemeColor})` }}
                   >
                     <div className="absolute right-3 top-3 group flex flex-row-reverse items-center gap-0 overflow-hidden rounded-full bg-white/95 p-1 shadow transition-all duration-300 max-w-[36px] hover:max-w-[160px] hover:gap-2">
                       <button
                         type="button"
-                        onClick={() => themeColorInputRef.current?.click()}
+                        onClick={() => handleThemeColorDialogOpenChange(true)}
                         disabled={isSavingTheme}
                         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-slate-100 disabled:opacity-50"
-                        style={{ color: profileThemeColor }}
+                        style={{ color: previewThemeColor }}
                         aria-label={t("profile.changeThemeColor")}
-                        title={profileThemeColor}
+                        title={previewThemeColor}
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
@@ -688,7 +717,7 @@ const Profile = () => {
                         onClick={handleMatchAvatarColor}
                         disabled={isSavingTheme}
                         className="flex h-8 items-center gap-1.5 rounded-full text-xs font-semibold transition-all duration-300 hover:bg-slate-100 disabled:opacity-50 w-0 opacity-0 scale-90 px-0 overflow-hidden pointer-events-none group-hover:w-[105px] group-hover:opacity-100 group-hover:scale-100 group-hover:px-3 group-hover:pointer-events-auto"
-                        style={{ color: profileThemeColor }}
+                        style={{ color: previewThemeColor }}
                         aria-label={t("profile.matchAvatarColor")}
                         title={t("profile.matchAvatarColor")}
                       >
@@ -696,14 +725,6 @@ const Profile = () => {
                         <span className="whitespace-nowrap">{t("profile.matchAvatarColorShort")}</span>
                       </button>
                     </div>
-                    <input
-                      ref={themeColorInputRef}
-                      type="color"
-                      value={profileThemeColor}
-                      onChange={handleThemeColorChange}
-                      className="sr-only"
-                      aria-label={t("profile.themeColor")}
-                    />
                   </div>
                   <div className="relative px-4 pb-4 flex flex-col items-center h-full justify-start">
                     <div className="relative -mt-12 mb-3">
@@ -717,7 +738,7 @@ const Profile = () => {
                         onClick={handleAvatarClick}
                         disabled={isUploading}
                         className="absolute -right-1 bottom-0 flex h-8 w-8 items-center justify-center rounded-full text-white shadow transition-transform hover:scale-110 disabled:opacity-50"
-                        style={{ backgroundColor: profileThemeColor }}
+                        style={{ backgroundColor: previewThemeColor }}
                         aria-label={t("profile.changeAvatar")}
                       >
                         {isUploading ? (
@@ -1310,6 +1331,55 @@ const Profile = () => {
           </div>
         </div>
       </div>
+
+      <Dialog open={isThemeColorDialogOpen} onOpenChange={handleThemeColorDialogOpenChange}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-md" onOpenAutoFocus={(event) => event.preventDefault()}>
+          <DialogHeader className="min-w-0 pr-6">
+            <DialogTitle>{t("profile.changeThemeColor")}</DialogTitle>
+            <DialogDescription>{t("profile.themeColorDialogDescription")}</DialogDescription>
+          </DialogHeader>
+
+          <div className="min-w-0 space-y-4">
+            <label
+              className="relative block h-36 w-full cursor-pointer overflow-hidden rounded-lg border shadow-inner transition-colors duration-200 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2"
+              style={{ background: `linear-gradient(135deg, ${draftThemeColor}cc, ${draftThemeColor})` }}
+            >
+              <span className="sr-only">{t("profile.themeColor")}</span>
+              <Input
+                type="color"
+                value={draftThemeColor}
+                onChange={handleThemeColorChange}
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                aria-label={t("profile.themeColor")}
+              />
+            </label>
+            <div className="min-w-0">
+              <Input
+                value={draftThemeColor.toUpperCase()}
+                readOnly
+                className="min-w-0 font-mono"
+                aria-label={t("profile.themeColor")}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-3 sm:space-x-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleThemeColorDialogOpenChange(false)}
+              disabled={isSavingTheme}
+              className="sm:flex-1"
+            >
+              {t("profile.cancel")}
+            </Button>
+            <Button type="button" onClick={handleSaveThemeColor} disabled={isSavingTheme} className="sm:flex-1">
+              {isSavingTheme ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              {t("profile.save")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isCvManagerOpen} onOpenChange={setIsCvManagerOpen}>
         <DialogContent className="max-w-2xl" onOpenAutoFocus={(e) => e.preventDefault()}>
