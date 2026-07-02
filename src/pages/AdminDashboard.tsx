@@ -1106,7 +1106,7 @@ const AdminDashboard: React.FC = () => {
     <main className="min-h-screen bg-slate-50">
       <SanityPageSections routePath="/admin" placement="top" />
       {pageContent.heroVisible !== false && <section
-        className="hero-gradient text-white py-8 shadow-sm"
+        className="hero-gradient py-6 text-white shadow-sm sm:py-8"
         style={theme.headerImageUrl ? {
           backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.72), rgba(30, 64, 175, 0.72)), url(${theme.headerImageUrl})`,
           backgroundSize: "cover",
@@ -1114,18 +1114,18 @@ const AdminDashboard: React.FC = () => {
           backgroundRepeat: "no-repeat",
         } : undefined}
       >
-        <div className="container mx-auto px-4 max-w-6xl">
+        <div className="container mx-auto max-w-6xl px-3 sm:px-4">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <Badge variant="outline" className={`mb-3 px-5 py-2 text-sm ${getRoleBadgeDarkClassName(USER_ROLES.ADMIN)}`}>
+              <Badge variant="outline" className={`mb-3 px-4 py-1.5 text-xs sm:px-5 sm:py-2 sm:text-sm ${getRoleBadgeDarkClassName(USER_ROLES.ADMIN)}`}>
                 {uiText("role.ADMIN", t("role.ADMIN"))}
               </Badge>
-              <h1 className="text-3xl font-bold text-white">{uiText("admin.title", t("admin.title"))}</h1>
-              <p className="mt-2 text-sm text-blue-100/90">
+              <h1 className="text-2xl font-bold text-white sm:text-3xl">{uiText("admin.title", t("admin.title"))}</h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-blue-100/90">
                 {uiText("admin.description", t("admin.description"))}
               </p>
             </div>
-            <Button variant="outline" className="bg-white text-slate-900 hover:bg-slate-50 border-transparent shadow-sm w-auto gap-2" onClick={loadData} disabled={loadingData}>
+            <Button variant="outline" className="w-full gap-2 border-transparent bg-white text-slate-900 shadow-sm hover:bg-slate-50 sm:w-auto" onClick={loadData} disabled={loadingData}>
               {loadingData ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               {t("common.refresh")}
             </Button>
@@ -1135,19 +1135,19 @@ const AdminDashboard: React.FC = () => {
 
       <SanityPageSections routePath="/admin" placement="afterHero" />
 
-      <section className="container mx-auto space-y-6 px-4 py-8 max-w-6xl">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <section className="container mx-auto max-w-6xl space-y-5 px-3 py-5 sm:space-y-6 sm:px-4 sm:py-8">
+      <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
           {pageContent.usersCardVisible !== false && <Card
             className={`cursor-pointer transition hover:shadow-md ${activeSection === "users" ? "border-primary" : ""}`}
             style={adminCardStyle("users")}
             onClick={() => openSection("users")}
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("users")}>{uiText("admin.stats.usersTitle", t("admin.stats.usersTitle"))}</CardTitle>
-              {adminCardImage("users") ? <img src={adminCardImage("users")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Users className="h-5 w-5 text-primary" />}
+            <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 p-4 pb-2 sm:p-6 sm:pb-2">
+              <CardTitle className="text-sm font-medium leading-snug" style={adminCardTextStyle("users")}>{uiText("admin.stats.usersTitle", t("admin.stats.usersTitle"))}</CardTitle>
+              {adminCardImage("users") ? <img src={adminCardImage("users")} alt="" className="h-8 w-8 shrink-0 rounded-md bg-white/80 p-1 object-contain sm:h-10 sm:w-10" /> : <Users className="h-5 w-5 shrink-0 text-primary" />}
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{users.length}</div>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+              <div className="text-3xl font-bold leading-none">{users.length}</div>
               <p className="text-xs text-slate-500">{uiText("admin.stats.usersDescription", t("admin.stats.usersDescription"))}</p>
             </CardContent>
           </Card>}
@@ -1157,12 +1157,12 @@ const AdminDashboard: React.FC = () => {
             style={adminCardStyle("jobs")}
             onClick={() => openSection("jobs")}
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("jobs")}>{uiText("admin.stats.jobsTitle", t("admin.stats.jobsTitle"))}</CardTitle>
-              {adminCardImage("jobs") ? <img src={adminCardImage("jobs")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Briefcase className="h-5 w-5 text-primary" />}
+            <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 p-4 pb-2 sm:p-6 sm:pb-2">
+              <CardTitle className="text-sm font-medium leading-snug" style={adminCardTextStyle("jobs")}>{uiText("admin.stats.jobsTitle", t("admin.stats.jobsTitle"))}</CardTitle>
+              {adminCardImage("jobs") ? <img src={adminCardImage("jobs")} alt="" className="h-8 w-8 shrink-0 rounded-md bg-white/80 p-1 object-contain sm:h-10 sm:w-10" /> : <Briefcase className="h-5 w-5 shrink-0 text-primary" />}
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{jobs.length}</div>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+              <div className="text-3xl font-bold leading-none">{jobs.length}</div>
               <p className="text-xs text-slate-500">{t("admin.stats.trashCount", { count: trashedJobs.length })}</p>
             </CardContent>
           </Card>}
@@ -1172,12 +1172,12 @@ const AdminDashboard: React.FC = () => {
             style={adminCardStyle("auditLogs")}
             onClick={() => openSection("audit-logs")}
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("auditLogs")}>{t("admin.stats.auditLogsTitle")}</CardTitle>
-              {adminCardImage("auditLogs") ? <img src={adminCardImage("auditLogs")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <ClipboardList className="h-5 w-5 text-red-600" />}
+            <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 p-4 pb-2 sm:p-6 sm:pb-2">
+              <CardTitle className="text-sm font-medium leading-snug" style={adminCardTextStyle("auditLogs")}>{t("admin.stats.auditLogsTitle")}</CardTitle>
+              {adminCardImage("auditLogs") ? <img src={adminCardImage("auditLogs")} alt="" className="h-8 w-8 shrink-0 rounded-md bg-white/80 p-1 object-contain sm:h-10 sm:w-10" /> : <ClipboardList className="h-5 w-5 shrink-0 text-red-600" />}
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{auditTotal}</div>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+              <div className="text-3xl font-bold leading-none">{auditTotal}</div>
               <p className="text-xs text-slate-500">{t("admin.stats.auditLogsDescription")}</p>
             </CardContent>
           </Card>}
@@ -1187,13 +1187,13 @@ const AdminDashboard: React.FC = () => {
             style={adminCardStyle("emailFormat")}
             onClick={() => openSection("email-format")}
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("emailFormat")}>
+            <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 p-4 pb-2 sm:p-6 sm:pb-2">
+              <CardTitle className="text-sm font-medium leading-snug" style={adminCardTextStyle("emailFormat")}>
                 {t("admin.stats.emailFormatTitle")}
               </CardTitle>
-              {adminCardImage("emailFormat") ? <img src={adminCardImage("emailFormat")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Mail className="h-5 w-5 text-emerald-600" />}
+              {adminCardImage("emailFormat") ? <img src={adminCardImage("emailFormat")} alt="" className="h-8 w-8 shrink-0 rounded-md bg-white/80 p-1 object-contain sm:h-10 sm:w-10" /> : <Mail className="h-5 w-5 shrink-0 text-emerald-600" />}
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
               <p className="text-sm text-slate-500">
                 {t("admin.stats.emailFormatDescription")}
               </p>
@@ -1205,13 +1205,13 @@ const AdminDashboard: React.FC = () => {
             style={adminCardStyle("loadingScreen")}
             onClick={() => openSection("loading-screen")}
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("loadingScreen")}>
+            <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 p-4 pb-2 sm:p-6 sm:pb-2">
+              <CardTitle className="text-sm font-medium leading-snug" style={adminCardTextStyle("loadingScreen")}>
                 {t("admin.loadingScreen.cardTitle")}
               </CardTitle>
-              {adminCardImage("loadingScreen") ? <img src={adminCardImage("loadingScreen")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <PanelTop className="h-5 w-5 text-sky-600" />}
+              {adminCardImage("loadingScreen") ? <img src={adminCardImage("loadingScreen")} alt="" className="h-8 w-8 shrink-0 rounded-md bg-white/80 p-1 object-contain sm:h-10 sm:w-10" /> : <PanelTop className="h-5 w-5 shrink-0 text-sky-600" />}
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
               <p className="text-sm text-slate-500">
                 {t("admin.loadingScreen.cardDescription")}
               </p>
@@ -1223,11 +1223,11 @@ const AdminDashboard: React.FC = () => {
             style={adminCardStyle("loginBranding")}
             onClick={openLoginBrandingStudio}
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("loginBranding")}>{t("admin.stats.sanityTitle")}</CardTitle>
-              {adminCardImage("loginBranding") ? <img src={adminCardImage("loginBranding")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Palette className="h-5 w-5 text-amber-600" />}
+            <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 p-4 pb-2 sm:p-6 sm:pb-2">
+              <CardTitle className="text-sm font-medium leading-snug" style={adminCardTextStyle("loginBranding")}>{t("admin.stats.sanityTitle")}</CardTitle>
+              {adminCardImage("loginBranding") ? <img src={adminCardImage("loginBranding")} alt="" className="h-8 w-8 shrink-0 rounded-md bg-white/80 p-1 object-contain sm:h-10 sm:w-10" /> : <Palette className="h-5 w-5 shrink-0 text-amber-600" />}
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
               <p className="text-sm text-slate-500">{t("admin.stats.sanityDescription")}</p>
             </CardContent>
           </Card>}

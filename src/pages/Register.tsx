@@ -218,15 +218,15 @@ const Register = () => {
 
   if (isHeroLoading) {
     return (
-      <main className="flex h-[calc(100dvh-4rem)] items-center justify-center bg-gradient-subtle">
+      <main className="flex min-h-[calc(100dvh-4rem)] items-center justify-center bg-gradient-subtle">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </main>
     );
   }
 
   return (
-    <main className="h-[calc(100dvh-4rem)] overflow-hidden bg-gradient-subtle">
-      <div className="container mx-auto flex h-full items-center justify-center px-4 py-3">
+    <main className="min-h-[calc(100dvh-4rem)] bg-gradient-subtle">
+      <div className="container mx-auto flex min-h-[calc(100dvh-4rem)] items-center justify-center px-3 py-4 sm:px-4">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}

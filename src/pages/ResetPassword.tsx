@@ -141,10 +141,10 @@ const ResetPasswordPage: React.FC = () => {
     };
 
     return (
-        <main className="h-[calc(100dvh-4rem)] overflow-hidden bg-gradient-subtle">
+        <main className="min-h-[calc(100dvh-4rem)] bg-gradient-subtle">
             <SanityPageSections routePath="/reset-password" placement="top" />
             <SanityPageSections routePath="/reset-password" placement="afterHero" />
-            <div className="container mx-auto flex h-full items-center justify-center px-4 py-4">
+            <div className="container mx-auto flex min-h-[calc(100dvh-4rem)] items-center justify-center px-3 py-4 sm:px-4">
                 <Card className="w-full max-w-lg">
                     <CardHeader className="px-6 pt-6 pb-2">
                         <CardTitle>{t("resetPasswordPage.title")}</CardTitle>

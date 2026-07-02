@@ -126,6 +126,7 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    overflow-x: hidden;
   }
 
   @keyframes loading-bar {
@@ -146,6 +147,7 @@
 
   body {
     @apply bg-background text-foreground font-sans;
+    overflow-x: hidden;
   }
 }
 

@@ -673,10 +673,10 @@ const Profile = () => {
   };
 
   return (
-    <main className="h-[calc(100dvh-4rem)] overflow-hidden bg-gradient-to-b from-slate-50 to-white">
+    <main className="min-h-[calc(100dvh-4rem)] bg-gradient-to-b from-slate-50 to-white">
       <SanityPageSections routePath="/profile" placement="top" />
-      <div className="container mx-auto flex h-full items-start justify-center px-4 py-4">
-        <div className="w-full max-w-5xl overflow-hidden">
+      <div className="container mx-auto flex min-h-[calc(100dvh-4rem)] items-start justify-center px-3 py-4 sm:px-4">
+        <div className="w-full max-w-5xl">
           <div className="grid grid-rows-[auto_auto] gap-6">
             {/* TOP ROW: back button, avatar, personal info */}
             <div className="grid md:grid-cols-[48px_320px_1fr] gap-6 items-stretch">
@@ -857,14 +857,14 @@ const Profile = () => {
               {/* RIGHT - personal info card */}
               <div className="flex flex-col gap-4">
                 <Card>
-                  <CardHeader className="flex flex-row items-center justify-between">
+                  <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <CardTitle className="text-lg">{uiText("profile.personal_info", t("profile.personal_info"))}</CardTitle>
                     {!isEditing ? (
                       <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
                         {uiText("profile.edit", t("profile.edit"))}
                       </Button>
                     ) : (
-                      <div className="flex gap-2">
+                      <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -1021,7 +1021,7 @@ const Profile = () => {
 
             {/* BOTTOM ROW: CV (when allowed) + password change */}
             <div className="grid items-stretch gap-6 md:grid-cols-[48px_320px_1fr]">
-              <div />
+              <div className="hidden md:block" />
               {showCvSection ? (
                 <Card className="min-w-0 h-full">
                   <CardContent className="flex h-full min-h-[170px] flex-col gap-4 p-4">

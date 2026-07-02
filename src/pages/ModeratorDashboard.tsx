@@ -495,20 +495,20 @@ const ModeratorDashboard: React.FC = () => {
     <main className="min-h-screen bg-slate-50">
       <SanityPageSections routePath="/moderator" placement="top" />
       {/* Hero Header */}
-      <section className="hero-gradient text-white py-8 shadow-sm">
-        <div className="container mx-auto px-4 max-w-6xl">
+      <section className="hero-gradient py-6 text-white shadow-sm sm:py-8">
+        <div className="container mx-auto max-w-6xl px-3 sm:px-4">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <Badge variant="outline" className={`mb-3 px-5 py-2 text-sm ${getRoleBadgeDarkClassName(user?.role)}`}>
+              <Badge variant="outline" className={`mb-3 px-4 py-1.5 text-xs sm:px-5 sm:py-2 sm:text-sm ${getRoleBadgeDarkClassName(user?.role)}`}>
                 {t(`role.${normalizeRoleName(user?.role)}`, { defaultValue: t("moderator.badge") })}
               </Badge>
-              <h1 className="text-3xl font-bold text-white">{uiText("moderator.title", t("moderator.title"))}</h1>
-              <p className="mt-2 text-sm text-blue-100/90">{uiText("moderator.description", t("moderator.description"))}</p>
+              <h1 className="text-2xl font-bold text-white sm:text-3xl">{uiText("moderator.title", t("moderator.title"))}</h1>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-blue-100/90">{uiText("moderator.description", t("moderator.description"))}</p>
             </div>
 
             <Button
               variant="outline"
-              className="bg-white text-slate-900 hover:bg-slate-50 border-transparent shadow-sm w-auto gap-2"
+              className="w-full gap-2 border-transparent bg-white text-slate-900 shadow-sm hover:bg-slate-50 sm:w-auto"
               onClick={handleRefresh}
               disabled={loadingData}
             >
@@ -521,7 +521,7 @@ const ModeratorDashboard: React.FC = () => {
 
       <SanityPageSections routePath="/moderator" placement="afterHero" />
 
-      <section className="container mx-auto space-y-8 px-4 py-8 max-w-6xl">
+      <section className="container mx-auto max-w-6xl space-y-6 px-3 py-5 sm:space-y-8 sm:px-4 sm:py-8">
         {/* Statistics Grid */}
         <div className="space-y-6">
           {/* Job posts stats */}
@@ -529,7 +529,7 @@ const ModeratorDashboard: React.FC = () => {
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
               {uiText("moderator.stats.jobsTitle", t("moderator.stats.jobsTitle"))}
             </h2>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-3 md:gap-4">
               <Card
                 className="cursor-pointer transition hover:shadow-md bg-white border border-slate-100 shadow-sm"
                 onClick={() => {
@@ -594,7 +594,7 @@ const ModeratorDashboard: React.FC = () => {
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
               {uiText("moderator.stats.companiesTitle", t("moderator.stats.companiesTitle"))}
             </h2>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-3 md:gap-4">
               <Card
                 className="cursor-pointer transition hover:shadow-md bg-white border border-slate-100 shadow-sm"
                 onClick={() => {
