@@ -16,6 +16,7 @@ import {
   Loader2,
   Mail,
   Palette,
+  PanelTop,
   RefreshCw,
   RotateCcw,
   Save,
@@ -54,6 +55,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -63,10 +65,12 @@ import { getSafePage, paginateItems } from "@/lib/pagination";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
   defaultEmailTemplateConfig,
+  defaultLoadingScreenConfig,
   defaultManagedSiteConfig,
   loadManagedSiteConfig,
   saveManagedSiteConfig,
   type EmailTemplateConfig,
+  type LoadingScreenConfig,
   type ManagedSiteConfig,
 } from "@/lib/siteConfig";
 import {
@@ -81,7 +85,7 @@ import { supabase } from "@/lib/supabase";
 import { SanityPageSections } from "@/components/sanity/SanityPageSections";
 import { useSanityManagedInterface } from "@/lib/sanityInterfaceText";
 
-type AdminSection = "users" | "jobs" | "employer-requests" | "audit-logs" | "email-format";
+type AdminSection = "users" | "jobs" | "employer-requests" | "audit-logs" | "email-format" | "loading-screen";
 type JobStatusFilter = "ALL" | "PENDING" | "APPROVED" | "REJECTED";
 type JobHiddenFilter = "ALL" | "HIDDEN" | "VISIBLE" | "TRASH";
 type JobDeleteMode = "trash" | "permanent";
@@ -193,7 +197,7 @@ const auditActions: AuditAction[] = [
 
 const auditTargetTypes: AuditTargetType[] = ["USER", "JOB", "CATEGORY_OPTION", "RECRUITER_APPLICATION", "RECRUITER_FORM_FIELD"];
 
-const adminSections: AdminSection[] = ["users", "jobs", "employer-requests", "audit-logs", "email-format"];
+const adminSections: AdminSection[] = ["users", "jobs", "employer-requests", "audit-logs", "email-format", "loading-screen"];
 const SANITY_STUDIO_URL = import.meta.env.VITE_SANITY_STUDIO_URL || "http://localhost:3333";
 const EMAIL_TEMPLATE_IMAGE_BUCKET = "company";
 const EMAIL_TEMPLATE_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
@@ -406,7 +410,9 @@ const AdminDashboard: React.FC = () => {
   };
   const [managedConfig, setManagedConfig] = useState<ManagedSiteConfig>(defaultManagedSiteConfig);
   const [emailTemplate, setEmailTemplate] = useState<EmailTemplateConfig>(defaultEmailTemplateConfig);
+  const [loadingScreen, setLoadingScreen] = useState<LoadingScreenConfig>(defaultLoadingScreenConfig);
   const [savingEmailTemplate, setSavingEmailTemplate] = useState(false);
+  const [savingLoadingScreen, setSavingLoadingScreen] = useState(false);
   const [uploadingEmailImage, setUploadingEmailImage] = useState(false);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
 
@@ -619,6 +625,7 @@ const AdminDashboard: React.FC = () => {
       const config = await loadManagedSiteConfig();
       setManagedConfig(config);
       setEmailTemplate(config.emailTemplate);
+      setLoadingScreen(config.loadingScreen);
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, t("admin.emailFormat.loadError")));
     }
@@ -626,6 +633,12 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     if (activeSection === "email-format") {
+      loadEmailTemplateConfig();
+    }
+  }, [activeSection, loadEmailTemplateConfig]);
+
+  useEffect(() => {
+    if (activeSection === "loading-screen") {
       loadEmailTemplateConfig();
     }
   }, [activeSection, loadEmailTemplateConfig]);
@@ -676,6 +689,7 @@ const AdminDashboard: React.FC = () => {
         if (cancelled) return;
         setManagedConfig(config);
         setEmailTemplate(config.emailTemplate);
+        setLoadingScreen(config.loadingScreen);
       })
       .catch(() => {
         if (!cancelled) {
@@ -959,6 +973,13 @@ const AdminDashboard: React.FC = () => {
     }));
   };
 
+  const updateLoadingScreen = <K extends keyof LoadingScreenConfig>(key: K, value: LoadingScreenConfig[K]) => {
+    setLoadingScreen((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  };
+
   const handleSaveEmailTemplate = async () => {
     if (!token) return;
 
@@ -984,6 +1005,38 @@ const AdminDashboard: React.FC = () => {
 
   const handleResetEmailTemplate = () => {
     setEmailTemplate(defaultEmailTemplateConfig);
+  };
+
+  const handleSaveLoadingScreen = async () => {
+    if (!token) return;
+
+    setSavingLoadingScreen(true);
+    try {
+      const nextConfig = {
+        ...managedConfig,
+        loadingScreen: {
+          ...loadingScreen,
+          title: loadingScreen.title.trim() || defaultLoadingScreenConfig.title,
+          message: loadingScreen.message.trim(),
+          overlayMinimumMs: Math.max(
+            150,
+            Math.min(2000, Number(loadingScreen.overlayMinimumMs) || defaultLoadingScreenConfig.overlayMinimumMs),
+          ),
+        },
+      };
+      const savedConfig = await saveManagedSiteConfig(nextConfig, token);
+      setManagedConfig(savedConfig);
+      setLoadingScreen(savedConfig.loadingScreen);
+      toast.success(t("admin.loadingScreen.saveSuccess"));
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, t("admin.loadingScreen.saveError")));
+    } finally {
+      setSavingLoadingScreen(false);
+    }
+  };
+
+  const handleResetLoadingScreen = () => {
+    setLoadingScreen(defaultLoadingScreenConfig);
   };
 
   const uploadEmailHeaderImage = async (file: File) => {
@@ -1083,7 +1136,7 @@ const AdminDashboard: React.FC = () => {
       <SanityPageSections routePath="/admin" placement="afterHero" />
 
       <section className="container mx-auto space-y-6 px-4 py-8 max-w-6xl">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {pageContent.usersCardVisible !== false && <Card
             className={`cursor-pointer transition hover:shadow-md ${activeSection === "users" ? "border-primary" : ""}`}
             style={adminCardStyle("users")}
@@ -1146,6 +1199,24 @@ const AdminDashboard: React.FC = () => {
               </p>
             </CardContent>
           </Card>}
+
+          <Card
+            className={`cursor-pointer transition hover:shadow-md ${activeSection === "loading-screen" ? "border-primary" : ""}`}
+            style={adminCardStyle("loadingScreen")}
+            onClick={() => openSection("loading-screen")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium" style={adminCardTextStyle("loadingScreen")}>
+                {t("admin.loadingScreen.cardTitle")}
+              </CardTitle>
+              {adminCardImage("loadingScreen") ? <img src={adminCardImage("loadingScreen")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <PanelTop className="h-5 w-5 text-sky-600" />}
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground" style={adminCardTextStyle("loadingScreen")}>
+                {t("admin.loadingScreen.cardDescription")}
+              </p>
+            </CardContent>
+          </Card>
 
           {pageContent.loginBrandingCardVisible !== false && <Card
             className="cursor-pointer transition hover:border-primary hover:shadow-md"
@@ -1766,6 +1837,206 @@ const AdminDashboard: React.FC = () => {
                       <div className="my-5 h-px bg-slate-200" />
                       <p className="text-center text-xs text-slate-500">
                         {emailTemplate.footerText || t("admin.emailFormat.defaultFooter")}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeSection === "loading-screen" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t("admin.loadingScreen.title")}</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="loading-title">
+                        {t("admin.loadingScreen.heading")}
+                      </Label>
+                      <Input
+                        id="loading-title"
+                        value={loadingScreen.title}
+                        onChange={(event) => updateLoadingScreen("title", event.target.value)}
+                        placeholder={defaultLoadingScreenConfig.title}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="loading-logo">
+                        {t("admin.loadingScreen.logoUrl")}
+                      </Label>
+                      <Input
+                        id="loading-logo"
+                        value={loadingScreen.logoUrl}
+                        onChange={(event) => updateLoadingScreen("logoUrl", event.target.value)}
+                        placeholder="https://..."
+                      />
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="loading-message">
+                        {t("admin.loadingScreen.message")}
+                      </Label>
+                      <Textarea
+                        id="loading-message"
+                        value={loadingScreen.message}
+                        onChange={(event) => updateLoadingScreen("message", event.target.value)}
+                        rows={3}
+                        placeholder={t("app.loadingMessage")}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="loading-background">
+                        {t("admin.loadingScreen.backgroundColor")}
+                      </Label>
+                      <Input
+                        id="loading-background"
+                        type="color"
+                        value={loadingScreen.backgroundColor}
+                        onChange={(event) => updateLoadingScreen("backgroundColor", event.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="loading-text">
+                        {t("admin.loadingScreen.textColor")}
+                      </Label>
+                      <Input
+                        id="loading-text"
+                        type="color"
+                        value={loadingScreen.textColor}
+                        onChange={(event) => updateLoadingScreen("textColor", event.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="loading-secondary-text">
+                        {t("admin.loadingScreen.secondaryTextColor")}
+                      </Label>
+                      <Input
+                        id="loading-secondary-text"
+                        type="color"
+                        value={loadingScreen.secondaryTextColor}
+                        onChange={(event) => updateLoadingScreen("secondaryTextColor", event.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="loading-accent">
+                        {t("admin.loadingScreen.accentColor")}
+                      </Label>
+                      <Input
+                        id="loading-accent"
+                        type="color"
+                        value={loadingScreen.accentColor}
+                        onChange={(event) => updateLoadingScreen("accentColor", event.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="loading-minimum-ms">
+                        {t("admin.loadingScreen.overlayMinimumMs")}
+                      </Label>
+                      <Input
+                        id="loading-minimum-ms"
+                        type="number"
+                        min={150}
+                        max={2000}
+                        step={50}
+                        value={loadingScreen.overlayMinimumMs}
+                        onChange={(event) =>
+                          updateLoadingScreen("overlayMinimumMs", Number(event.target.value) || defaultLoadingScreenConfig.overlayMinimumMs)
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="loading-animation">
+                        {t("admin.loadingScreen.animationStyle")}
+                      </Label>
+                      <Select
+                        value={loadingScreen.animationStyle}
+                        onValueChange={(value) => updateLoadingScreen("animationStyle", value as LoadingScreenConfig["animationStyle"])}
+                      >
+                        <SelectTrigger id="loading-animation" className="bg-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="spinner">{t("admin.loadingScreen.animations.spinner")}</SelectItem>
+                          <SelectItem value="dots">{t("admin.loadingScreen.animations.dots")}</SelectItem>
+                          <SelectItem value="bar">{t("admin.loadingScreen.animations.bar")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-3 rounded-md border bg-slate-50 p-4 sm:col-span-2">
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <Label htmlFor="loading-route-overlay">
+                            {t("admin.loadingScreen.showOnNavigation")}
+                          </Label>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {t("admin.loadingScreen.showOnNavigationHint")}
+                          </p>
+                        </div>
+                        <Switch
+                          id="loading-route-overlay"
+                          checked={loadingScreen.showOnNavigation}
+                          onCheckedChange={(checked) => updateLoadingScreen("showOnNavigation", checked)}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <Label htmlFor="loading-action-overlay">
+                            {t("admin.loadingScreen.showOnMajorActions")}
+                          </Label>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {t("admin.loadingScreen.showOnMajorActionsHint")}
+                          </p>
+                        </div>
+                        <Switch
+                          id="loading-action-overlay"
+                          checked={loadingScreen.showOnMajorActions}
+                          onCheckedChange={(checked) => updateLoadingScreen("showOnMajorActions", checked)}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2 sm:col-span-2">
+                      <Button variant="cta" className="w-auto" onClick={handleSaveLoadingScreen} disabled={savingLoadingScreen}>
+                        {savingLoadingScreen ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                        {t("common.save")}
+                      </Button>
+                      <Button type="button" variant="outline" className="w-auto border-slate-200 text-slate-900 hover:bg-slate-50 gap-2" onClick={handleResetLoadingScreen}>
+                        <RotateCcw className="h-4 w-4" />
+                        {t("admin.loadingScreen.reset")}
+                      </Button>
+                    </div>
+                  </div>
+                  <div
+                    className="flex min-h-[360px] items-center justify-center rounded-md border p-6"
+                    style={{ backgroundColor: loadingScreen.backgroundColor, color: loadingScreen.textColor }}
+                  >
+                    <div className="flex max-w-xs flex-col items-center text-center">
+                      {loadingScreen.logoUrl ? (
+                        <img src={loadingScreen.logoUrl} alt="" className="mb-6 max-h-16 max-w-40 object-contain" />
+                      ) : (
+                        <div
+                          className="mb-6 flex h-14 w-14 items-center justify-center rounded-md text-xl font-bold text-white"
+                          style={{ backgroundColor: loadingScreen.accentColor }}
+                        >
+                          IH
+                        </div>
+                      )}
+                      {loadingScreen.animationStyle === "dots" ? (
+                        <div className="flex h-9 items-center justify-center gap-2">
+                          {[0, 1, 2].map((index) => (
+                            <span key={index} className="h-2.5 w-2.5 animate-bounce rounded-full" style={{ animationDelay: `${index * 120}ms`, backgroundColor: loadingScreen.accentColor }} />
+                          ))}
+                        </div>
+                      ) : loadingScreen.animationStyle === "bar" ? (
+                        <div className="h-2 w-40 overflow-hidden rounded-full bg-black/10">
+                          <div className="h-full w-1/2 animate-[loading-bar_1.2s_ease-in-out_infinite] rounded-full" style={{ backgroundColor: loadingScreen.accentColor }} />
+                        </div>
+                      ) : (
+                        <Loader2 className="h-8 w-8 animate-spin" style={{ color: loadingScreen.accentColor }} />
+                      )}
+                      <h3 className="mt-6 text-xl font-semibold">{loadingScreen.title}</h3>
+                      <p className="mt-2 text-sm leading-6" style={{ color: loadingScreen.secondaryTextColor }}>
+                        {loadingScreen.message || t("app.loadingMessage")}
                       </p>
                     </div>
                   </div>

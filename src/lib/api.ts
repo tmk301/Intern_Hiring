@@ -1,9 +1,12 @@
+import { endGlobalLoading, startGlobalLoading } from "@/lib/globalLoading";
+
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:8080";
 
 type RequestOptions = RequestInit & {
   params?: Record<string, string | number | boolean | undefined | null>;
   timeoutMs?: number;
+  globalLoading?: boolean;
 };
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 15000;
@@ -51,15 +54,19 @@ async function readErrorMessage(response: Response) {
 
 export async function apiRequest<T>(
   path: string,
-  { params, headers, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS, signal, ...options }: RequestOptions = {},
+  { params, headers, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS, signal, globalLoading = false, ...options }: RequestOptions = {},
 ): Promise<T> {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  const method = options.method?.toUpperCase() || "GET";
+  const shouldUseGlobalLoading = globalLoading || ["POST", "PUT", "PATCH", "DELETE"].includes(method);
 
   signal?.addEventListener("abort", () => controller.abort(), { once: true });
 
   let response: Response;
   try {
+    if (shouldUseGlobalLoading) startGlobalLoading();
+
     response = await fetch(buildUrl(path, params), {
       ...options,
       signal: controller.signal,
@@ -77,6 +84,7 @@ export async function apiRequest<T>(
     throw error;
   } finally {
     window.clearTimeout(timeoutId);
+    if (shouldUseGlobalLoading) endGlobalLoading();
   }
 
   if (!response.ok) {

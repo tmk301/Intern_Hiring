@@ -905,6 +905,32 @@
       "dragDropText": "Kéo thả ảnh vào đây hoặc click để tải lên",
       "imageHint": "PNG, JPG, JPEG (tối đa 2MB)",
       "defaultFooter": "Email này được gửi từ hệ thống thông báo InternHiring."
+    },
+    "loadingScreen": {
+      "cardTitle": "Trang tải",
+      "cardDescription": "Văn bản, màu sắc, logo và hiệu ứng",
+      "title": "Trang tải",
+      "heading": "Tiêu đề",
+      "logoUrl": "URL logo",
+      "message": "Thông báo",
+      "backgroundColor": "Màu nền",
+      "textColor": "Màu chữ",
+      "secondaryTextColor": "Màu chữ phụ",
+      "accentColor": "Màu nhấn",
+      "overlayMinimumMs": "Thời gian hiển thị tối thiểu (ms)",
+      "animationStyle": "Hiệu ứng",
+      "showOnNavigation": "Hiển thị khi chuyển trang",
+      "showOnNavigationHint": "Hiển thị trang tải trong thời gian ngắn khi người dùng chuyển route.",
+      "showOnMajorActions": "Hiển thị khi thao tác API lớn",
+      "showOnMajorActionsHint": "Hiển thị khi đang tạo, cập nhật, xóa hoặc duyệt yêu cầu.",
+      "reset": "Đặt lại mặc định",
+      "saveSuccess": "Đã cập nhật trang tải.",
+      "saveError": "Không thể cập nhật trang tải.",
+      "animations": {
+        "spinner": "Vòng xoay",
+        "dots": "Dấu chấm",
+        "bar": "Thanh tiến trình"
+      }
     }
   },
   "notFound": {
@@ -1016,7 +1042,11 @@
     }
   },
   "app": {
-    "loading": "Đang tải giao diện"
+    "loading": "Đang tải giao diện",
+    "loadingTitle": "InternHiring",
+    "loadingMessage": "Đang tải dữ liệu, vui lòng chờ trong giây lát.",
+    "loadingInterface": "Đang tải giao diện",
+    "processingOverlay": "Đang xử lý yêu cầu"
   },
   "companyProfile": {
     "noMap": "Chưa cấu hình bản đồ vị trí.",

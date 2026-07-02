@@ -72,6 +72,20 @@ export type EmailTemplateConfig = {
   footerText: string;
 };
 
+export type LoadingScreenConfig = {
+  title: string;
+  message: string;
+  logoUrl: string;
+  backgroundColor: string;
+  textColor: string;
+  accentColor: string;
+  secondaryTextColor: string;
+  animationStyle: "spinner" | "dots" | "bar";
+  showOnNavigation: boolean;
+  showOnMajorActions: boolean;
+  overlayMinimumMs: number;
+};
+
 export type ManagedSiteConfig = {
   filters: JobFilterOptions;
   partners: ManagedPartner[];
@@ -79,6 +93,7 @@ export type ManagedSiteConfig = {
   loginHero: LoginHeroConfig;
   registerHero: RegisterHeroConfig;
   emailTemplate: EmailTemplateConfig;
+  loadingScreen: LoadingScreenConfig;
 };
 
 export type FilterCategoryKey = keyof JobFilterOptions;
@@ -176,6 +191,20 @@ export const defaultEmailTemplateConfig: EmailTemplateConfig = {
   footerText: "",
 };
 
+export const defaultLoadingScreenConfig: LoadingScreenConfig = {
+  title: "InternHiring",
+  message: "",
+  logoUrl: "",
+  backgroundColor: "#f8fafc",
+  textColor: "#0f172a",
+  accentColor: "#2563eb",
+  secondaryTextColor: "#64748b",
+  animationStyle: "spinner",
+  showOnNavigation: true,
+  showOnMajorActions: true,
+  overlayMinimumMs: 450,
+};
+
 export const defaultManagedSiteConfig: ManagedSiteConfig = {
   filters: defaultJobFilterOptions,
   partners: [],
@@ -183,6 +212,7 @@ export const defaultManagedSiteConfig: ManagedSiteConfig = {
   loginHero: defaultLoginHeroConfig,
   registerHero: defaultRegisterHeroConfig,
   emailTemplate: defaultEmailTemplateConfig,
+  loadingScreen: defaultLoadingScreenConfig,
 };
 
 const SITE_CONFIG_ENDPOINT = "/api/site-config";
@@ -229,6 +259,25 @@ export const normalizeManagedSiteConfig = (config?: Partial<ManagedSiteConfig> |
       typeof config?.emailTemplate?.fontSize === "number"
         ? config.emailTemplate.fontSize
         : defaultEmailTemplateConfig.fontSize,
+  },
+  loadingScreen: {
+    ...defaultLoadingScreenConfig,
+    ...(config?.loadingScreen || {}),
+    animationStyle: ["spinner", "dots", "bar"].includes(config?.loadingScreen?.animationStyle || "")
+      ? config?.loadingScreen?.animationStyle || defaultLoadingScreenConfig.animationStyle
+      : defaultLoadingScreenConfig.animationStyle,
+    showOnNavigation:
+      typeof config?.loadingScreen?.showOnNavigation === "boolean"
+        ? config.loadingScreen.showOnNavigation
+        : defaultLoadingScreenConfig.showOnNavigation,
+    showOnMajorActions:
+      typeof config?.loadingScreen?.showOnMajorActions === "boolean"
+        ? config.loadingScreen.showOnMajorActions
+        : defaultLoadingScreenConfig.showOnMajorActions,
+    overlayMinimumMs:
+      typeof config?.loadingScreen?.overlayMinimumMs === "number"
+        ? Math.max(150, Math.min(2000, config.loadingScreen.overlayMinimumMs))
+        : defaultLoadingScreenConfig.overlayMinimumMs,
   },
 });
 

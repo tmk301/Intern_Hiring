@@ -1,11 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Navbar from "./components/ui/Navbar";
 import Home from "./pages/Home";
@@ -28,17 +28,16 @@ import NotFound from "./pages/NotFound";
 import { isAdminRole, isCandidateRole, isModeratorRole, isRecruiterRole } from "./lib/roles";
 import { SanityCustomSections } from "./components/sanity/SanityPageSections";
 import { useSanityManagedInterface } from "./lib/sanityInterfaceText";
+import { LoadingScreen } from "./components/ui/LoadingScreen";
+import { defaultLoadingScreenConfig, loadManagedSiteConfig, type LoadingScreenConfig } from "./lib/siteConfig";
+import { globalLoadingEvents } from "./lib/globalLoading";
 const queryClient = new QueryClient();
 
 const AdminRoute = ({ children }: { children: JSX.Element }) => {
   const { user, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (!isAuthenticated) {
@@ -58,11 +57,7 @@ const ModeratorRoute = ({ children }: { children: JSX.Element }) => {
   const { user, isAuthenticated, isLoading } = useAuth();
   
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (!isAuthenticated) {
@@ -80,11 +75,7 @@ const AdminOrModeratorRoute = ({ children }: { children: JSX.Element }) => {
   const { user, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (!isAuthenticated) {
@@ -102,11 +93,7 @@ const RecruiterRoute = ({ children }: { children: JSX.Element }) => {
   const { user, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (!isAuthenticated) {
@@ -124,11 +111,7 @@ const CandidateRoute = ({ children }: { children: JSX.Element }) => {
   const { user, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (!isAuthenticated) {
@@ -146,11 +129,7 @@ const CandidateOrRecruiterRoute = ({ children }: { children: JSX.Element }) => {
   const { user, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (!isAuthenticated) {
@@ -205,21 +184,112 @@ const managedPageRoutes = new Set([
 
 const SanityContentGate = ({children}: {children: React.ReactNode}) => {
   const { t } = useTranslation();
-  const {pathname} = useLocation();
+  const {pathname, search} = useLocation();
   const normalizedPath = getNormalizedRoutePath(pathname);
   const routePath = managedPageRoutes.has(normalizedPath) ? normalizedPath : "/";
   const homeInterface = useSanityManagedInterface("/");
   const routeInterface = useSanityManagedInterface(routePath);
+  const [loadingConfig, setLoadingConfig] = useState<LoadingScreenConfig>(defaultLoadingScreenConfig);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [actionLoadingCount, setActionLoadingCount] = useState(0);
+  const [actionOverlayVisible, setActionOverlayVisible] = useState(false);
+  const hasMountedRef = useRef(false);
+  const actionStartedAtRef = useRef(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    loadManagedSiteConfig()
+      .then((config) => {
+        if (!cancelled) setLoadingConfig(config.loadingScreen);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadingConfig(defaultLoadingScreenConfig);
+      });
+
+    const handleConfigUpdate = (event: Event) => {
+      const config = (event as CustomEvent).detail;
+      if (config?.loadingScreen) setLoadingConfig(config.loadingScreen);
+    };
+
+    window.addEventListener("managed-site-config-updated", handleConfigUpdate);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("managed-site-config-updated", handleConfigUpdate);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return;
+    }
+
+    if (!loadingConfig.showOnNavigation) return;
+
+    setRouteLoading(true);
+    const timeoutId = window.setTimeout(() => {
+      setRouteLoading(false);
+    }, loadingConfig.overlayMinimumMs);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loadingConfig.overlayMinimumMs, loadingConfig.showOnNavigation, pathname, search]);
+
+  useEffect(() => {
+    const handleStart = () => setActionLoadingCount((current) => current + 1);
+    const handleEnd = () => setActionLoadingCount((current) => Math.max(0, current - 1));
+
+    window.addEventListener(globalLoadingEvents.start, handleStart);
+    window.addEventListener(globalLoadingEvents.end, handleEnd);
+
+    return () => {
+      window.removeEventListener(globalLoadingEvents.start, handleStart);
+      window.removeEventListener(globalLoadingEvents.end, handleEnd);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!loadingConfig.showOnMajorActions) {
+      setActionOverlayVisible(false);
+      return;
+    }
+
+    if (actionLoadingCount > 0) {
+      if (!actionOverlayVisible) {
+        actionStartedAtRef.current = Date.now();
+        setActionOverlayVisible(true);
+      }
+      return;
+    }
+
+    if (!actionOverlayVisible) return;
+
+    const elapsedMs = Date.now() - actionStartedAtRef.current;
+    const remainingMs = Math.max(0, loadingConfig.overlayMinimumMs - elapsedMs);
+    const timeoutId = window.setTimeout(() => {
+      setActionOverlayVisible(false);
+    }, remainingMs);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [actionLoadingCount, actionOverlayVisible, loadingConfig.overlayMinimumMs, loadingConfig.showOnMajorActions]);
 
   if (homeInterface.isLoading || routeInterface.isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50" aria-label={t("app.loading")}>
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <LoadingScreen config={loadingConfig} label={t("app.loadingInterface")} />;
   }
 
-  return <>{children}</>;
+  const showOverlay = routeLoading || actionOverlayVisible;
+
+  return (
+    <>
+      {children}
+      {showOverlay && (
+        <div className="fixed inset-0 z-[100]">
+          <LoadingScreen config={loadingConfig} label={t("app.processingOverlay")} />
+        </div>
+      )}
+    </>
+  );
 };
 
 const App = () => (

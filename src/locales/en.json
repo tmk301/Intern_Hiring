@@ -882,6 +882,32 @@
       "dragDropText": "Drag & drop header image here, or click to select",
       "imageHint": "PNG, JPG, JPEG (max 2MB)",
       "defaultFooter": "This email was sent from InternHiring notification system."
+    },
+    "loadingScreen": {
+      "cardTitle": "Loading page",
+      "cardDescription": "Text, colors, logo and animation",
+      "title": "Loading page",
+      "heading": "Title",
+      "logoUrl": "Logo URL",
+      "message": "Message",
+      "backgroundColor": "Background color",
+      "textColor": "Text color",
+      "secondaryTextColor": "Secondary text color",
+      "accentColor": "Accent color",
+      "overlayMinimumMs": "Minimum display time (ms)",
+      "animationStyle": "Animation",
+      "showOnNavigation": "Show when switching pages",
+      "showOnNavigationHint": "Displays the loading page briefly on route changes.",
+      "showOnMajorActions": "Show on major API actions",
+      "showOnMajorActionsHint": "Displays while create, update, delete, or review requests are running.",
+      "reset": "Reset defaults",
+      "saveSuccess": "Loading page updated.",
+      "saveError": "Could not update loading page.",
+      "animations": {
+        "spinner": "Spinner",
+        "dots": "Dots",
+        "bar": "Progress bar"
+      }
     }
   },
   "notFound": {
@@ -993,7 +1019,11 @@
     }
   },
   "app": {
-    "loading": "Loading application interface"
+    "loading": "Loading application interface",
+    "loadingTitle": "InternHiring",
+    "loadingMessage": "Loading data. Please wait a moment.",
+    "loadingInterface": "Loading interface",
+    "processingOverlay": "Processing request"
   },
   "companyProfile": {
     "noMap": "Chưa cấu hình bản đồ vị trí.",
