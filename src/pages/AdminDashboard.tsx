@@ -1148,7 +1148,7 @@ const AdminDashboard: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{users.length}</div>
-              <p className="text-xs text-muted-foreground" style={adminCardTextStyle("users")}>{uiText("admin.stats.usersDescription", t("admin.stats.usersDescription"))}</p>
+              <p className="text-xs text-slate-500">{uiText("admin.stats.usersDescription", t("admin.stats.usersDescription"))}</p>
             </CardContent>
           </Card>}
 
@@ -1163,7 +1163,7 @@ const AdminDashboard: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{jobs.length}</div>
-              <p className="text-xs text-muted-foreground" style={adminCardTextStyle("jobs")}>{t("admin.stats.trashCount", { count: trashedJobs.length })}</p>
+              <p className="text-xs text-slate-500">{t("admin.stats.trashCount", { count: trashedJobs.length })}</p>
             </CardContent>
           </Card>}
 
@@ -1178,7 +1178,7 @@ const AdminDashboard: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{auditTotal}</div>
-              <p className="text-xs text-muted-foreground" style={adminCardTextStyle("auditLogs")}>{t("admin.stats.auditLogsDescription")}</p>
+              <p className="text-xs text-slate-500">{t("admin.stats.auditLogsDescription")}</p>
             </CardContent>
           </Card>}
 
@@ -1194,7 +1194,7 @@ const AdminDashboard: React.FC = () => {
               {adminCardImage("emailFormat") ? <img src={adminCardImage("emailFormat")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Mail className="h-5 w-5 text-emerald-600" />}
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground" style={adminCardTextStyle("emailFormat")}>
+              <p className="text-sm text-slate-500">
                 {t("admin.stats.emailFormatDescription")}
               </p>
             </CardContent>
@@ -1212,7 +1212,7 @@ const AdminDashboard: React.FC = () => {
               {adminCardImage("loadingScreen") ? <img src={adminCardImage("loadingScreen")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <PanelTop className="h-5 w-5 text-sky-600" />}
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground" style={adminCardTextStyle("loadingScreen")}>
+              <p className="text-sm text-slate-500">
                 {t("admin.loadingScreen.cardDescription")}
               </p>
             </CardContent>
@@ -1228,7 +1228,7 @@ const AdminDashboard: React.FC = () => {
               {adminCardImage("loginBranding") ? <img src={adminCardImage("loginBranding")} alt="" className="h-10 w-10 rounded-md bg-white/80 p-1 object-contain" /> : <Palette className="h-5 w-5 text-amber-600" />}
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground" style={adminCardTextStyle("loginBranding")}>{t("admin.stats.sanityDescription")}</p>
+              <p className="text-sm text-slate-500">{t("admin.stats.sanityDescription")}</p>
             </CardContent>
           </Card>}
         </div>
