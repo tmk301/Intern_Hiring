@@ -77,6 +77,8 @@ const JobDetail: React.FC = () => {
   const [isApplying, setIsApplying] = useState(false);
 
   const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
+  const normalizedRole = user?.role?.toUpperCase();
+  const canViewManagedJob = Boolean(token && (normalizedRole === "ADMIN" || normalizedRole === "MODERATOR"));
 
   useEffect(() => {
     if (!jobId) return;
@@ -86,7 +88,9 @@ const JobDetail: React.FC = () => {
       setLoading(true);
       setErrorMsg(null);
       try {
-        const jobData = await jobApi.getJobDetail(jobId);
+        const jobData = canViewManagedJob && token
+          ? await jobApi.getManagedJobDetail(token, jobId)
+          : await jobApi.getJobDetail(jobId);
         if (!mounted) return;
         setJob(jobData);
 
@@ -117,7 +121,7 @@ const JobDetail: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, [jobId, t]);
+  }, [canViewManagedJob, jobId, t, token]);
 
   useEffect(() => {
     if (!jobId || !token || user?.role !== "CANDIDATE") {
@@ -357,7 +361,7 @@ const JobDetail: React.FC = () => {
                   <>
                     <Separator />
                     <div className="space-y-2 pt-2">
-                      <span className="font-semibold text-slate-700 block text-xs uppercase tracking-wider text-slate-500">
+                      <span className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
                         {t("common.recruiter")}
                       </span>
                       {job.employerName && <div className="text-slate-700 font-medium">{job.employerName}</div>}

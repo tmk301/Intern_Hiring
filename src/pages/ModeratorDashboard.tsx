@@ -45,6 +45,16 @@ import { paginateItems } from "@/lib/pagination.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card.tsx";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog.tsx";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -99,6 +109,8 @@ const getTimeValue = (value?: string | null) => {
   return Number.isNaN(time) ? null : time;
 };
 
+const isTrashedJob = (job: ModeratorJobPost) => Boolean(job.deletedAt);
+
 type CompanyAddress = {
   headOffice?: string;
   province?: string;
@@ -121,6 +133,7 @@ const ModeratorDashboard: React.FC = () => {
   // Modals state
   const [selectedJob, setSelectedJob] = useState<ModeratorJobPost | null>(null);
   const [selectedApplication, setSelectedApplication] = useState<RecruiterApplication | null>(null);
+  const [jobPendingPermanentDelete, setJobPendingPermanentDelete] = useState<ModeratorJobPost | null>(null);
   const [reviewNote, setReviewNote] = useState("");
   const [actionId, setActionId] = useState<string | number | null>(null);
   const [showJobManagement, setShowJobManagement] = useState(true);
@@ -128,6 +141,7 @@ const ModeratorDashboard: React.FC = () => {
 
   // Pagination states
   const [jobPage, setJobPage] = useState(1);
+  const [trashedJobPage, setTrashedJobPage] = useState(1);
   const [jobPageSize, setJobPageSize] = useState(10);
   const [appPage, setAppPage] = useState(1);
   const [appPageSize, setAppPageSize] = useState(10);
@@ -139,7 +153,7 @@ const ModeratorDashboard: React.FC = () => {
   const [jobDateFilter, setJobDateFilter] = useState("");
 
   // Job Sorting
-  type JobSortKey = "title" | "company" | "recruiter" | "createdAt" | "status" | "hidden";
+  type JobSortKey = "title" | "company" | "recruiter" | "createdAt" | "deletedAt" | "status" | "hidden";
   type SortDirection = "asc" | "desc";
   const [jobSort, setJobSort] = useState<{ key: JobSortKey; direction: SortDirection }>({
     key: "createdAt",
@@ -171,7 +185,13 @@ const ModeratorDashboard: React.FC = () => {
 
   useEffect(() => {
     setJobPage(1);
+    setTrashedJobPage(1);
   }, [jobSort]);
+
+  useEffect(() => {
+    setJobPage(1);
+    setTrashedJobPage(1);
+  }, [jobDateFilter, jobSearch, jobStatusFilter, jobVisibilityFilter]);
 
   const [appSearch, setAppSearch] = useState("");
   const [appStatusFilter, setAppStatusFilter] = useState("ALL");
@@ -249,10 +269,12 @@ const ModeratorDashboard: React.FC = () => {
 
   // Stats calculation
   const jobStats = useMemo(() => {
-    const total = jobs.length;
-    const visible = jobs.filter((j) => normalizeReviewStatus(j.status) === "APPROVED" && !j.hidden).length;
-    const hidden = jobs.filter((j) => j.hidden).length;
-    return { total, visible, hidden };
+    const activeJobs = jobs.filter((job) => !isTrashedJob(job));
+    const total = activeJobs.length;
+    const visible = activeJobs.filter((j) => normalizeReviewStatus(j.status) === "APPROVED" && !j.hidden).length;
+    const hidden = activeJobs.filter((j) => j.hidden).length;
+    const trash = jobs.length - activeJobs.length;
+    return { total, visible, hidden, trash };
   }, [jobs]);
 
   const companyStats = useMemo(() => {
@@ -296,12 +318,13 @@ const ModeratorDashboard: React.FC = () => {
   const toggleJobHiddenMutation = useMutation({
     mutationFn: ({ jobId, hidden }: { jobId: string | number; hidden: boolean }) =>
       moderatorApi.toggleJobHidden(token!, jobId, hidden),
-    onSuccess: (_, variables) => {
-      toast.success(variables.hidden ? t("recruiter.toast.hideSuccess") : t("recruiter.toast.showSuccess"));
+    onSuccess: (updatedJob) => {
+      toast.success(updatedJob.hidden ? t("recruiter.toast.hideSuccess") : t("recruiter.toast.showSuccess"));
+      queryClient.setQueriesData<ModeratorJobPost[]>({ queryKey: ["moderator", "allJobs"] }, (currentJobs) =>
+        currentJobs?.map((job) => (String(job.id) === String(updatedJob.id) ? updatedJob : job)),
+      );
       queryClient.invalidateQueries({ queryKey: ["moderator", "allJobs"] });
-      if (selectedJob) {
-        setSelectedJob((prev) => (prev ? { ...prev, hidden: variables.hidden } : null));
-      }
+      setSelectedJob((prev) => (prev && String(prev.id) === String(updatedJob.id) ? updatedJob : prev));
     },
     onError: (error: unknown) => {
       toast.error(getErrorMessage(error, t("recruiter.toast.statusError")));
@@ -311,8 +334,11 @@ const ModeratorDashboard: React.FC = () => {
 
   const trashJobMutation = useMutation({
     mutationFn: (jobId: string | number) => moderatorApi.trashJob(token!, jobId),
-    onSuccess: () => {
+    onSuccess: (updatedJob) => {
       toast.success(t("admin.trashJobSuccess"));
+      queryClient.setQueriesData<ModeratorJobPost[]>({ queryKey: ["moderator", "allJobs"] }, (currentJobs) =>
+        currentJobs?.map((job) => (String(job.id) === String(updatedJob.id) ? updatedJob : job)),
+      );
       queryClient.invalidateQueries({ queryKey: ["moderator", "allJobs"] });
       if (selectedJob) {
         setSelectedJob(null);
@@ -320,6 +346,37 @@ const ModeratorDashboard: React.FC = () => {
     },
     onError: (error: unknown) => {
       toast.error(getErrorMessage(error, t("admin.trashJobError")));
+    },
+    onSettled: () => setActionId(null),
+  });
+
+  const restoreJobMutation = useMutation({
+    mutationFn: (jobId: string | number) => moderatorApi.restoreJob(token!, jobId),
+    onSuccess: (updatedJob) => {
+      toast.success(t("admin.restoreJobSuccess"));
+      queryClient.setQueriesData<ModeratorJobPost[]>({ queryKey: ["moderator", "allJobs"] }, (currentJobs) =>
+        currentJobs?.map((job) => (String(job.id) === String(updatedJob.id) ? updatedJob : job)),
+      );
+      queryClient.invalidateQueries({ queryKey: ["moderator", "allJobs"] });
+    },
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, t("admin.restoreJobError")));
+    },
+    onSettled: () => setActionId(null),
+  });
+
+  const deleteJobPermanentlyMutation = useMutation({
+    mutationFn: (jobId: string | number) => moderatorApi.deleteJobPermanently(token!, jobId),
+    onSuccess: (_, jobId) => {
+      toast.success(t("admin.deleteJobSuccess"));
+      setJobPendingPermanentDelete(null);
+      queryClient.setQueriesData<ModeratorJobPost[]>({ queryKey: ["moderator", "allJobs"] }, (currentJobs) =>
+        currentJobs?.filter((job) => String(job.id) !== String(jobId)),
+      );
+      queryClient.invalidateQueries({ queryKey: ["moderator", "allJobs"] });
+    },
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, t("admin.deleteJobError")));
     },
     onSettled: () => setActionId(null),
   });
@@ -368,6 +425,25 @@ const ModeratorDashboard: React.FC = () => {
     trashJobMutation.mutate(job.id);
   };
 
+  const handleRestoreJob = (job: ModeratorJobPost, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!token) return;
+    setActionId(job.id);
+    restoreJobMutation.mutate(job.id);
+  };
+
+  const handleDeleteJobPermanently = (job: ModeratorJobPost, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!token) return;
+    setJobPendingPermanentDelete(job);
+  };
+
+  const confirmDeleteJobPermanently = () => {
+    if (!token || !jobPendingPermanentDelete) return;
+    setActionId(jobPendingPermanentDelete.id);
+    deleteJobPermanentlyMutation.mutate(jobPendingPermanentDelete.id);
+  };
+
   const handleReviewApplication = (approved: boolean) => {
     if (!token || !selectedApplication) return;
     setActionId(selectedApplication.id);
@@ -378,30 +454,35 @@ const ModeratorDashboard: React.FC = () => {
     });
   };
 
-  // Filtering Job posts
-  const filteredJobs = useMemo(() => {
-    return jobs.filter((job) => {
-      const matchesSearch =
-        !jobSearch ||
-        job.title.toLowerCase().includes(jobSearch.toLowerCase()) ||
-        (job.company || "").toLowerCase().includes(jobSearch.toLowerCase());
+  const activeJobs = useMemo(() => jobs.filter((job) => !isTrashedJob(job)), [jobs]);
+  const trashedJobs = useMemo(() => jobs.filter(isTrashedJob), [jobs]);
 
-      const statusVal = normalizeReviewStatus(job.status);
-      const matchesStatus = jobStatusFilter === "ALL" || statusVal === jobStatusFilter;
+  const applyJobFilters = useCallback(
+    (items: ModeratorJobPost[]) =>
+      items.filter((job) => {
+        const matchesSearch =
+          !jobSearch ||
+          job.title.toLowerCase().includes(jobSearch.toLowerCase()) ||
+          (job.company || "").toLowerCase().includes(jobSearch.toLowerCase());
 
-      const matchesVisibility =
-        jobVisibilityFilter === "ALL" ||
-        (jobVisibilityFilter === "VISIBLE" && statusVal === "APPROVED" && !job.hidden) ||
-        (jobVisibilityFilter === "HIDDEN" && job.hidden);
+        const statusVal = normalizeReviewStatus(job.status);
+        const matchesStatus = jobStatusFilter === "ALL" || statusVal === jobStatusFilter;
+        const matchesVisibility =
+          jobVisibilityFilter === "ALL" ||
+          jobVisibilityFilter === "TRASH" ||
+          (jobVisibilityFilter === "VISIBLE" ? statusVal === "APPROVED" && !job.hidden : job.hidden);
+        const matchesDate = !jobDateFilter || job.createdAt?.slice(0, 10) === jobDateFilter;
 
-      const matchesDate = !jobDateFilter || job.createdAt?.slice(0, 10) === jobDateFilter;
+        return matchesSearch && matchesStatus && matchesVisibility && matchesDate;
+      }),
+    [jobDateFilter, jobSearch, jobStatusFilter, jobVisibilityFilter],
+  );
 
-      return matchesSearch && matchesStatus && matchesVisibility && matchesDate;
-    });
-  }, [jobs, jobSearch, jobStatusFilter, jobVisibilityFilter, jobDateFilter]);
+  const filteredActiveJobs = useMemo(() => applyJobFilters(activeJobs), [activeJobs, applyJobFilters]);
+  const filteredTrashedJobs = useMemo(() => applyJobFilters(trashedJobs), [applyJobFilters, trashedJobs]);
 
-  const sortedJobs = useMemo(() => {
-    return [...filteredJobs].sort((first, second) => {
+  const sortJobs = useCallback((items: ModeratorJobPost[]) => {
+    return [...items].sort((first, second) => {
       switch (jobSort.key) {
         case "title":
           return compareNullable(first.title, second.title, jobSort.direction);
@@ -415,6 +496,8 @@ const ModeratorDashboard: React.FC = () => {
           );
         case "createdAt":
           return compareNullable(getTimeValue(first.createdAt), getTimeValue(second.createdAt), jobSort.direction);
+        case "deletedAt":
+          return compareNullable(getTimeValue(first.deletedAt), getTimeValue(second.deletedAt), jobSort.direction);
         case "status":
           return compareNullable(normalizeReviewStatus(first.status), normalizeReviewStatus(second.status), jobSort.direction);
         case "hidden":
@@ -423,12 +506,22 @@ const ModeratorDashboard: React.FC = () => {
           return 0;
       }
     });
-  }, [filteredJobs, jobSort]);
+  }, [jobSort.direction, jobSort.key]);
+
+  const sortedActiveJobs = useMemo(() => sortJobs(filteredActiveJobs), [filteredActiveJobs, sortJobs]);
+  const sortedTrashedJobs = useMemo(() => sortJobs(filteredTrashedJobs), [filteredTrashedJobs, sortJobs]);
 
   const paginatedJobs = useMemo(
-    () => paginateItems(sortedJobs, jobPage, jobPageSize),
-    [jobPage, jobPageSize, sortedJobs],
+    () => paginateItems(sortedActiveJobs, jobPage, jobPageSize),
+    [jobPage, jobPageSize, sortedActiveJobs],
   );
+
+  const paginatedTrashedJobs = useMemo(
+    () => paginateItems(sortedTrashedJobs, trashedJobPage, jobPageSize),
+    [jobPageSize, sortedTrashedJobs, trashedJobPage],
+  );
+  const showingTrashJobs = jobVisibilityFilter === "TRASH";
+  const currentFilteredJobCount = showingTrashJobs ? filteredTrashedJobs.length : filteredActiveJobs.length;
 
   // Filtering Company verification requests
   const filteredApplications = useMemo(() => {
@@ -731,6 +824,7 @@ const ModeratorDashboard: React.FC = () => {
                       <SelectItem value="ALL">{t("moderator.jobs.allVisibility")}</SelectItem>
                       <SelectItem value="VISIBLE">{t("moderator.jobs.visibleOnly")}</SelectItem>
                       <SelectItem value="HIDDEN">{t("moderator.jobs.hiddenOnly")}</SelectItem>
+                      <SelectItem value="TRASH">{t("admin.jobs.trashTab")}</SelectItem>
                     </SelectContent>
                   </Select>
 
@@ -766,85 +860,117 @@ const ModeratorDashboard: React.FC = () => {
                 <div className="flex justify-center py-16">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
-              ) : filteredJobs.length === 0 ? (
+              ) : currentFilteredJobCount === 0 ? (
                 <div className="rounded-xl border border-dashed py-16 text-center text-sm text-slate-500 bg-slate-50/50">
                   {t("moderator.jobs.empty")}
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="rounded-xl border border-slate-100 overflow-hidden bg-white">
-                    <Table>
-                      <TableHeader className="bg-slate-50/85">
-                        <TableRow>
-                          <TableHead>{renderJobSortableHeader("title", t("admin.jobs.titleColumn"))}</TableHead>
-                          <TableHead>{renderJobSortableHeader("company", t("common.company"))}</TableHead>
-                          <TableHead>{renderJobSortableHeader("recruiter", t("common.recruiter"))}</TableHead>
-                          <TableHead>{renderJobSortableHeader("createdAt", t("admin.jobs.postedDate"))}</TableHead>
-                          <TableHead>{renderJobSortableHeader("status", t("common.status"))}</TableHead>
-                          <TableHead className="w-28 text-center">
-                            <div className="flex justify-center">
-                              {renderJobSortableHeader("hidden", t("admin.jobs.hiddenColumn"))}
-                            </div>
-                          </TableHead>
-                          <TableHead className="text-center">{t("common.actions")}</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {paginatedJobs.items.map((job) => {
-                          const statusVal = normalizeReviewStatus(job.status);
-                          return (
-                            <TableRow
-                              key={job.id}
-                              className="hover:bg-slate-50/50 transition-colors cursor-pointer"
-                              onClick={() => navigate(`/jobs/${job.id}`)}
-                            >
-                              <TableCell className="font-semibold text-slate-900 max-w-[200px] truncate">{job.title}</TableCell>
-                              <TableCell className="text-slate-700">{job.company || "-"}</TableCell>
-                              <TableCell className="text-slate-600 max-w-[150px] truncate">
-                                {job.employerEmail || job.employerName || job.recruiterName || "-"}
-                              </TableCell>
-                              <TableCell className="text-slate-500 text-xs">
-                                {formatModeratorDate(job.createdAt)}
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className={`${getReviewStatusBadgeClassName(job.status)} font-medium`}>
-                                  {t(`admin.jobs.statuses.${statusVal}`, { defaultValue: statusVal })}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="w-28 text-center">
+                  {showingTrashJobs ? (
+                    <>
+                      <div className="rounded-xl border border-slate-100 overflow-hidden bg-white">
+                        <Table>
+                          <TableHeader className="bg-slate-50/85">
+                            <TableRow>
+                              <TableHead>{renderJobSortableHeader("title", t("admin.jobs.titleColumn"))}</TableHead>
+                              <TableHead>{renderJobSortableHeader("company", t("common.company"))}</TableHead>
+                              <TableHead>{renderJobSortableHeader("deletedAt", t("admin.jobs.deletedDate"))}</TableHead>
+                              <TableHead className="text-center">{t("common.actions")}</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {paginatedTrashedJobs.items.map((job) => (
+                              <TableRow key={job.id}>
+                                <TableCell className="font-semibold text-slate-900 max-w-[200px] truncate" title={job.title}>{job.title}</TableCell>
+                                <TableCell className="text-slate-700 max-w-[150px] truncate" title={job.company || ""}>{job.company || "-"}</TableCell>
+                                <TableCell className="text-slate-500 text-xs">{formatModeratorDate(job.deletedAt)}</TableCell>
+                                <TableCell>
+                                  <div className="flex justify-center gap-2">
+                                    <ActionIconButton
+                                      icon={RotateCcw}
+                                      label={t("admin.jobs.restore")}
+                                      variantStyle="restore"
+                                      disabled={actionId === job.id}
+                                      onClick={(e) => handleRestoreJob(job, e)}
+                                    />
+                                    <ActionIconButton
+                                      icon={Trash2}
+                                      label={t("admin.jobs.deletePermanent")}
+                                      variantStyle="delete"
+                                      disabled={actionId === job.id}
+                                      onClick={(e) => handleDeleteJobPermanently(job, e)}
+                                    />
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      <PaginationControls
+                        page={paginatedTrashedJobs.page}
+                        totalPages={paginatedTrashedJobs.totalPages}
+                        onPageChange={setTrashedJobPage}
+                        pageSize={jobPageSize}
+                        onPageSizeChange={setJobPageSize}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <div className="rounded-xl border border-slate-100 overflow-hidden bg-white">
+                        <Table>
+                          <TableHeader className="bg-slate-50/85">
+                            <TableRow>
+                              <TableHead>{renderJobSortableHeader("title", t("admin.jobs.titleColumn"))}</TableHead>
+                              <TableHead>{renderJobSortableHeader("company", t("common.company"))}</TableHead>
+                              <TableHead>{renderJobSortableHeader("recruiter", t("common.recruiter"))}</TableHead>
+                              <TableHead>{renderJobSortableHeader("createdAt", t("admin.jobs.postedDate"))}</TableHead>
+                              <TableHead>{renderJobSortableHeader("status", t("common.status"))}</TableHead>
+                              <TableHead className="w-28 text-center">
                                 <div className="flex justify-center">
-                                  <span
-                                    className={`inline-flex items-center justify-center ${
-                                      job.hidden ? "text-red-700" : "text-emerald-700"
-                                    }`}
-                                    title={job.hidden ? t("admin.jobs.filters.hiddenOnly") : t("admin.jobs.filters.visibleOnly")}
-                                    aria-label={job.hidden ? t("admin.jobs.filters.hiddenOnly") : t("admin.jobs.filters.visibleOnly")}
-                                  >
-                                    {job.hidden ? <XCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-                                  </span>
+                                  {renderJobSortableHeader("hidden", t("admin.jobs.hiddenColumn"))}
                                 </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex flex-wrap justify-center gap-2">
-                                  {statusVal === "PENDING" ? (
-                                    <>
-                                      <ActionIconButton
-                                        icon={CheckCircle2}
-                                        label={t("admin.jobs.approve")}
-                                        variantStyle="approve"
-                                        disabled={actionId === job.id}
-                                        onClick={(e) => handleApproveJob(job, e)}
-                                      />
-                                      <ActionIconButton
-                                        icon={XCircle}
-                                        label={t("admin.jobs.reject")}
-                                        variantStyle="reject"
-                                        disabled={actionId === job.id}
-                                        onClick={(e) => handleRejectJob(job, e)}
-                                      />
-                                    </>
-                                  ) : (
-                                    <>
+                              </TableHead>
+                              <TableHead className="text-center">{t("common.actions")}</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {paginatedJobs.items.map((job) => {
+                              const statusVal = normalizeReviewStatus(job.status);
+                              return (
+                                <TableRow
+                                  key={job.id}
+                                  className="hover:bg-slate-50/50 transition-colors cursor-pointer"
+                                  onClick={() => navigate(`/jobs/${job.id}`)}
+                                >
+                                  <TableCell className="font-semibold text-slate-900 max-w-[200px] truncate">{job.title}</TableCell>
+                                  <TableCell className="text-slate-700">{job.company || "-"}</TableCell>
+                                  <TableCell className="text-slate-600 max-w-[150px] truncate">
+                                    {job.employerEmail || job.employerName || job.recruiterName || "-"}
+                                  </TableCell>
+                                  <TableCell className="text-slate-500 text-xs">
+                                    {formatModeratorDate(job.createdAt)}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant="outline" className={`${getReviewStatusBadgeClassName(job.status)} font-medium`}>
+                                      {t(`admin.jobs.statuses.${statusVal}`, { defaultValue: statusVal })}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="w-28 text-center">
+                                    <div className="flex justify-center">
+                                      <span
+                                        className={`inline-flex items-center justify-center ${
+                                          job.hidden ? "text-red-700" : "text-emerald-700"
+                                        }`}
+                                        title={job.hidden ? t("admin.jobs.filters.hiddenOnly") : t("admin.jobs.filters.visibleOnly")}
+                                        aria-label={job.hidden ? t("admin.jobs.filters.hiddenOnly") : t("admin.jobs.filters.visibleOnly")}
+                                      >
+                                        {job.hidden ? <XCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                                      </span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex flex-wrap justify-center gap-2">
                                       <ActionIconButton
                                         icon={job.hidden ? Eye : EyeOff}
                                         label={t(job.hidden ? "recruiter.jobs.show" : "recruiter.jobs.hide")}
@@ -852,38 +978,55 @@ const ModeratorDashboard: React.FC = () => {
                                         disabled={actionId === job.id}
                                         onClick={(e) => handleToggleJobHidden(job, e)}
                                       />
-                                      <ActionIconButton
-                                        icon={Trash2}
-                                        label={t("admin.jobs.moveToTrash")}
-                                        variantStyle="delete"
-                                        disabled={actionId === job.id}
-                                        onClick={(e) => handleTrashJob(job, e)}
-                                      />
-                                    </>
-                                  )}
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-
-                  <PaginationControls
-                    page={paginatedJobs.page}
-                    totalPages={paginatedJobs.totalPages}
-                    onPageChange={setJobPage}
-                    pageSize={jobPageSize}
-                    onPageSizeChange={setJobPageSize}
-                  />
+                                      {statusVal === "PENDING" ? (
+                                        <>
+                                          <ActionIconButton
+                                            icon={CheckCircle2}
+                                            label={t("admin.jobs.approve")}
+                                            variantStyle="approve"
+                                            disabled={actionId === job.id}
+                                            onClick={(e) => handleApproveJob(job, e)}
+                                          />
+                                          <ActionIconButton
+                                            icon={XCircle}
+                                            label={t("admin.jobs.reject")}
+                                            variantStyle="reject"
+                                            disabled={actionId === job.id}
+                                            onClick={(e) => handleRejectJob(job, e)}
+                                          />
+                                        </>
+                                      ) : (
+                                        <ActionIconButton
+                                          icon={Trash2}
+                                          label={t("admin.jobs.moveToTrash")}
+                                          variantStyle="delete"
+                                          disabled={actionId === job.id}
+                                          onClick={(e) => handleTrashJob(job, e)}
+                                        />
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      <PaginationControls
+                        page={paginatedJobs.page}
+                        totalPages={paginatedJobs.totalPages}
+                        onPageChange={setJobPage}
+                        pageSize={jobPageSize}
+                        onPageSizeChange={setJobPageSize}
+                      />
+                    </>
+                  )}
                 </div>
               )}
             </CardContent>
-            )}
-          </Card>
+          )}
+        </Card>
         </div>
-
         {/* Companies Card */}
         <div ref={companyListRef} className="scroll-mt-6 mt-8">
           <Card className="border border-slate-100 shadow-sm">
@@ -1048,6 +1191,41 @@ const ModeratorDashboard: React.FC = () => {
         </div>
       </section>
 
+      <AlertDialog
+        open={Boolean(jobPendingPermanentDelete)}
+        onOpenChange={(open) => {
+          if (!open && actionId !== jobPendingPermanentDelete?.id) {
+            setJobPendingPermanentDelete(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("admin.jobs.deletePermanent")}</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">{t("admin.deleteJobConfirm")}</span>
+              {jobPendingPermanentDelete && (
+                <span className="block font-medium text-foreground">
+                  {jobPendingPermanentDelete.title}
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionId === jobPendingPermanentDelete?.id}>
+              {t("common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={actionId === jobPendingPermanentDelete?.id}
+              onClick={confirmDeleteJobPermanently}
+            >
+              {t("admin.jobs.deletePermanent")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Selected Job Detail Modal */}
       <Dialog open={Boolean(selectedJob)} onOpenChange={(open) => !open && setSelectedJob(null)}>
         <DialogContent className="max-w-3xl rounded-xl">
@@ -1170,6 +1348,19 @@ const ModeratorDashboard: React.FC = () => {
           )}
 
           <DialogFooter className="gap-2 sm:gap-0 border-t border-slate-100 pt-4">
+            {selectedJob && (
+              <div className="flex gap-2 w-full sm:w-auto mr-auto">
+                <Button
+                  variant="outline"
+                  className="border-slate-200 text-slate-700 hover:bg-slate-50"
+                  onClick={() => handleToggleJobHidden(selectedJob)}
+                  disabled={actionId === selectedJob.id}
+                >
+                  {selectedJob.hidden ? <Eye className="h-4 w-4 mr-1.5" /> : <EyeOff className="h-4 w-4 mr-1.5" />}
+                  {t(selectedJob.hidden ? "recruiter.jobs.show" : "recruiter.jobs.hide")}
+                </Button>
+              </div>
+            )}
             {selectedJob && normalizeReviewStatus(selectedJob.status) === "PENDING" && (
               <div className="flex gap-2 w-full sm:w-auto">
                 <Button
@@ -1192,16 +1383,7 @@ const ModeratorDashboard: React.FC = () => {
               </div>
             )}
             {selectedJob && normalizeReviewStatus(selectedJob.status) !== "PENDING" && (
-              <div className="flex gap-2 w-full sm:w-auto mr-auto">
-                <Button
-                  variant="outline"
-                  className="border-slate-200 text-slate-700 hover:bg-slate-50"
-                  onClick={() => handleToggleJobHidden(selectedJob)}
-                  disabled={actionId === selectedJob.id}
-                >
-                  {selectedJob.hidden ? <Eye className="h-4 w-4 mr-1.5" /> : <EyeOff className="h-4 w-4 mr-1.5" />}
-                  {t(selectedJob.hidden ? "recruiter.jobs.show" : "recruiter.jobs.hide")}
-                </Button>
+              <div className="flex gap-2 w-full sm:w-auto">
                 <Button
                   variant="outline"
                   className="border-red-200 text-red-700 hover:bg-red-50"

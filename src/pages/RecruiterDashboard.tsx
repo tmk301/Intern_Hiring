@@ -773,6 +773,9 @@ const RecruiterDashboard: React.FC = () => {
     setActionId(job.id);
     try {
       const updatedJob = await recruiterApi.updateJobHidden(token, job.id, hidden);
+      setJobs((currentJobs) =>
+        currentJobs.map((currentJob) => (String(currentJob.id) === String(updatedJob.id) ? updatedJob : currentJob)),
+      );
       toast.success(updatedJob.hidden ? t("recruiter.toast.hideSuccess") : t("recruiter.toast.showSuccess"));
       await loadJobs();
     } catch (error: unknown) {

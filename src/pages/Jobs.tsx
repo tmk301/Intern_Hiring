@@ -533,7 +533,10 @@ const Jobs: React.FC = () => {
     if (!updateCoordJob || !token) return;
     setIsUpdating(true);
     try {
-      await jobApi.updateJobCoordinates(token, updateCoordJob.id, Number(coords.lat), Number(coords.lng));
+      const updatedJob = await jobApi.updateJobCoordinates(token, updateCoordJob.id, Number(coords.lat), Number(coords.lng));
+      setJobs((currentJobs) =>
+        currentJobs.map((job) => (String(job.id) === String(updatedJob.id) ? updatedJob : job)),
+      );
       toast({ title: t("toast.success"), description: t("jobs.toast.coordUpdateSuccess") });
       setUpdateCoordJob(null);
       setCoords({ lat: "", lng: "" });

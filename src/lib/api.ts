@@ -239,6 +239,8 @@ export type AdminJobPost = {
   currency?: string | null;
   mode?: string | null;
   experience?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   applicationDeadline?: string | null;
   status?: string;
   hidden: boolean;
@@ -259,6 +261,8 @@ export type RecruiterJobPost = {
   currency: string | null;
   mode: string | null;
   experience: string | null;
+  latitude: number | null;
+  longitude: number | null;
   applicationDeadline: string | null;
   description: string | null;
   status: string | null;
@@ -687,6 +691,7 @@ export type ModeratorJobPost = {
   recruiterName?: string;
   createdAt?: string;
   updatedAt?: string;
+  deletedAt?: string | null;
 };
 
 export const moderatorApi = {
@@ -727,6 +732,18 @@ export const moderatorApi = {
   trashJob: (token: string, jobId: string | number) =>
     apiRequest<ModeratorJobPost>(`/api/moderator/jobs/${encodeURIComponent(String(jobId))}/trash`, {
       method: "PATCH",
+      headers: authHeaders(token),
+    }),
+
+  restoreJob: (token: string, jobId: string | number) =>
+    apiRequest<ModeratorJobPost>(`/api/moderator/jobs/${encodeURIComponent(String(jobId))}/restore`, {
+      method: "PATCH",
+      headers: authHeaders(token),
+    }),
+
+  deleteJobPermanently: (token: string, jobId: string | number) =>
+    apiRequest<void>(`/api/moderator/jobs/${encodeURIComponent(String(jobId))}`, {
+      method: "DELETE",
       headers: authHeaders(token),
     }),
 };
@@ -772,8 +789,15 @@ export const jobApi = {
         apiRequest<PublicJobPost>(`/api/jobs/${encodeURIComponent(String(id))}`, {
             method: "GET",
         }),
+
+    getManagedJobDetail: (token: string, id: string | number) =>
+        apiRequest<PublicJobPost>(`/api/jobs/${encodeURIComponent(String(id))}/management`, {
+            method: "GET",
+            headers: authHeaders(token),
+        }),
+
         updateJobCoordinates: (token: string, jobId: string | number, lat: number, lng: number) =>
-    apiRequest<void>(`/api/jobs/${encodeURIComponent(String(jobId))}/coordinates`, {
+    apiRequest<PublicJobPost>(`/api/jobs/${encodeURIComponent(String(jobId))}/coordinates`, {
       method: "PUT", // Hoặc PATCH tùy theo BE của bạn
       headers: authHeaders(token),
       body: JSON.stringify({ latitude: lat, longitude: lng }),

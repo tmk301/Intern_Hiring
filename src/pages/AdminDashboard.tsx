@@ -910,8 +910,11 @@ const AdminDashboard: React.FC = () => {
 
     setActionId(job.id);
     try {
-      await adminApi.toggleJobHidden(token, job.id, !job.hidden);
-      toast.success(job.hidden ? t("recruiter.toast.showSuccess") : t("recruiter.toast.hideSuccess"));
+      const updatedJob = await adminApi.toggleJobHidden(token, job.id, !job.hidden);
+      setJobs((currentJobs) =>
+        currentJobs.map((currentJob) => (String(currentJob.id) === String(updatedJob.id) ? updatedJob : currentJob)),
+      );
+      toast.success(updatedJob.hidden ? t("recruiter.toast.hideSuccess") : t("recruiter.toast.showSuccess"));
       await loadData();
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : t("recruiter.toast.statusError"));
