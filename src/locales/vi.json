@@ -467,9 +467,9 @@
       "DELETED": "Đã xóa"
     },
     "deleteDialog": {
-      "title": "Xóa bài đăng?",
-      "description": "Hành động này sẽ xóa vĩnh viễn \"{{title}}\" và không thể khôi phục.",
-      "confirm": "Xóa vĩnh viễn"
+      "title": "Chuyển bài đăng vào thùng rác?",
+      "description": "\"{{title}}\" sẽ được chuyển vào thùng rác và tự động xóa vĩnh viễn sau 7 ngày.",
+      "confirm": "Chuyển vào thùng rác"
     },
     "toast": {
       "loadError": "Không thể tải bài đăng của bạn.",
@@ -480,8 +480,8 @@
       "hideSuccess": "Đã ẩn bài đăng.",
       "showSuccess": "Đã hiển thị bài đăng.",
       "statusError": "Không thể cập nhật trạng thái bài đăng.",
-      "deleteSuccess": "Đã xóa vĩnh viễn bài đăng.",
-      "deleteError": "Không thể xóa bài đăng.",
+      "deleteSuccess": "Đã chuyển bài đăng vào thùng rác.",
+      "deleteError": "Không thể chuyển bài đăng vào thùng rác.",
       "companyProfileLoadError": "Không thể tải hồ sơ công ty của bạn.",
       "loadApplicationsError": "Không thể tải danh sách ứng viên.",
       "updateApplicationStatusSuccess": "Đã cập nhật trạng thái hồ sơ.",

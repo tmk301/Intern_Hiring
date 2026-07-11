@@ -161,6 +161,8 @@ const isHiddenJob = (job: RecruiterJob) => job.hidden;
 
 const isDeletedJob = (job: RecruiterJob) => Boolean(job.deleted_at);
 
+const isActiveJob = (job: RecruiterJob) => !isDeletedJob(job);
+
 const formatDate = (value?: string | null, locale = "en-US") => {
   if (!value) return "-";
   const date = new Date(value);
@@ -206,7 +208,7 @@ const formatCompanyAddressOption = (address: CompanyAddressRecord): string => {
 };
 
 const getJobStatusSortValue = (job: RecruiterJob) =>
-  job.hidden ? "HIDDEN" : normalizeStatus(job.status);
+  normalizeStatus(job.status);
 
 const compareNullable = (first: string | number | null, second: string | number | null, direction: SortDirection) => {
   if (first === null && second === null) return 0;
@@ -313,6 +315,7 @@ const RecruiterDashboard: React.FC = () => {
 
   // State bộ lọc bài đăng của tôi
   const [jobFilterStatus, setJobFilterStatus] = useState<string>("ALL");
+  const [jobFilterVisibility, setJobFilterVisibility] = useState<string>("ALL");
   const [jobFilterCreatedAt, setJobFilterCreatedAt] = useState<string>("");
   const [jobFilterDeadline, setJobFilterDeadline] = useState<string>("");
 
@@ -362,8 +365,9 @@ const RecruiterDashboard: React.FC = () => {
   }, [companyProfile]);
   const registeredCompanyName = companyProfile?.companyDisplayName || companyProfile?.companyFullName || "";
   const dateLocale = i18n.language?.startsWith("vi") ? "vi-VN" : "en-US";
-  const visibleJobs = useMemo(() => jobs.filter((job) => !isHiddenJob(job)), [jobs]);
-  const hiddenJobs = useMemo(() => jobs.filter(isHiddenJob), [jobs]);
+  const activeJobs = useMemo(() => jobs.filter(isActiveJob), [jobs]);
+  const visibleJobs = useMemo(() => activeJobs.filter((job) => !isHiddenJob(job)), [activeJobs]);
+  const hiddenJobs = useMemo(() => activeJobs.filter(isHiddenJob), [activeJobs]);
   const acceptedApplications = useMemo(
     () => applications.filter((application) => application.status === "ACCEPTED"),
     [applications],
@@ -387,16 +391,21 @@ const RecruiterDashboard: React.FC = () => {
 
   const filteredJobs = useMemo(() => {
     return sortedJobs.filter((job) => {
-      if (jobFilterStatus !== "ALL") {
+      const deleted = isDeletedJob(job);
+
+      if (jobFilterVisibility === "TRASH") {
+        if (!deleted) return false;
+      } else {
+        if (deleted) return false;
+
         const hidden = isHiddenJob(job);
-        if (jobFilterStatus === "VISIBLE") {
-          if (hidden) return false;
-        } else if (jobFilterStatus === "HIDDEN") {
-          if (!hidden) return false;
-        } else {
-          const normalized = normalizeStatus(job.status);
-          if (normalized !== jobFilterStatus) return false;
-        }
+        if (jobFilterVisibility === "VISIBLE" && hidden) return false;
+        if (jobFilterVisibility === "HIDDEN" && !hidden) return false;
+      }
+
+      if (jobFilterStatus !== "ALL") {
+        const normalized = normalizeStatus(job.status);
+        if (normalized !== jobFilterStatus) return false;
       }
 
       if (jobFilterCreatedAt) {
@@ -419,7 +428,7 @@ const RecruiterDashboard: React.FC = () => {
 
       return true;
     });
-  }, [sortedJobs, jobFilterStatus, jobFilterCreatedAt, jobFilterDeadline, jobSearch]);
+  }, [sortedJobs, jobFilterVisibility, jobFilterStatus, jobFilterCreatedAt, jobFilterDeadline, jobSearch]);
 
   const sortedApplications = useMemo(
     () =>
@@ -462,6 +471,7 @@ const RecruiterDashboard: React.FC = () => {
     () => paginateItems(filteredJobs, jobPage, jobPageSize),
     [jobPage, jobPageSize, filteredJobs],
   );
+  const showingTrashedJobs = jobFilterVisibility === "TRASH";
   const paginatedApplications = useMemo(
     () => paginateItems(filteredApplications, applicationPage, applicationPageSize),
     [applicationPage, applicationPageSize, filteredApplications],
@@ -485,7 +495,7 @@ const RecruiterDashboard: React.FC = () => {
 
   useEffect(() => {
     setJobPage(1);
-  }, [jobSort.direction, jobSort.key, jobFilterStatus, jobFilterCreatedAt, jobFilterDeadline]);
+  }, [jobSort.direction, jobSort.key, jobFilterStatus, jobFilterVisibility, jobFilterCreatedAt, jobFilterDeadline]);
 
   useEffect(() => {
     setApplicationPage(1);
@@ -541,7 +551,7 @@ const RecruiterDashboard: React.FC = () => {
     setLoadingJobs(true);
     try {
       const data = await recruiterApi.listJobs(token);
-      setJobs((data ?? []).filter((job) => !isDeletedJob(job)));
+      setJobs(data ?? []);
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : t("recruiter.toast.loadError"));
       setJobs([]);
@@ -558,7 +568,9 @@ const RecruiterDashboard: React.FC = () => {
   const loadApplications = useCallback(async () => {
     if (!token) return;
 
-    if (jobs.length === 0) {
+    const jobsForApplications = jobs.filter(isActiveJob);
+
+    if (jobsForApplications.length === 0) {
       setApplications([]);
       setLoadingApps(false);
       return;
@@ -567,7 +579,7 @@ const RecruiterDashboard: React.FC = () => {
     setLoadingApps(true);
     try {
       // Gọi API lấy danh sách ứng viên cho từng công việc
-      const promises = jobs.map(job =>
+      const promises = jobsForApplications.map(job =>
         recruiterApi.listJobApplications(token, job.id).catch(() => [])
       );
 
@@ -1238,11 +1250,20 @@ const RecruiterDashboard: React.FC = () => {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="ALL">{t("recruiter.jobs.allStatuses")}</SelectItem>
-                          <SelectItem value="VISIBLE">{t("recruiter.stats.visible")}</SelectItem>
-                          <SelectItem value="HIDDEN">{t("recruiter.status.HIDDEN")}</SelectItem>
                           <SelectItem value="PENDING">{t("recruiter.status.PENDING")}</SelectItem>
                           <SelectItem value="APPROVED">{t("recruiter.status.APPROVED")}</SelectItem>
                           <SelectItem value="REJECTED">{t("recruiter.status.REJECTED")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select value={jobFilterVisibility} onValueChange={setJobFilterVisibility}>
+                        <SelectTrigger id="job-filter-visibility" className="w-full sm:w-40 h-10 bg-white">
+                          <SelectValue placeholder={t("admin.jobs.filters.hidden")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ALL">{t("admin.jobs.filters.allVisibility")}</SelectItem>
+                          <SelectItem value="VISIBLE">{t("admin.jobs.filters.visibleOnly")}</SelectItem>
+                          <SelectItem value="HIDDEN">{t("admin.jobs.filters.hiddenOnly")}</SelectItem>
+                          <SelectItem value="TRASH">{t("admin.jobs.trashTab")}</SelectItem>
                         </SelectContent>
                       </Select>
                       <Input
@@ -1267,11 +1288,18 @@ const RecruiterDashboard: React.FC = () => {
                         onClick={() => {
                           setJobSearch("");
                           setJobFilterStatus("ALL");
+                          setJobFilterVisibility("ALL");
                           setJobFilterCreatedAt("");
                           setJobFilterDeadline("");
                         }}
                         className="w-auto"
-                        disabled={!jobSearch && jobFilterStatus === "ALL" && !jobFilterCreatedAt && !jobFilterDeadline}
+                        disabled={
+                          !jobSearch &&
+                          jobFilterStatus === "ALL" &&
+                          jobFilterVisibility === "ALL" &&
+                          !jobFilterCreatedAt &&
+                          !jobFilterDeadline
+                        }
                       >
                         <RotateCcw className="h-4 w-4 mr-2" />
                         {t("jobs.filters.reset")}
@@ -1291,7 +1319,11 @@ const RecruiterDashboard: React.FC = () => {
                   <TableRow>
                     {renderJobSortableHeader("title", t("recruiter.form.jobTitle"))}
                     {renderJobSortableHeader("type", t("recruiter.form.type"))}
-                    {renderJobSortableHeader("applicationDeadline", t("recruiter.jobs.applicationDeadline"), "text-center")}
+                    {showingTrashedJobs ? (
+                      <TableHead className="text-center">{t("admin.jobs.deletedDate")}</TableHead>
+                    ) : (
+                      renderJobSortableHeader("applicationDeadline", t("recruiter.jobs.applicationDeadline"), "text-center")
+                    )}
                     {renderJobSortableHeader("status", t("recruiter.jobs.status"))}
                     {renderJobSortableHeader("createdAt", t("recruiter.jobs.createdAt"))}
                     <TableHead className="text-center">{t("common.actions")}</TableHead>
@@ -1301,12 +1333,21 @@ const RecruiterDashboard: React.FC = () => {
                   {paginatedJobs.items.map((job) => {
                     const status = normalizeStatus(job.status);
                     const hidden = isHiddenJob(job);
+                    const deleted = isDeletedJob(job);
 
                     return (
-                      <TableRow key={job.id} className="cursor-pointer hover:bg-slate-50/50" onClick={() => navigate(`/jobs/${job.id}`)}>
+                      <TableRow
+                        key={job.id}
+                        className={`${deleted ? "" : "cursor-pointer"} hover:bg-slate-50/50`}
+                        onClick={() => {
+                          if (!deleted) navigate(`/jobs/${job.id}`);
+                        }}
+                      >
                         <TableCell className="font-semibold text-slate-900 max-w-[200px] truncate" title={job.title || ""}>{job.title || "-"}</TableCell>
                         <TableCell className="text-slate-700 max-w-[150px] truncate" title={job.type || ""}>{job.type || "-"}</TableCell>
-                        <TableCell className="text-center">{formatDateOnly(job.applicationDeadline, dateLocale)}</TableCell>
+                        <TableCell className="text-center">
+                          {showingTrashedJobs ? formatDate(job.deleted_at, dateLocale) : formatDateOnly(job.applicationDeadline, dateLocale)}
+                        </TableCell>
                         <TableCell>
                           <Badge variant="outline" className={getReviewStatusBadgeClassName(job.status)}>
                             {t(`recruiter.status.${status}`, { defaultValue: status })}
@@ -1315,44 +1356,52 @@ const RecruiterDashboard: React.FC = () => {
                         <TableCell className="text-slate-500 text-xs">{formatDate(job.created_at, dateLocale)}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap justify-center gap-2">
-                            {hidden ? (
-                              <ActionIconButton
-                                icon={Eye}
-                                label={t("recruiter.jobs.show")}
-                                variantStyle="show"
-                                disabled={actionId === job.id}
-                                onClick={(e) => { e.stopPropagation(); updateJobHidden(job, false); }}
-                              />
+                            {deleted ? (
+                              <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-700">
+                                {t("admin.jobs.trashTab")}
+                              </Badge>
                             ) : (
-                              <ActionIconButton
-                                icon={EyeOff}
-                                label={t("recruiter.jobs.hide")}
-                                variantStyle="hide"
-                                disabled={actionId === job.id}
-                                onClick={(e) => { e.stopPropagation(); updateJobHidden(job, true); }}
-                              />
+                              <>
+                                {hidden ? (
+                                  <ActionIconButton
+                                    icon={Eye}
+                                    label={t("recruiter.jobs.show")}
+                                    variantStyle="show"
+                                    disabled={actionId === job.id}
+                                    onClick={(e) => { e.stopPropagation(); updateJobHidden(job, false); }}
+                                  />
+                                ) : (
+                                  <ActionIconButton
+                                    icon={EyeOff}
+                                    label={t("recruiter.jobs.hide")}
+                                    variantStyle="hide"
+                                    disabled={actionId === job.id}
+                                    onClick={(e) => { e.stopPropagation(); updateJobHidden(job, true); }}
+                                  />
+                                )}
+                                <ActionIconButton
+                                  icon={Pencil}
+                                  label={t("recruiter.jobs.edit")}
+                                  variantStyle="show"
+                                  disabled={actionId === job.id}
+                                  onClick={(e) => { e.stopPropagation(); startEditJob(job); }}
+                                />
+                                <ActionIconButton
+                                  icon={History}
+                                  label={t("recruiter.jobs.history")}
+                                  variantStyle="hide"
+                                  disabled={actionId === job.id}
+                                  onClick={(e) => { e.stopPropagation(); openJobHistory(job); }}
+                                />
+                                <ActionIconButton
+                                  icon={Trash2}
+                                  label={t("admin.jobs.moveToTrash")}
+                                  variantStyle="delete"
+                                  disabled={actionId === job.id}
+                                  onClick={(e) => { e.stopPropagation(); setJobPendingDelete(job); }}
+                                />
+                              </>
                             )}
-                            <ActionIconButton
-                              icon={Pencil}
-                              label={t("recruiter.jobs.edit")}
-                              variantStyle="show"
-                              disabled={actionId === job.id}
-                              onClick={(e) => { e.stopPropagation(); startEditJob(job); }}
-                            />
-                            <ActionIconButton
-                              icon={History}
-                              label={t("recruiter.jobs.history")}
-                              variantStyle="hide"
-                              disabled={actionId === job.id}
-                              onClick={(e) => { e.stopPropagation(); openJobHistory(job); }}
-                            />
-                            <ActionIconButton
-                              icon={Trash2}
-                              label={t("recruiter.jobs.delete")}
-                              variantStyle="delete"
-                              disabled={actionId === job.id}
-                              onClick={(e) => { e.stopPropagation(); setJobPendingDelete(job); }}
-                            />
                           </div>
                         </TableCell>
                       </TableRow>

@@ -454,9 +454,9 @@
       "DELETED": "Deleted"
     },
     "deleteDialog": {
-      "title": "Delete job post?",
-      "description": "This will permanently delete \"{{title}}\". This action cannot be undone.",
-      "confirm": "Delete permanently"
+      "title": "Move job post to trash?",
+      "description": "\"{{title}}\" will be moved to trash and automatically deleted permanently after 7 days.",
+      "confirm": "Move to trash"
     },
     "toast": {
       "loadError": "Could not load your job posts.",
@@ -468,8 +468,8 @@
       "hideSuccess": "Job post hidden.",
       "showSuccess": "Job post visible.",
       "statusError": "Could not update job status.",
-      "deleteSuccess": "Job post deleted permanently.",
-      "deleteError": "Could not delete job post."
+      "deleteSuccess": "Job post moved to trash.",
+      "deleteError": "Could not move job post to trash."
     }
   },
   "profile": {

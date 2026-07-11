@@ -133,6 +133,7 @@ const ModeratorDashboard: React.FC = () => {
   // Modals state
   const [selectedJob, setSelectedJob] = useState<ModeratorJobPost | null>(null);
   const [selectedApplication, setSelectedApplication] = useState<RecruiterApplication | null>(null);
+  const [jobPendingTrash, setJobPendingTrash] = useState<ModeratorJobPost | null>(null);
   const [jobPendingPermanentDelete, setJobPendingPermanentDelete] = useState<ModeratorJobPost | null>(null);
   const [reviewNote, setReviewNote] = useState("");
   const [actionId, setActionId] = useState<string | number | null>(null);
@@ -336,6 +337,7 @@ const ModeratorDashboard: React.FC = () => {
     mutationFn: (jobId: string | number) => moderatorApi.trashJob(token!, jobId),
     onSuccess: (updatedJob) => {
       toast.success(t("admin.trashJobSuccess"));
+      setJobPendingTrash(null);
       queryClient.setQueriesData<ModeratorJobPost[]>({ queryKey: ["moderator", "allJobs"] }, (currentJobs) =>
         currentJobs?.map((job) => (String(job.id) === String(updatedJob.id) ? updatedJob : job)),
       );
@@ -420,9 +422,7 @@ const ModeratorDashboard: React.FC = () => {
   const handleTrashJob = (job: ModeratorJobPost, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (!token) return;
-    if (!window.confirm(t("admin.trashJobConfirm"))) return;
-    setActionId(job.id);
-    trashJobMutation.mutate(job.id);
+    setJobPendingTrash(job);
   };
 
   const handleRestoreJob = (job: ModeratorJobPost, e?: React.MouseEvent) => {
@@ -442,6 +442,12 @@ const ModeratorDashboard: React.FC = () => {
     if (!token || !jobPendingPermanentDelete) return;
     setActionId(jobPendingPermanentDelete.id);
     deleteJobPermanentlyMutation.mutate(jobPendingPermanentDelete.id);
+  };
+
+  const confirmTrashJob = () => {
+    if (!token || !jobPendingTrash) return;
+    setActionId(jobPendingTrash.id);
+    trashJobMutation.mutate(jobPendingTrash.id);
   };
 
   const handleReviewApplication = (approved: boolean) => {
@@ -1190,6 +1196,36 @@ const ModeratorDashboard: React.FC = () => {
           </Card>
         </div>
       </section>
+
+      <AlertDialog
+        open={Boolean(jobPendingTrash)}
+        onOpenChange={(open) => {
+          if (!open && actionId !== jobPendingTrash?.id) {
+            setJobPendingTrash(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("recruiter.deleteDialog.title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("recruiter.deleteDialog.description", { title: jobPendingTrash?.title || "-" })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionId === jobPendingTrash?.id}>
+              {t("common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={actionId === jobPendingTrash?.id}
+              onClick={confirmTrashJob}
+            >
+              {t("recruiter.deleteDialog.confirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={Boolean(jobPendingPermanentDelete)}

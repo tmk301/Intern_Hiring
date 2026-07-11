@@ -2168,12 +2168,12 @@ const AdminDashboard: React.FC = () => {
             <AlertDialogTitle>
               {jobPendingDelete?.mode === "permanent"
                 ? t("admin.jobs.deletePermanent")
-                : t("admin.jobs.moveToTrash")}
+                : t("recruiter.deleteDialog.title")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {jobPendingDelete?.mode === "permanent"
                 ? t("admin.deleteJobConfirm")
-                : t("admin.trashJobConfirm")}
+                : t("recruiter.deleteDialog.description", { title: jobPendingDelete?.job.title || "-" })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -2187,7 +2187,7 @@ const AdminDashboard: React.FC = () => {
             >
               {jobPendingDelete?.mode === "permanent"
                 ? t("admin.jobs.deletePermanent")
-                : t("admin.jobs.moveToTrash")}
+                : t("recruiter.deleteDialog.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
