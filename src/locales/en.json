@@ -75,14 +75,15 @@
     "login": "Log in",
     "register": "Register",
     "admin": "Admin",
+    "moderator": "Moderator",
     "search": "Search",
     "about": "About",
     "featured": "Featured",
     "jobs": "Jobs",
     "partners": "Partners",
     "recruitment": "Recruitment",
-    "recruiterDashboard": "Recruiter dashboard",
-    "applications": "Applications",
+    "recruiter": "Recruiter",
+    "candidate": "Candidate",
     "auditLog": "Audit log"
   },
   "notifications": {
@@ -564,7 +565,7 @@
   },
   "moderator": {
     "badge": "Moderator",
-    "title": "Moderator Dashboard",
+    "title": "Moderator dashboard",
     "description": "Manage and approve job posts and company verification requests across the system.",
     "stats": {
       "pendingTitle": "Pending job posts",
@@ -610,7 +611,7 @@
     "rejectReasonPlaceholder": "Nhập lý do nếu từ chối yêu cầu..."
   },
   "candidateDashboard": {
-    "title": "Applications",
+    "title": "Candidate dashboard",
     "description": "Track all submitted profiles and positions approved by companies.",
     "submitted": "Submitted",
     "accepted": "Approved",
@@ -795,7 +796,7 @@
     },
     "auditLogs": {
       "loadError": "Unable to load audit logs.",
-      "title": "Admin activity audit log",
+      "title": "Audit log",
       "action": "Action",
       "targetType": "Target type",
       "allActions": "All actions",

@@ -205,9 +205,9 @@ export const applicationsPageContent = defineType({
       en: 'Career dossier'
     }).map((field) => ({...field, fieldset: 'hero'})),
     ...localized('heroTitle', 'Hero Title', 'string', {
-      default: 'Ứng tuyển',
-      vi: 'Ứng tuyển',
-      en: 'Applications'
+      default: 'Trang ứng viên',
+      vi: 'Trang ứng viên',
+      en: 'Candidate Dashboard'
     }).map((field) => ({...field, fieldset: 'hero'})),
     ...localized('heroDescription', 'Hero Description', 'text', {
       default: 'Theo dõi toàn bộ hồ sơ đã gửi và những vị trí đã được công ty duyệt.',
@@ -420,8 +420,8 @@ export const adminPageContent = defineType({
 
     {...sectionToggle('auditPanelVisible', 'Show Audit Logs Panel List'), fieldset: 'panels'},
     ...localized('auditPanelTitle', 'Audit Panel Title', 'string', {
-      default: 'Audit log',
-      vi: 'Nhật ký hệ thống',
+      default: 'Nhật ký chỉnh sửa',
+      vi: 'Nhật ký chỉnh sửa',
       en: 'System audit logs'
     }).map((field) => ({...field, fieldset: 'panels'})),
   ],

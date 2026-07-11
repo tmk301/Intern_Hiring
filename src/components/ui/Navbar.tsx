@@ -160,17 +160,17 @@ const Navbar = () => {
                     )}
                     {showRecruiterLink && (
                       <DropdownMenuItem asChild>
-                        <Link to="/recruiter">{t("nav.recruiterDashboard")}</Link>
+                        <Link to="/recruiter">{t("nav.recruiter")}</Link>
                       </DropdownMenuItem>
                     )}
                     {showModeratorLink && (
                       <DropdownMenuItem asChild>
-                        <Link to="/moderator">Moderator</Link>
+                        <Link to="/moderator">{t("nav.moderator")}</Link>
                       </DropdownMenuItem>
                     )}
                     {showApplicationsLink && (
                       <DropdownMenuItem asChild>
-                        <Link to="/applications">{t("nav.applications")}</Link>
+                        <Link to="/applications">{t("nav.candidate")}</Link>
                       </DropdownMenuItem>
                     )}
                     {showProfileLink && (
@@ -254,19 +254,19 @@ const Navbar = () => {
                         {showRecruiterLink && (
                           <Link to="/recruiter" className="mb-2 flex items-center gap-2 rounded-md p-2 hover:bg-muted transition">
                             <UserIcon className="h-4 w-4" />
-                            <span className="text-sm font-medium">{t("nav.recruiterDashboard")}</span>
+                            <span className="text-sm font-medium">{t("nav.recruiter")}</span>
                           </Link>
                         )}
                         {showModeratorLink && (
                           <Link to="/moderator" className="mb-2 flex items-center gap-2 rounded-md p-2 hover:bg-muted transition">
                             <UserIcon className="h-4 w-4" />
-                            <span className="text-sm font-medium">Moderator</span>
+                            <span className="text-sm font-medium">{t("nav.moderator")}</span>
                           </Link>
                         )}
                         {showApplicationsLink && (
                           <Link to="/applications" className="mb-2 flex items-center gap-2 rounded-md p-2 hover:bg-muted transition">
                             <UserIcon className="h-4 w-4" />
-                            <span className="text-sm font-medium">{t("nav.applications")}</span>
+                            <span className="text-sm font-medium">{t("nav.candidate")}</span>
                           </Link>
                         )}
                         {showProfileLink && (

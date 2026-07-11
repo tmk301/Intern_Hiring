@@ -286,7 +286,7 @@ export default defineConfig({
         ],
         [
           textItem('applications.hero.badge', 'Hero Eyebrow Badge', 'Career dossier'),
-          textItem('applications.hero.title', 'Hero Title', 'Ứng tuyển'),
+          textItem('applications.hero.title', 'Hero Title', 'Trang ứng viên', 'Trang ứng viên', 'Candidate Dashboard'),
           textItem('applications.hero.description', 'Hero Description', 'Theo dõi toàn bộ hồ sơ đã gửi và những vị trí đã được công ty duyệt.'),
           textItem('applications.tabs.submitted', 'Submitted Tab Label', 'Đã gửi'),
           textItem('applications.tabs.accepted', 'Approved Tab Label', 'Đã được duyệt'),
@@ -349,7 +349,7 @@ export default defineConfig({
           textItem('admin.users.title', 'User Accounts Table Title', 'Danh sách tài khoản người dùng'),
           textItem('admin.jobs.title', 'Job Posts Section Title', 'Tin tuyển dụng'),
           textItem('admin.emailFormat.title', 'Email Design Panel Title', 'Email format'),
-          textItem('admin.auditLogs.title', 'Audit Logs Panel Title', 'Audit log'),
+          textItem('admin.auditLogs.title', 'Audit Logs Panel Title', 'Nhật ký chỉnh sửa', 'Nhật ký chỉnh sửa', 'Audit log'),
         ],
         adminTheme,
       ),

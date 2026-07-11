@@ -335,7 +335,7 @@ const Applications = () => {
               <Badge variant="outline" className={`mb-3 px-5 py-2 text-sm ${getRoleBadgeDarkClassName(USER_ROLES.CANDIDATE)}`}>
                 {t("role.CANDIDATE")}
               </Badge>
-              <h1 className="text-3xl font-bold text-white">{uiText("applications.hero.title", t("candidateDashboard.title"))}</h1>
+              <h1 className="text-3xl font-bold text-white">{t("candidateDashboard.title")}</h1>
               <p className="mt-2 text-sm text-blue-100/90">
                 {uiText("applications.hero.description", t("candidateDashboard.description"))}
               </p>

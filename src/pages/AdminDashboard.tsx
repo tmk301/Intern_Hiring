@@ -2050,7 +2050,7 @@ const AdminDashboard: React.FC = () => {
             {activeSection === "audit-logs" && pageContent.auditPanelVisible !== false && (
               <Card>
                 <CardHeader>
-                  <CardTitle>{uiText("admin.auditLogs.title", t("admin.auditLogs.title"))}</CardTitle>
+                  <CardTitle>{t("admin.auditLogs.title")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
