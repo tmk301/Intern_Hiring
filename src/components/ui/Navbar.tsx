@@ -89,10 +89,12 @@ const Navbar = () => {
         return;
       }
 
-      document.getElementById(targetId)?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
+      const target = document.getElementById(targetId);
+      if (!target) return;
+
+      const navbarOffset = 80;
+      const targetTop = target.getBoundingClientRect().top + window.scrollY - navbarOffset;
+      window.scrollTo({ top: Math.max(targetTop, 0), behavior: "smooth" });
     }, 80);
   };
 
@@ -113,7 +115,7 @@ const Navbar = () => {
 
   return (
     <nav
-      className="sticky top-0 z-50 w-full border-b shadow-sm"
+      className="fixed left-0 right-0 top-0 z-50 w-full border-b shadow-sm"
       style={{backgroundColor: navbar.isEnabled ? navbar.backgroundColor || "#ffffff" : "#ffffff"}}
     >
       <div className="container mx-auto relative flex h-16 items-center px-4">

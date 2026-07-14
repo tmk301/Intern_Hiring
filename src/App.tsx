@@ -302,28 +302,30 @@ const App = () => (
           <ScrollToTop />
           <SanityContentGate>
             <Navbar />
-            <RestrictedAccountBanner />
-            <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/jobs" element={<Jobs />} />
-            <Route path="/jobs/:jobId" element={<JobDetail />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/companies/:companyId" element={<CompanyProfile />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-            <Route path="/admin/users/:userId" element={<AdminRoute><AdminUserProfile /></AdminRoute>} />
-            <Route path="/admin/company-reviews/:applicationId" element={<AdminOrModeratorRoute><AdminCompanyReview /></AdminOrModeratorRoute>} />
-            <Route path="/recruiter" element={<RecruiterRoute><RecruiterDashboard /></RecruiterRoute>} />
-            <Route path="/recruiter-verification" element={<CandidateOrRecruiterRoute><RecruiterVerification /></CandidateOrRecruiterRoute>} />
-            <Route path="/moderator" element={<ModeratorRoute><ModeratorDashboard /></ModeratorRoute>} />
-            <Route path="/applications" element={<CandidateRoute><Applications /></CandidateRoute>} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-            </Routes>
-            <SanityCustomSections />
+            <div className="pt-16">
+              <RestrictedAccountBanner />
+              <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/jobs" element={<Jobs />} />
+              <Route path="/jobs/:jobId" element={<JobDetail />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/companies/:companyId" element={<CompanyProfile />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+              <Route path="/admin/users/:userId" element={<AdminRoute><AdminUserProfile /></AdminRoute>} />
+              <Route path="/admin/company-reviews/:applicationId" element={<AdminOrModeratorRoute><AdminCompanyReview /></AdminOrModeratorRoute>} />
+              <Route path="/recruiter" element={<RecruiterRoute><RecruiterDashboard /></RecruiterRoute>} />
+              <Route path="/recruiter-verification" element={<CandidateOrRecruiterRoute><RecruiterVerification /></CandidateOrRecruiterRoute>} />
+              <Route path="/moderator" element={<ModeratorRoute><ModeratorDashboard /></ModeratorRoute>} />
+              <Route path="/applications" element={<CandidateRoute><Applications /></CandidateRoute>} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+              </Routes>
+              <SanityCustomSections />
+            </div>
           </SanityContentGate>
         </BrowserRouter>
       </AuthProvider>
