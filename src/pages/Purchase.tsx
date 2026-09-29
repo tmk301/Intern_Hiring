@@ -99,7 +99,7 @@ export const Purchase: React.FC = () => {
       return;
     }
 
-    const targetPlanId = planId || (order ? order.plan.id : selectedPlanId);
+    const targetPlanId = planId || order?.planId || selectedPlanId;
     if (!targetPlanId) return;
 
     try {
@@ -586,7 +586,7 @@ export const Purchase: React.FC = () => {
 
                       <div className="pt-2">
                         <Button
-                          onClick={() => handleStripeCheckout(order.plan.id)}
+                          onClick={() => handleStripeCheckout(order.planId)}
                           disabled={processing}
                           className="w-full py-6 font-bold text-base bg-[#635BFF] hover:bg-[#5851EA] text-white rounded-2xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2"
                         >
