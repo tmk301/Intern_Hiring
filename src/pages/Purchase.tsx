@@ -510,6 +510,10 @@ export const Purchase: React.FC = () => {
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
                                   <Clock className="w-3 h-3" /> Đang chờ
                                 </span>
+                              ) : ord.status === "EXPIRED" ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-500">
+                                  <Clock className="w-3 h-3 text-slate-400" /> Hết hạn (quá 15p)
+                                </span>
                               ) : ord.status === "CANCELLED" ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600">
                                   Đã hủy

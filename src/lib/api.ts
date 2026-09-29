@@ -856,7 +856,7 @@ export type OrderResponse = {
   planName: string;
   amount: number;
   currency: string;
-  status: "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED";
+  status: "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED" | "EXPIRED";
   paymentMethod: string;
   transactionId?: string;
   createdAt: string;
