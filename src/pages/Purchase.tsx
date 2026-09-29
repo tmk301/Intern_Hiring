@@ -99,8 +99,7 @@ export const Purchase: React.FC = () => {
       return;
     }
 
-    const targetPlanId = planId || order?.planId || selectedPlanId;
-    if (!targetPlanId) return;
+    const targetPlanId = planId || order?.planId || (order?.planName?.includes("Năm") ? 2 : 1) || selectedPlanId || plans[0]?.id || 1;
 
     try {
       setProcessing(true);
@@ -187,8 +186,8 @@ export const Purchase: React.FC = () => {
       return;
     }
 
-    const targetPlanId = planId || selectedPlanId;
-    if (!targetPlanId) return;
+    const targetPlanId = planId || selectedPlanId || plans[0]?.id || 1;
+    setSelectedPlanId(targetPlanId);
 
     try {
       setLoading(true);
@@ -209,6 +208,8 @@ export const Purchase: React.FC = () => {
 
   const handleResumeOrder = (ord: OrderResponse) => {
     setOrder(ord);
+    const planId = ord.planId || (ord.planName?.includes("Năm") ? 2 : 1);
+    setSelectedPlanId(planId);
     if (ord.paymentMethod === "STRIPE") {
       setPaymentTab("STRIPE");
     } else if (ord.paymentMethod === "CREDIT_CARD") {
@@ -655,7 +656,7 @@ export const Purchase: React.FC = () => {
 
                       <div className="pt-2">
                         <Button
-                          onClick={() => handleStripeCheckout(order.planId)}
+                          onClick={() => handleStripeCheckout(order.planId || (order.planName?.includes("Năm") ? 2 : 1))}
                           disabled={processing}
                           className="w-full py-6 font-bold text-base bg-[#635BFF] hover:bg-[#5851EA] text-white rounded-2xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2"
                         >
