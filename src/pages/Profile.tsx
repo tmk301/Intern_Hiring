@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { userApi, CvItem, recruiterApi, CompanyProfile, RecruiterApplication, isApiError } from "@/lib/api";
@@ -16,9 +16,12 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AvatarCropDialog } from "@/components/AvatarCropDialog";
+import { MemberBadge, isUserMember } from "@/components/MemberBadge";
+import { MembershipModal } from "@/components/MembershipModal";
 import {
   ArrowLeft,
   Camera,
+  Crown,
   Save,
   User as UserIcon,
   Mail,
@@ -183,6 +186,7 @@ const Profile = () => {
   const [isUploadingResume, setIsUploadingResume] = useState(false);
   const [isCvManagerOpen, setIsCvManagerOpen] = useState(false);
   const [isCropDialogOpen, setIsCropDialogOpen] = useState(false);
+  const [isMembershipModalOpen, setIsMembershipModalOpen] = useState(false);
   const [cropImageSrc, setCropImageSrc] = useState("");
   const [formData, setFormData] = useState({
     firstName: user?.firstName || "",
@@ -301,13 +305,13 @@ const Profile = () => {
     return (
       <main className="flex h-[calc(100dvh-4rem)] items-center justify-center bg-gradient-subtle">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </main>
+        
+    </main>
     );
   }
 
   if (!user || !token) {
-    navigate("/login");
-    return null;
+    return <Navigate to="/login" replace />;
   }
 
   const profileThemeColor = user.themeColor || "#2563eb";
@@ -751,8 +755,9 @@ const Profile = () => {
                       <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
                     </div>
 
-                    <h3 className="text-lg font-bold text-center">
-                      {user.lastName} {user.firstName}
+                    <h3 className="text-lg font-bold text-center flex items-center justify-center gap-2 flex-wrap">
+                      <span>{user.lastName} {user.firstName}</span>
+                      {isUserMember(user) && <MemberBadge size="sm" />}
                     </h3>
                     <p className="text-sm text-muted-foreground text-center">{user.email}</p>
                     <div
@@ -764,6 +769,39 @@ const Profile = () => {
                       <Shield className="h-3 w-3" />
                       {t(`role.${normalizeRoleName(user.role)}`, { defaultValue: user.role })}
                     </div>
+
+                    {isUserMember(user) ? (
+                      <div className="mt-3 p-3 rounded-2xl bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-600/15 border border-amber-400/40 shadow-sm text-center space-y-1.5">
+                        <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-amber-800 dark:text-amber-300">
+                          <Crown className="w-4 h-4 text-amber-500 fill-amber-500" />
+                          <span>HỘI VIÊN CHÍNH THỨC (ACTIVE)</span>
+                        </div>
+                        {user.memberExpireAt && (
+                          <p className="text-[11px] text-amber-900/80 font-medium">
+                            Thời hạn đến: {new Date(user.memberExpireAt).toLocaleDateString("vi-VN")}
+                          </p>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => navigate("/purchase")}
+                          className="text-xs h-7 border-amber-300 bg-white/80 hover:bg-white text-amber-800 font-semibold"
+                        >
+                          Quản lý / Gia hạn gói
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="mt-3 text-center">
+                        <Button
+                          size="sm"
+                          onClick={() => navigate("/purchase")}
+                          className="bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold text-xs h-8 px-4 rounded-xl shadow-sm shadow-amber-500/20"
+                        >
+                          <Crown className="w-3.5 h-3.5 mr-1.5 fill-current" />
+                          Nâng cấp Member
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </Card>
 

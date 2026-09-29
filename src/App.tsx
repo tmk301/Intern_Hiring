@@ -15,6 +15,7 @@ import Auth from "./pages/Auth";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Profile from "./pages/Profile";
+import Purchase from "./pages/Purchase";
 import ResetPasswordPage from "./pages/ResetPassword";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminCompanyReview from "./pages/AdminCompanyReview";
@@ -312,6 +313,8 @@ const App = () => (
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/purchase" element={<Purchase />} />
+              <Route path="/membership" element={<Purchase />} />
               <Route path="/companies/:companyId" element={<CompanyProfile />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />

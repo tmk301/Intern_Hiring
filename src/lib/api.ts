@@ -123,6 +123,9 @@ export type ApiUser = {
   status?: string;
   restricted?: boolean;
   isRestricted?: boolean;
+  isMember?: boolean;
+  member?: boolean;
+  memberExpireAt?: string;
   avatarUrl?: string;
   phoneNumber?: string;
   gender?: string;
@@ -835,3 +838,78 @@ export const candidateApi = {
       headers: authHeaders(token),
     }),
 };
+
+export type SubscriptionPlan = {
+  id: number;
+  code: string;
+  name: string;
+  description: string;
+  price: number;
+  billingCycle: "MONTHLY" | "YEARLY";
+  durationDays: number;
+};
+
+export type OrderResponse = {
+  id: number;
+  orderCode: string;
+  planId: number;
+  planName: string;
+  amount: number;
+  currency: string;
+  status: "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED";
+  paymentMethod: string;
+  transactionId?: string;
+  createdAt: string;
+  completedAt?: string;
+};
+
+export type UserSubscriptionResponse = {
+  id: number;
+  planCode: string;
+  planName: string;
+  billingCycle: string;
+  startDate: string;
+  endDate: string;
+  status: "ACTIVE" | "EXPIRED" | "CANCELLED";
+  active: boolean;
+};
+
+export type CreateOrderPayload = {
+  planId: number;
+  paymentMethod?: string;
+};
+
+export type SimulatePaymentPayload = {
+  orderCode: string;
+  success: boolean;
+};
+
+export const purchaseApi = {
+  getPlans: () => apiRequest<SubscriptionPlan[]>("/api/subscription-plans"),
+
+  checkout: (token: string, payload: CreateOrderPayload) =>
+    apiRequest<OrderResponse>("/api/purchases/checkout", {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify(payload),
+    }),
+
+  simulatePayment: (token: string, payload: SimulatePaymentPayload) =>
+    apiRequest<OrderResponse>("/api/purchases/simulate-payment", {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify(payload),
+    }),
+
+  getMyOrders: (token: string) =>
+    apiRequest<OrderResponse[]>("/api/purchases/my-orders", {
+      headers: authHeaders(token),
+    }),
+
+  getMySubscription: (token: string) =>
+    apiRequest<UserSubscriptionResponse | null>("/api/purchases/my-subscription", {
+      headers: authHeaders(token),
+    }),
+};
+
+export const isUserMember = (user?: ApiUser | null): boolean => Boolean(user?.isMember || user?.member);

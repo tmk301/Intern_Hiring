@@ -1,8 +1,10 @@
+import { MembershipModal } from "@/components/MembershipModal";
+import { MemberBadge, isUserMember } from "@/components/MemberBadge";
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, User as UserIcon, Menu } from "lucide-react";
+import { LogOut, User as UserIcon, Menu, Crown } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Sheet,
@@ -48,6 +50,7 @@ const Navbar = () => {
   const showRecruitmentNavItem = !isAuthenticated || isCandidateRole(user?.role);
 
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
+  const [isMembershipModalOpen, setIsMembershipModalOpen] = useState(false);
 
   const handleLogoutClick = () => {
     setIsLogoutDialogOpen(true);
@@ -151,7 +154,7 @@ const Navbar = () => {
                           {user?.firstName?.charAt(0) || <UserIcon className="h-4 w-4" />}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-sm">{user?.firstName}</span>
+                      <span className="text-sm font-medium flex items-center gap-2">{user?.firstName}{isUserMember(user) && <MemberBadge size="sm" />}</span>
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
@@ -180,6 +183,15 @@ const Navbar = () => {
                         <Link to="/profile">{t("nav.profile")}</Link>
                       </DropdownMenuItem>
                     )}
+                                        <DropdownMenuItem asChild>
+                      <Link
+                        to="/purchase"
+                        className="flex items-center gap-2 cursor-pointer font-semibold text-amber-700 dark:text-amber-400 hover:text-amber-800"
+                      >
+                        <Crown className="h-4 w-4 text-amber-500 fill-amber-500" />
+                        <span>{isUserMember(user) ? "Gói Thành Viên (Đang hoạt động)" : "Purchase Member"}</span>
+                      </Link>
+                    </DropdownMenuItem>
                     <DropdownMenuItem
                       className="focus:bg-red-600 focus:text-white hover:bg-red-600 hover:text-white dark:focus:bg-red-700 dark:hover:bg-red-700 cursor-pointer text-slate-700 dark:text-slate-200"
                       onSelect={(e) => {
@@ -279,9 +291,18 @@ const Navbar = () => {
                                 {user?.firstName?.charAt(0) || <UserIcon className="h-4 w-4" />}
                               </AvatarFallback>
                             </Avatar>
-                            <span className="text-sm font-medium">{user?.firstName}</span>
+                            <span className="text-sm font-medium flex items-center gap-2">{user?.firstName}{isUserMember(user) && <MemberBadge size="sm" />}</span>
                           </Link>
                         )}
+                                                <SheetClose asChild>
+                          <Link
+                            to="/purchase"
+                            className="flex items-center gap-2 mb-2 rounded-md p-2 hover:bg-muted font-semibold text-amber-700 dark:text-amber-400 transition"
+                          >
+                            <Crown className="h-4 w-4 text-amber-500 fill-amber-500" />
+                            <span className="text-sm font-semibold">{user?.isMember ? "Gia hạn Member" : "Purchase Member"}</span>
+                          </Link>
+                        </SheetClose>
                         <SheetClose asChild>
                           <Button onClick={handleLogoutClick} className="w-full">
                             {t("nav.logout")}
@@ -334,6 +355,10 @@ const Navbar = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <MembershipModal
+        isOpen={isMembershipModalOpen}
+        onClose={() => setIsMembershipModalOpen(false)}
+      />
     </nav>
   );
 };
