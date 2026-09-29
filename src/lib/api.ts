@@ -884,7 +884,40 @@ export type SimulatePaymentPayload = {
   success: boolean;
 };
 
+export type StripeSessionResponse = {
+  sessionId: string;
+  checkoutUrl: string;
+  orderCode: string;
+  amount: number;
+  currency: string;
+  publishableKey?: string;
+};
+
+export type CreateStripeSessionPayload = {
+  planId: number;
+  successUrl?: string;
+  cancelUrl?: string;
+};
+
 export const purchaseApi = {
+  getStripeConfig: () =>
+    apiRequest<{ publishableKey: string }>("/api/purchases/stripe/config"),
+
+  createStripeCheckoutSession: (token: string, payload: CreateStripeSessionPayload) =>
+    apiRequest<StripeSessionResponse>("/api/purchases/stripe/create-checkout-session", {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify(payload),
+    }),
+
+  verifyStripeSession: (token: string, sessionId: string) =>
+    apiRequest<OrderResponse>("/api/purchases/stripe/verify-session", {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify({ sessionId }),
+    }),
+
+
   getPlans: () => apiRequest<SubscriptionPlan[]>("/api/subscription-plans"),
 
   checkout: (token: string, payload: CreateOrderPayload) =>

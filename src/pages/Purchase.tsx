@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { purchaseApi, type SubscriptionPlan, type OrderResponse, type UserSubscriptionResponse } from "@/lib/api";
 import { MemberBadge, isUserMember } from "@/components/MemberBadge";
 import { Button } from "@/components/ui/button";
@@ -25,12 +25,16 @@ import {
   BadgeCheck,
   Building2,
   History,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Purchase: React.FC = () => {
   const { user, token, refreshUser, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const sessionIdFromUrl = searchParams.get("session_id");
+  const statusFromUrl = searchParams.get("status");
 
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
@@ -40,7 +44,7 @@ export const Purchase: React.FC = () => {
   const [activeSubscription, setActiveSubscription] = useState<UserSubscriptionResponse | null>(null);
   const [myOrders, setMyOrders] = useState<OrderResponse[]>([]);
   const [step, setStep] = useState<"PLANS" | "CHECKOUT" | "SUCCESS">("PLANS");
-  const [paymentTab, setPaymentTab] = useState<"QR" | "CARD">("QR");
+  const [paymentTab, setPaymentTab] = useState<"STRIPE" | "QR" | "CARD">("STRIPE");
 
   // Mock Card Form inputs
   const [cardForm, setCardForm] = useState({
@@ -57,6 +61,68 @@ export const Purchase: React.FC = () => {
   useEffect(() => {
     fetchInitialData();
   }, [token]);
+
+  useEffect(() => {
+    if (sessionIdFromUrl && token) {
+      verifyStripePayment(sessionIdFromUrl);
+    } else if (statusFromUrl === "cancelled") {
+      toast.info("Đã hủy phiên thanh toán Stripe Sandbox.");
+      navigate("/purchase", { replace: true });
+    }
+  }, [sessionIdFromUrl, statusFromUrl, token]);
+
+  const verifyStripePayment = async (sessionId: string) => {
+    try {
+      setProcessing(true);
+      toast.loading("Đang xác thực thanh toán từ Stripe Sandbox...", { id: "stripe-verify" });
+      const completedOrder = await purchaseApi.verifyStripeSession(token!, sessionId);
+      toast.dismiss("stripe-verify");
+      toast.success("🎉 Thanh toán Stripe Sandbox thành công! Gói Member đã được kích hoạt.");
+      setOrder(completedOrder);
+      setStep("SUCCESS");
+      await refreshUser();
+      fetchInitialData();
+      navigate("/purchase", { replace: true });
+    } catch (err: any) {
+      toast.dismiss("stripe-verify");
+      toast.error("Lỗi xác thực thanh toán Stripe: " + (err.message || "Vui lòng thử lại"));
+      navigate("/purchase", { replace: true });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleStripeCheckout = async (planId?: number) => {
+    if (!isAuthenticated || !token) {
+      toast.info("Vui lòng đăng nhập để nâng cấp tài khoản Member");
+      navigate("/login");
+      return;
+    }
+
+    const targetPlanId = planId || (order ? order.plan.id : selectedPlanId);
+    if (!targetPlanId) return;
+
+    try {
+      setProcessing(true);
+      toast.loading("Đang khởi tạo phiên thanh toán Stripe Sandbox...", { id: "stripe-init" });
+      const response = await purchaseApi.createStripeCheckoutSession(token, {
+        planId: targetPlanId,
+        successUrl: window.location.origin + "/purchase",
+        cancelUrl: window.location.origin + "/purchase",
+      });
+      toast.dismiss("stripe-init");
+      if (response && response.checkoutUrl) {
+        toast.info("Đang chuyển tiếp đến trang thanh toán Stripe Sandbox...");
+        window.location.href = response.checkoutUrl;
+      } else {
+        throw new Error("Không nhận được URL thanh toán từ Stripe.");
+      }
+    } catch (err: any) {
+      toast.dismiss("stripe-init");
+      toast.error("Lỗi tạo phiên Stripe: " + (err.message || "Vui lòng thử lại"));
+      setProcessing(false);
+    }
+  };
 
   const fetchInitialData = async () => {
     try {
@@ -446,7 +512,18 @@ export const Purchase: React.FC = () => {
                 <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-5">
                   <div className="flex items-center justify-between border-b pb-4">
                     <h3 className="text-lg font-bold text-slate-900">Chọn Phương Thức Thanh Toán</h3>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPaymentTab("STRIPE")}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                          paymentTab === "STRIPE"
+                            ? "bg-[#635BFF] text-white shadow-sm"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-200" /> Stripe Sandbox
+                      </button>
                       <button
                         type="button"
                         onClick={() => setPaymentTab("QR")}
@@ -467,12 +544,67 @@ export const Purchase: React.FC = () => {
                             : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                         }`}
                       >
-                        <CreditCard className="w-3.5 h-3.5" /> Thẻ Quốc Tế
+                        <CreditCard className="w-3.5 h-3.5" /> Thẻ Mô Phỏng
                       </button>
                     </div>
                   </div>
 
-                  {paymentTab === "QR" ? (
+                  {paymentTab === "STRIPE" ? (
+                    <div className="space-y-5">
+                      <div className="bg-indigo-50/80 border border-indigo-200 rounded-2xl p-4 text-xs text-indigo-950 flex items-start gap-2.5">
+                        <Sparkles className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                        <div>
+                          <strong className="text-indigo-900 block font-bold mb-1">Cổng thanh toán Stripe Sandbox:</strong>
+                          Hỗ trợ thẻ Visa, Mastercard, JCB, American Express với giao diện chính thức của Stripe. Bạn sẽ được chuyển tiếp sang trang thanh toán bảo mật của Stripe Sandbox.
+                        </div>
+                      </div>
+
+                      {/* Sandbox Card Credentials helper */}
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3 text-xs">
+                        <div className="flex items-center justify-between font-bold text-slate-800">
+                          <span className="flex items-center gap-1.5">
+                            <CreditCard className="w-4 h-4 text-slate-600" /> Thẻ Test Stripe Sandbox:
+                          </span>
+                          <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-mono font-bold">TEST MODE</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div className="bg-white p-2.5 rounded-xl border border-slate-200">
+                            <span className="text-[10px] text-slate-400 block uppercase font-bold">Số thẻ Visa test</span>
+                            <span className="font-mono font-bold text-slate-900">4242 4242 4242 4242</span>
+                          </div>
+                          <div className="bg-white p-2.5 rounded-xl border border-slate-200">
+                            <span className="text-[10px] text-slate-400 block uppercase font-bold">Hạn dùng</span>
+                            <span className="font-mono font-bold text-slate-900">Tương lai (VD: 12/28)</span>
+                          </div>
+                          <div className="bg-white p-2.5 rounded-xl border border-slate-200">
+                            <span className="text-[10px] text-slate-400 block uppercase font-bold">Mã CVC</span>
+                            <span className="font-mono font-bold text-slate-900">3 số (VD: 123)</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-2">
+                        <Button
+                          onClick={() => handleStripeCheckout(order.plan.id)}
+                          disabled={processing}
+                          className="w-full py-6 font-bold text-base bg-[#635BFF] hover:bg-[#5851EA] text-white rounded-2xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2"
+                        >
+                          {processing ? (
+                            <>
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                              Đang kết nối Stripe Sandbox...
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="w-4 h-4" />
+                              Thanh Toán Ngay Qua Stripe ({formatPrice(order.amount)})
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : paymentTab === "QR" ? (
                     <div className="space-y-5">
                       <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 text-xs text-amber-900 flex items-start gap-2.5">
                         <Building2 className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
