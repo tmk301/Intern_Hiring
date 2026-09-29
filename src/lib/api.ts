@@ -917,6 +917,12 @@ export const purchaseApi = {
       body: JSON.stringify({ sessionId }),
     }),
 
+  cancelOrder: (token: string, orderCode: string) =>
+    apiRequest<OrderResponse>(`/api/purchases/${orderCode}/cancel`, {
+      method: "POST",
+      headers: authHeaders(token),
+    }),
+
 
   getPlans: () => apiRequest<SubscriptionPlan[]>("/api/subscription-plans"),
 
