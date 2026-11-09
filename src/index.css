@@ -129,6 +129,17 @@
     overflow-x: hidden;
   }
 
+  @supports (scrollbar-gutter: stable) {
+    html {
+      scrollbar-gutter: stable;
+    }
+
+    html body[data-scroll-locked] {
+      /* The root gutter already reserves the scrollbar width. */
+      margin-right: 0 !important;
+    }
+  }
+
   @keyframes loading-bar {
     0% {
       transform: translateX(-120%);
@@ -320,6 +331,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
   .sanity-animate {
     opacity: 1;
     transform: none;

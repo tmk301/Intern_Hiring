@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { userApi, CvItem, recruiterApi, CompanyProfile, RecruiterApplication, isApiError } from "@/lib/api";
+import { userApi, CvItem, recruiterApi, CompanyProfile, RecruiterApplication, isApiError, isUserMember } from "@/lib/api";
 import { isCandidateRole, isRecruiterRole } from "@/lib/roles";
 import { getRoleBadgeClassName, normalizeRoleName } from "@/lib/dashboardStyles";
 import { cn } from "@/lib/utils";
@@ -14,14 +14,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipPortal, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AvatarCropDialog } from "@/components/AvatarCropDialog";
-import { MemberBadge, isUserMember } from "@/components/MemberBadge";
-import { MembershipModal } from "@/components/MembershipModal";
+import { MemberBadge } from "@/components/MemberBadge";
 import {
   ArrowLeft,
   Camera,
-  Crown,
   Save,
   User as UserIcon,
   Mail,
@@ -186,7 +184,6 @@ const Profile = () => {
   const [isUploadingResume, setIsUploadingResume] = useState(false);
   const [isCvManagerOpen, setIsCvManagerOpen] = useState(false);
   const [isCropDialogOpen, setIsCropDialogOpen] = useState(false);
-  const [isMembershipModalOpen, setIsMembershipModalOpen] = useState(false);
   const [cropImageSrc, setCropImageSrc] = useState("");
   const [formData, setFormData] = useState({
     firstName: user?.firstName || "",
@@ -699,9 +696,9 @@ const Profile = () => {
 
               {/* MIDDLE - avatar card */}
               <div className="flex flex-col gap-4">
-                <Card className="overflow-hidden">
+                <Card className="flex flex-1 flex-col overflow-hidden">
                   <div
-                    className="relative h-28 transition-colors duration-300"
+                    className="relative h-28 shrink-0 transition-colors duration-300"
                     style={{ background: `linear-gradient(135deg, ${previewThemeColor}cc, ${previewThemeColor})` }}
                   >
                     <div className="absolute right-3 top-3 group flex flex-row-reverse items-center gap-0 overflow-hidden rounded-full bg-white/95 p-1 shadow transition-all duration-300 max-w-[36px] hover:max-w-[160px] hover:gap-2">
@@ -730,7 +727,7 @@ const Profile = () => {
                       </button>
                     </div>
                   </div>
-                  <div className="relative px-4 pb-4 flex flex-col items-center h-full justify-start">
+                  <div className="relative flex flex-1 flex-col items-center px-4 pb-4">
                     <div className="relative -mt-12 mb-3">
                       <Avatar className="h-24 w-24 border-4 border-white shadow bg-white">
                         <AvatarImage src={user.avatarUrl} alt={user.firstName} />
@@ -770,131 +767,103 @@ const Profile = () => {
                       {t(`role.${normalizeRoleName(user.role)}`, { defaultValue: user.role })}
                     </div>
 
-                    {isUserMember(user) ? (
-                      <div className="mt-3 p-3 rounded-2xl bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-600/15 border border-amber-400/40 shadow-sm text-center space-y-1.5">
-                        <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-amber-800 dark:text-amber-300">
-                          <Crown className="w-4 h-4 text-amber-500 fill-amber-500" />
-                          <span>HỘI VIÊN CHÍNH THỨC (ACTIVE)</span>
-                        </div>
-                        {user.memberExpireAt && (
-                          <p className="text-[11px] text-amber-900/80 font-medium">
-                            Thời hạn đến: {new Date(user.memberExpireAt).toLocaleDateString("vi-VN")}
-                          </p>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => navigate("/purchase")}
-                          className="text-xs h-7 border-amber-300 bg-white/80 hover:bg-white text-amber-800 font-semibold"
-                        >
-                          Quản lý / Gia hạn gói
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="mt-3 text-center">
-                        <Button
-                          size="sm"
-                          onClick={() => navigate("/purchase")}
-                          className="bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold text-xs h-8 px-4 rounded-xl shadow-sm shadow-amber-500/20"
-                        >
-                          <Crown className="w-3.5 h-3.5 mr-1.5 fill-current" />
-                          Nâng cấp Member
-                        </Button>
-                      </div>
-                    )}
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            className="mt-4 flex min-h-32 w-full flex-1 cursor-help items-center gap-4 border-t border-border py-5 text-left outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4"
+                          >
+                            <div
+                              className="relative flex size-20 shrink-0 items-center justify-center md:size-24"
+                              role="progressbar"
+                              aria-label={t("profile.completenessTitle")}
+                              aria-valuenow={completionData.percentage}
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                            >
+                              <svg viewBox="0 0 90 90" className="w-full h-full transform -rotate-90" aria-hidden="true">
+                                <circle
+                                  cx="45"
+                                  cy="45"
+                                  r="38"
+                                  className="stroke-slate-100 fill-transparent"
+                                  strokeWidth="6"
+                                />
+                                <circle
+                                  cx="45"
+                                  cy="45"
+                                  r="38"
+                                  className={cn(
+                                    "fill-transparent transition-all duration-500 ease-out",
+                                    completionData.percentage < 50
+                                      ? "stroke-red-500"
+                                      : completionData.percentage < 80
+                                      ? "stroke-amber-500"
+                                      : "stroke-emerald-500"
+                                  )}
+                                  strokeWidth="6"
+                                  strokeDasharray={2 * Math.PI * 38}
+                                  strokeDashoffset={
+                                    2 * Math.PI * 38 - (completionData.percentage / 100) * 2 * Math.PI * 38
+                                  }
+                                  strokeLinecap="round"
+                                />
+                              </svg>
+                              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                <span className="text-lg font-extrabold text-slate-900 md:text-xl">{completionData.percentage}%</span>
+                              </div>
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-sm font-bold text-slate-900">
+                                {t("profile.completenessTitle")}
+                              </h4>
+                              <span
+                                className={cn(
+                                  "inline-block px-2 py-1 text-[11px] font-bold rounded-full mt-2",
+                                  completionData.percentage < 50
+                                    ? "bg-red-500/10 text-red-700"
+                                    : completionData.percentage < 80
+                                    ? "bg-amber-500/10 text-amber-700"
+                                    : "bg-emerald-500/10 text-emerald-700"
+                                )}
+                              >
+                                {completionData.percentage === 100
+                                  ? t("profile.statusComplete")
+                                  : t("profile.statusIncomplete")}
+                              </span>
+                            </div>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipPortal>
+                          <TooltipContent className="p-3 w-64 bg-white border border-slate-200 shadow-lg rounded-xl text-slate-900 z-50">
+                            <p className="font-bold text-xs mb-2 text-slate-950">
+                              {t("profile.completenessChecklist")}
+                            </p>
+                            <div className="space-y-1.5">
+                              {completionData.items.map((item, idx) => (
+                                <div key={idx} className="flex items-center justify-between text-xs">
+                                  <span className="text-slate-600">{item.name}</span>
+                                  {item.isComplete ? (
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                                  ) : (
+                                    <div className="h-3.5 w-3.5 rounded-full border-2 border-slate-300 shrink-0" />
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </TooltipContent>
+                        </TooltipPortal>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 </Card>
-
-                {/* Profile Completeness Card */}
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Card className="overflow-hidden cursor-help hover:border-slate-300 hover:shadow-sm transition-all duration-300">
-                        <CardContent className="p-4 flex items-center gap-4">
-                          {/* Circular progress chart */}
-                          <div className="relative flex items-center justify-center shrink-0 w-[90px] h-[90px]">
-                            <svg className="w-full h-full transform -rotate-90">
-                              <circle
-                                cx="45"
-                                cy="45"
-                                r="38"
-                                className="stroke-slate-100 fill-transparent"
-                                strokeWidth="6"
-                              />
-                              <circle
-                                cx="45"
-                                cy="45"
-                                r="38"
-                                className={cn(
-                                  "fill-transparent transition-all duration-500 ease-out",
-                                  completionData.percentage < 50
-                                    ? "stroke-red-500"
-                                    : completionData.percentage < 80
-                                    ? "stroke-amber-500"
-                                    : "stroke-emerald-500"
-                                )}
-                                strokeWidth="6"
-                                strokeDasharray={2 * Math.PI * 38}
-                                strokeDashoffset={
-                                  2 * Math.PI * 38 - (completionData.percentage / 100) * 2 * Math.PI * 38
-                                }
-                                strokeLinecap="round"
-                              />
-                            </svg>
-                            <div className="absolute inset-0 flex flex-col items-center justify-center">
-                              <span className="text-base font-extrabold text-slate-900">{completionData.percentage}%</span>
-                            </div>
-                          </div>
-
-                          {/* Info section */}
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-bold text-slate-900 truncate">
-                              {t("profile.completenessTitle")}
-                            </h4>
-                            <span
-                              className={cn(
-                                "inline-block px-1.5 py-0.5 text-[10px] font-bold rounded-full mt-1.5",
-                                completionData.percentage < 50
-                                  ? "bg-red-500/10 text-red-700"
-                                  : completionData.percentage < 80
-                                  ? "bg-amber-500/10 text-amber-700"
-                                  : "bg-emerald-500/10 text-emerald-700"
-                              )}
-                            >
-                              {completionData.percentage === 100
-                                ? t("profile.statusComplete")
-                                : t("profile.statusIncomplete")}
-                            </span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </TooltipTrigger>
-                    <TooltipContent className="p-3 w-64 bg-white border border-slate-200 shadow-lg rounded-xl text-slate-900 z-50">
-                      <p className="font-bold text-xs mb-2 text-slate-950">
-                        {t("profile.completenessChecklist")}
-                      </p>
-                      <div className="space-y-1.5">
-                        {completionData.items.map((item, idx) => (
-                          <div key={idx} className="flex items-center justify-between text-xs">
-                            <span className="text-slate-600">{item.name}</span>
-                            {item.isComplete ? (
-                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                            ) : (
-                              <div className="h-3.5 w-3.5 rounded-full border-2 border-slate-300 shrink-0" />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-
-                {/* CV card moved to bottom row to avoid enlarging top row */}
               </div>
 
               {/* RIGHT - personal info card */}
               <div className="flex flex-col gap-4">
-                <Card>
+                <Card className="flex-1">
                   <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <CardTitle className="text-lg">{uiText("profile.personal_info", t("profile.personal_info"))}</CardTitle>
                     {!isEditing ? (

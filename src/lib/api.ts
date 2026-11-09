@@ -860,6 +860,7 @@ export type OrderResponse = {
   paymentMethod: string;
   transactionId?: string;
   createdAt: string;
+  expiresAt?: string | null;
   completedAt?: string;
 };
 

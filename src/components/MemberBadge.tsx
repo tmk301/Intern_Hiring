@@ -1,5 +1,6 @@
 import React from "react";
-import { Crown, Sparkles } from "lucide-react";
+import { Crown } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 interface MemberBadgeProps {
@@ -13,10 +14,11 @@ export const MemberBadge: React.FC<MemberBadgeProps> = ({
   size = "md",
   showText = true,
 }) => {
+  const { t } = useTranslation();
   const sizeClasses = {
-    sm: "px-2 py-0.5 text-[10px] gap-1",
-    md: "px-2.5 py-1 text-xs gap-1.5",
-    lg: "px-3 py-1.5 text-sm gap-2",
+    sm: "h-5 gap-1 px-1.5 text-[10px]",
+    md: "h-6 gap-1.5 px-2 text-[11px]",
+    lg: "h-7 gap-1.5 px-2.5 text-xs",
   };
 
   const iconSizes = {
@@ -28,24 +30,26 @@ export const MemberBadge: React.FC<MemberBadgeProps> = ({
   return (
     <span
       className={cn(
-        "inline-flex items-center font-bold tracking-wide uppercase rounded-full shadow-sm select-none transition-all duration-300",
-        "bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 text-slate-950 shadow-amber-500/20 hover:shadow-amber-500/35 hover:scale-105",
-        "border border-amber-300/60 ring-1 ring-amber-400/30",
+        "inline-flex shrink-0 select-none items-center whitespace-nowrap rounded-md border border-primary/20 bg-primary/5 align-middle font-semibold leading-none text-primary-dark",
+        "dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200",
         sizeClasses[size],
-        className
+        className,
       )}
-      title="Thành viên chính thức (Official Member)"
+      title={t("nav.memberBadgeLabel")}
+      role={showText ? undefined : "img"}
+      aria-label={showText ? undefined : t("nav.memberBadgeLabel")}
     >
-      <Crown className={cn("fill-current", iconSizes[size])} />
+      <Crown
+        className={cn(
+          "shrink-0 text-amber-700 dark:text-amber-300",
+          iconSizes[size],
+        )}
+        strokeWidth={1.8}
+        aria-hidden="true"
+      />
       {showText && <span>Member</span>}
-      <Sparkles className={cn("opacity-80", iconSizes[size])} />
     </span>
   );
 };
 
 export default MemberBadge;
-
-export const isUserMember = (user?: any): boolean => {
-  if (!user) return false;
-  return Boolean(user.isMember || user.member);
-};

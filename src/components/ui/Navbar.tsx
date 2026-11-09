@@ -1,5 +1,6 @@
 import { MembershipModal } from "@/components/MembershipModal";
-import { MemberBadge, isUserMember } from "@/components/MemberBadge";
+import { MemberBadge } from "@/components/MemberBadge";
+import { isUserMember } from "@/lib/api";
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -41,6 +42,8 @@ const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t, i18n } = useTranslation();
+  const hasMember = isUserMember(user);
+  const membershipLabel = t(hasMember ? "nav.membership" : "nav.upgradeMembership");
   const { navbar } = useSanityManagedInterface("/");
   const showModeratorLink = isModeratorRole(user?.role) && location.pathname !== "/moderator";
   const showProfileLink = location.pathname !== "/profile";
@@ -147,14 +150,14 @@ const Navbar = () => {
                 <NotificationButton user={user} token={token} />
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="flex items-center gap-2 rounded-full transition hover:opacity-80 cursor-pointer focus:outline-none focus-visible:outline-none">
+                    <button className="flex cursor-pointer items-center gap-2 rounded-full transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={user?.avatarUrl} />
                         <AvatarFallback>
                           {user?.firstName?.charAt(0) || <UserIcon className="h-4 w-4" />}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-sm font-medium flex items-center gap-2">{user?.firstName}{isUserMember(user) && <MemberBadge size="sm" />}</span>
+                      <span className="text-sm font-medium flex items-center gap-2">{user?.firstName}{hasMember && <MemberBadge size="sm" />}</span>
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
@@ -183,13 +186,13 @@ const Navbar = () => {
                         <Link to="/profile">{t("nav.profile")}</Link>
                       </DropdownMenuItem>
                     )}
-                                        <DropdownMenuItem asChild>
-                      <Link
-                        to="/purchase"
-                        className="flex items-center gap-2 cursor-pointer font-semibold text-amber-700 dark:text-amber-400 hover:text-amber-800"
-                      >
-                        <Crown className="h-4 w-4 text-amber-500 fill-amber-500" />
-                        <span>{isUserMember(user) ? "Gói Thành Viên (Đang hoạt động)" : "Purchase Member"}</span>
+                    <DropdownMenuItem
+                      asChild
+                      className="cursor-pointer gap-2 font-medium text-primary hover:bg-primary/5 hover:text-primary-dark focus:bg-primary/5 focus:text-primary-dark"
+                    >
+                      <Link to="/purchase">
+                        <Crown className="h-4 w-4 text-amber-700 dark:text-amber-300" aria-hidden="true" />
+                        <span>{membershipLabel}</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem
@@ -291,16 +294,16 @@ const Navbar = () => {
                                 {user?.firstName?.charAt(0) || <UserIcon className="h-4 w-4" />}
                               </AvatarFallback>
                             </Avatar>
-                            <span className="text-sm font-medium flex items-center gap-2">{user?.firstName}{isUserMember(user) && <MemberBadge size="sm" />}</span>
+                            <span className="text-sm font-medium flex items-center gap-2">{user?.firstName}{hasMember && <MemberBadge size="sm" />}</span>
                           </Link>
                         )}
-                                                <SheetClose asChild>
+                        <SheetClose asChild>
                           <Link
                             to="/purchase"
-                            className="flex items-center gap-2 mb-2 rounded-md p-2 hover:bg-muted font-semibold text-amber-700 dark:text-amber-400 transition"
+                            className="mb-2 flex items-center gap-2 rounded-md p-2 font-medium text-primary transition hover:bg-primary/5"
                           >
-                            <Crown className="h-4 w-4 text-amber-500 fill-amber-500" />
-                            <span className="text-sm font-semibold">{user?.isMember ? "Gia hạn Member" : "Purchase Member"}</span>
+                            <Crown className="h-4 w-4 text-amber-700 dark:text-amber-300" aria-hidden="true" />
+                            <span className="text-sm">{membershipLabel}</span>
                           </Link>
                         </SheetClose>
                         <SheetClose asChild>
