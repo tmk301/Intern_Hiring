@@ -341,9 +341,14 @@ export const Purchase = () => {
       const newOrder = await purchaseApi.checkout(token, {
         planId,
         paymentMethod:
-          paymentTab === "QR" ? "VIETQR_BANK_TRANSFER" : "CREDIT_CARD",
+          paymentTab === "QR"
+            ? "VIETQR_BANK_TRANSFER"
+            : paymentTab === "CARD"
+              ? "CREDIT_CARD"
+              : "STRIPE",
       });
       setOrder(newOrder);
+      setPaymentTab("STRIPE");
       setStep("CHECKOUT");
       window.scrollTo({ top: 0, behavior: "instant" });
     } catch (error) {
@@ -381,13 +386,7 @@ export const Purchase = () => {
   const handleResumeOrder = (item: OrderResponse) => {
     setOrder(item);
     setSelectedPlanId(item.planId);
-    setPaymentTab(
-      item.paymentMethod === "STRIPE"
-        ? "STRIPE"
-        : item.paymentMethod === "CREDIT_CARD"
-          ? "CARD"
-          : "QR",
-    );
+    setPaymentTab("STRIPE");
     setStep("CHECKOUT");
     window.scrollTo({ top: 0, behavior: "instant" });
   };
@@ -415,6 +414,7 @@ export const Purchase = () => {
 
   const handleBackToPlans = () => {
     setStep("PLANS");
+    setPaymentTab("STRIPE");
     void fetchInitialData();
   };
 
