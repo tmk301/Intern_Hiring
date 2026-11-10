@@ -45,11 +45,31 @@ import { cn } from "@/lib/utils";
 
 const ORDER_HOLD_SECONDS = 15 * 60;
 
+const parseIsoToMillis = (dateStr?: string | null) => {
+  if (!dateStr) return 0;
+  const trimmed = dateStr.trim();
+  const hasTimezone = /[Zz]$|[+-]\d{2}(?::?\d{2})?$/.test(trimmed);
+  const normalized = hasTimezone ? trimmed : `${trimmed}Z`;
+  const parsed = Date.parse(normalized);
+  return Number.isFinite(parsed) ? parsed : Date.parse(trimmed) || 0;
+};
+
 const getOrderExpiryTime = (order: OrderResponse | null) => {
   if (!order) return 0;
-  return order.expiresAt
-    ? Date.parse(order.expiresAt)
-    : Date.parse(order.createdAt) + ORDER_HOLD_SECONDS * 1000;
+  if (order.expiresAt) {
+    return parseIsoToMillis(order.expiresAt);
+  }
+  // Try extracting server epoch timestamp from orderCode (format: ORD-<epochMillis>-<random>)
+  if (order.orderCode) {
+    const match = /^ORD-(\d{12,14})-/i.exec(order.orderCode);
+    if (match) {
+      const codeMillis = Number(match[1]);
+      if (Number.isFinite(codeMillis) && codeMillis > 0) {
+        return codeMillis + ORDER_HOLD_SECONDS * 1000;
+      }
+    }
+  }
+  return parseIsoToMillis(order.createdAt) + ORDER_HOLD_SECONDS * 1000;
 };
 
 const getOrderRemainingSeconds = (
@@ -211,7 +231,7 @@ export const Purchase = () => {
   const daysRemaining = expiry
     ? Math.max(
         0,
-        Math.ceil((new Date(expiry).getTime() - Date.now()) / 86400000),
+        Math.ceil((parseIsoToMillis(expiry) - Date.now()) / 86400000),
       )
     : null;
   const monthlyPlan = plans.find((plan) => plan.billingCycle === "MONTHLY");
@@ -224,8 +244,10 @@ export const Purchase = () => {
       currency: "VND",
       maximumFractionDigits: 0,
     }).format(amount);
-  const formatDate = (value: string) =>
-    new Date(value).toLocaleDateString(locale);
+  const formatDate = (value: string) => {
+    const millis = parseIsoToMillis(value);
+    return new Date(millis > 0 ? millis : value).toLocaleDateString(locale);
+  };
   const planName = (plan: SubscriptionPlan) =>
     t(plan.billingCycle === "YEARLY" ? "yearlyName" : "monthlyName");
   const orderPlanName = (item: OrderResponse) => {
